@@ -365,7 +365,11 @@ class DataPreprocessor:
                                     'set_name':str,
                                     'creation_dt_offset_min':float}
         queried_once_wvfset_fields, queried_wvfset_fields = DataPreprocessor.query_dictionary_splitting(queried_wvfset_fields)
-        queried_sipmmeas_fields = { 'strip_ID':int,
+        queried_sipmmeas_fields = { 'delivery_no':int,
+                                    'set_no':int,
+                                    'tray_no':int,
+                                    'meas_no':int,
+                                    'strip_ID':int,
                                     'meas_ID':str,
                                     'date':str,         # The 'date' field will be queried, although the creation
                                     'location':str,     # date of the file will be available as default value
