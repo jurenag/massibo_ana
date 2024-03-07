@@ -14,6 +14,7 @@ from src.core.SiPMMeas import SiPMMeas
 class DarkNoiseMeas(SiPMMeas):
     
     def __init__(self,  *args,
+                        delivery_no=None, set_no=None, tray_no=None, meas_no=None,
                         strip_ID=None, meas_ID=None, date=None, location=None, operator=None, 
                         setup_ID=None, system_characteristics=None, thermal_cycle=None,
                         elapsed_cryo_time_min=None, electronic_board_number=None, 
@@ -35,6 +36,17 @@ class DarkNoiseMeas(SiPMMeas):
         
         This initializer gets the following keyword arguments:
 
+        - delivery_no (semipositive integer): Integer which identifies the delivery where the 
+        measured SiPM was included. For DUNE's particular case, this number identifies the 
+        manufacturer's delivery to the DUNE collaboration.
+        - set_no (semipositive integer): Integer which identifies the set where the measured 
+        SiPM was included. For DUNE's particular case, this number identifies the internal 
+        delivery which we receive from another DUNE institution.
+        - tray_no (semipositive integer): Integer which identifies the tray where the measured 
+        SiPM was included. For DUNE's particular case, this number identifies the 20-strips box 
+        where the measured SiPM was included.
+        - meas_no (semipositive integer): Integer which identifies the measurement within the 
+        tray where the measured SiPM was included.
         - strip_ID (int): Integer which identifies the SiPM strip which hosts the measured SiPM.
         - meas_ID (string): String which identifies this measurement.
         - date (string): Date of the measurement. This string must follow the following format: 
@@ -130,6 +142,7 @@ class DarkNoiseMeas(SiPMMeas):
                                         # self.compute_amplitude_levels() calling, p.e. via self.analyze().
 
         super().__init__(   *args,
+                            delivery_no=delivery_no, set_no=set_no, tray_no=tray_no, meas_no=meas_no,
                             strip_ID=strip_ID, meas_ID=meas_ID, date=date, location=location, 
                             operator=operator, setup_ID=setup_ID, 
                             system_characteristics=system_characteristics, 
@@ -785,6 +798,7 @@ class DarkNoiseMeas(SiPMMeas):
         say RKD1, which concerns the DarkNoiseMeas attributes, has the
         following potential keys:
 
+        "delivery_no", "set_no", "tray_no", "meas_no",
         "strip_ID", "meas_ID", "date", "location", "operator", 
         "setup_ID", "system_characteristics", "thermal_cycle",
         "elapsed_cryo_time_min", "electronic_board_number", 
@@ -833,11 +847,12 @@ class DarkNoiseMeas(SiPMMeas):
         htype.check_type(   darknoisemeas_config_json, str,
                             exception_message=htype.generate_exception_message( "DarkNoiseMeas.from_json_file", 
                                                                                 67497))
-        
-        pks1 = {'strip_ID':int, 'meas_ID':str, 'date':str,          # These are used
-                'location':str, 'operator':str,  'setup_ID':str,    # to configure
-                'system_characteristics':str, 'thermal_cycle':int,  # the DarkNoiseMeas
-                'elapsed_cryo_time_min':float,                      # attributes
+
+        pks1 = {'delivery_no':int, 'set_no':int, 'tray_no':int,     # These are used 
+                'meas_no':int, 'strip_ID':int, 'meas_ID':str,       # to configure
+                'date':str, 'location':str, 'operator':str,         # the DarkNoiseMeas
+                'setup_ID':str, 'system_characteristics':str,       # attributes
+                'thermal_cycle':int, 'elapsed_cryo_time_min':float,                      
                 'electronic_board_number':int,
                 'electronic_board_location':str, 
                 'electronic_board_socket':int, 
@@ -1069,6 +1084,10 @@ class DarkNoiseMeas(SiPMMeas):
         object, in the form of a json file. This json file has as many fields 
         as objects of interest which should be summarized. These fields are:
 
+        - "delivery_no": Contains self.__delivery_no
+        - "set_no": Contains self.__set_no
+        - "tray_no": Contains self.__tray_no
+        - "meas_no": Contains self.__meas_no
         - "strip_ID": Contains self.StripID
         - "meas_ID": Contains self.MeasID
         - "date": Contains self.Date
@@ -1138,7 +1157,11 @@ class DarkNoiseMeas(SiPMMeas):
                 if verbose: 
                     print(f"In function DarkNoiseMeas.output_summary(): {output_filepath} already exists. It will be overwritten.")
 
-        output = {  "strip_ID": self.StripID, 
+        output = {  "delivery_no": self.DeliveryNo,
+                    "set_no": self.SetNo,
+                    "tray_no": self.TrayNo,
+                    "meas_no": self.MeasNo,
+                    "strip_ID": self.StripID,
                     "meas_ID": self.MeasID,
                     "date": self.Date.strftime("%Y-%m-%d %H:%M:%S"),    # Object of type datetime is not
                                                                         # JSON serializable, but strings are

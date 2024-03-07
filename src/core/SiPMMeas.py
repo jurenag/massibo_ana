@@ -16,6 +16,7 @@ from src.core.WaveformSet import WaveformSet
 class SiPMMeas(ABC):
 
     def __init__(self,  *args,
+                        delivery_no=None, set_no=None, tray_no=None, meas_no=None,
                         strip_ID=None, meas_ID=None, date=None, location=None, operator=None, 
                         setup_ID=None, system_characteristics=None, thermal_cycle=None,
                         elapsed_cryo_time_min=None, electronic_board_number=None, 
@@ -38,6 +39,17 @@ class SiPMMeas(ABC):
 
         This initializer gets the following keyword arguments:
 
+        - delivery_no (semipositive integer): Integer which identifies the delivery where the 
+        measured SiPM was included. For DUNE's particular case, this number identifies the 
+        manufacturer's delivery to the DUNE collaboration.
+        - set_no (semipositive integer): Integer which identifies the set where the measured 
+        SiPM was included. For DUNE's particular case, this number identifies the internal 
+        delivery which we receive from another DUNE institution.
+        - tray_no (semipositive integer): Integer which identifies the tray where the measured 
+        SiPM was included. For DUNE's particular case, this number identifies the 20-strips box 
+        where the measured SiPM was included.
+        - meas_no (semipositive integer): Integer which identifies the measurement within the 
+        tray where the measured SiPM was included.
         - strip_ID (int): Integer which identifies the SiPM strip which hosts the measured SiPM.
         - meas_ID (string): String which identifies this measurement.
         - date (string): Date of the measurement. This string must follow the following format: 
@@ -92,6 +104,38 @@ class SiPMMeas(ABC):
                                 exception_message=htype.generate_exception_message("SiPMMeas.__init__", 12090))
             if args[1]<=0.:
                 raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.__init__", 57900))
+            
+        self.__delivery_no = None
+        if delivery_no is not None:
+            htype.check_type(   delivery_no, int,
+                                exception_message=htype.generate_exception_message("SiPMMeas.__init__", 57294))
+            if delivery_no<0:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.__init__", 68001))
+            self.__delivery_no = delivery_no
+
+        self.__set_no = None
+        if set_no is not None:
+            htype.check_type(   set_no, int,
+                                exception_message=htype.generate_exception_message("SiPMMeas.__init__", 45625))
+            if set_no<0:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.__init__", 11234))
+            self.__set_no = set_no
+            
+        self.__tray_no = None
+        if tray_no is not None:
+            htype.check_type(   tray_no, int,
+                                exception_message=htype.generate_exception_message("SiPMMeas.__init__", 67388))
+            if tray_no<0:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.__init__", 20841))
+            self.__tray_no = tray_no
+
+        self.__meas_no = None
+        if meas_no is not None:
+            htype.check_type(   meas_no, int,
+                                exception_message=htype.generate_exception_message("SiPMMeas.__init__", 91887))
+            if meas_no<0:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.__init__", 44252))
+            self.__meas_no = meas_no
             
         self.__strip_ID = None
         if strip_ID is not None:
@@ -224,6 +268,22 @@ class SiPMMeas(ABC):
         return
 
     #Getters
+    @property
+    def DeliveryNo(self):
+        return self.__delivery_no
+    
+    @property
+    def SetNo(self):
+        return self.__set_no
+    
+    @property
+    def TrayNo(self):
+        return self.__tray_no
+    
+    @property
+    def MeasNo(self):
+        return self.__meas_no
+
     @property
     def StripID(self):
         return self.__strip_ID
@@ -765,8 +825,9 @@ class SiPMMeas(ABC):
         crafted out of the given json file. To do so, first, this 
         method populates two RigidKeyDictionary's. The first one, 
         say RKD1, which concerns the SiPMMeas attributes, has the
-        following potential keys:
-
+        following potential keys:    
+        
+        "delivery_no", "set_no", "tray_no", "meas_no",
         "strip_ID", "meas_ID", "date", "location", "operator", 
         "setup_ID", "system_characteristics", "thermal_cycle",
         "elapsed_cryo_time_min", "electronic_board_number", 
@@ -813,11 +874,12 @@ class SiPMMeas(ABC):
         
         htype.check_type(   sipmmeas_config_json, str,
                             exception_message=htype.generate_exception_message("SiPMMeas.from_json_file", 67497))
-        
-        pks1 = {'strip_ID':int, 'meas_ID':str, 'date':str,          # These are used
-                'location':str, 'operator':str,  'setup_ID':str,    # to configure
-                'system_characteristics':str, 'thermal_cycle':int,  # the SiPMMeas
-                'elapsed_cryo_time_min':float,                      # attributes
+
+        pks1 = {'delivery_no':int, 'set_no':int, 'tray_no':int,     # These are used 
+                'meas_no':int, 'strip_ID':int, 'meas_ID':str,       # to configure 
+                'date':str, 'location':str, 'operator':str,         # the SiPMMeas
+                'setup_ID':str, 'system_characteristics':str,       # attributes
+                'thermal_cycle':int, 'elapsed_cryo_time_min':float,                      
                 'electronic_board_number':int,
                 'electronic_board_location':str, 
                 'electronic_board_socket':int, 
@@ -911,6 +973,10 @@ class SiPMMeas(ABC):
         file. This json file has as many fields as objects of interest which 
         should be summarized. For SiPMMeas objects, these fields are:
 
+        - "delivery_no": Contains self.__delivery_no
+        - "set_no": Contains self.__set_no
+        - "tray_no": Contains self.__tray_no
+        - "meas_no": Contains self.__meas_no
         - "strip_ID": Contains self.__strip_ID
         - "meas_ID": Contains self.__meas_ID
         - "date": Contains self.__date
@@ -967,8 +1033,12 @@ class SiPMMeas(ABC):
             else:
                 if verbose: 
                     print(f"In function SiPMMeas.output_summary(): {output_filepath} already exists. It will be overwritten.")
-
-        output = {  "strip_ID": self.__strip_ID, 
+        
+        output = {  "delivery_no": self.__delivery_no,
+                    "set_no": self.__set_no,
+                    "tray_no": self.__tray_no,
+                    "meas_no": self.__meas_no,
+                    "strip_ID": self.__strip_ID, 
                     "meas_ID": self.__meas_ID,
                     "date": self.Date.strftime("%Y-%m-%d %H:%M:%S"),    # Object of type datetime is not
                                                                         # JSON serializable, but strings are
