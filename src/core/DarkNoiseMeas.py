@@ -908,8 +908,9 @@ class DarkNoiseMeas(SiPMMeas):
     @classmethod
     def purge_bursts(cls,   darknoisemeas_to_purge,
                             min_events_no=5,                            # The default values for these
-                            timedelay_threshold_in_s=0.1):  # 100 ms    # parameters are given in M. García
+                            timedelay_threshold_in_s=0.1,   # 100 ms    # parameters are given in M. García
                                                                         # et al paper.
+                            verbose=False):
 
         """This class method gets the following mandatory positional 
         argument:
@@ -930,6 +931,7 @@ class DarkNoiseMeas(SiPMMeas):
         bound to the time delay between every two time-adjacent peaks 
         in a consecutive-peaks group, for such group to be considered 
         a burst.
+        - verbose (bool): Whether to print functioning-related messages.
 
         This class method returns a DarkNoiseMeas object. Such object
         is a modified copy of darknoisemeas_to_purge. The modification
@@ -978,13 +980,29 @@ class DarkNoiseMeas(SiPMMeas):
         purged_copy = copy.deepcopy(darknoisemeas_to_purge)
         bursts_init_frame, bursts_end_frame, bursts_init_peak, bursts_end_peak = darknoisemeas_to_purge.identify_bursts(min_events_no=min_events_no,
                                                                                                                         timedelay_threshold_in_s=timedelay_threshold_in_s)
-        p = DarkNoiseMeas.lists_are_intertwined(bursts_init_frame, bursts_end_frame)
-        q = DarkNoiseMeas.lists_are_intertwined(bursts_init_peak, bursts_end_peak)
+        
+        if len(bursts_init_frame)==0:   # No bursts were found
+            if verbose: 
+                print(f"In function DarkNoiseMeas.purge_bursts(): No bursts were found. An identical copy of the original object will be returned.")
+            return purged_copy
+        
+        elif len(bursts_init_frame)==1: # Only one burst was found
+            if bursts_init_frame[0]>bursts_end_frame[0] or bursts_init_peak[0]>bursts_end_peak[0]:      # Light version of the 
+                                                                                                        # DarkNoiseMeas.lists_are_intertwined() check.
+                                                                                                        # Such check requires that at least two bursts
+                                                                                                        # were found, and that's not the case here.
+                raise cuex.MalFunction(htype.generate_exception_message("DarkNoiseMeas.purge_bursts", 
+                                                                        56211,
+                                                                        extra_info="DarkNoiseMeas.identify_bursts is not working. Its output is not consistent."))
+        else:
+            p = DarkNoiseMeas.lists_are_intertwined(bursts_init_frame, bursts_end_frame)
+            q = DarkNoiseMeas.lists_are_intertwined(bursts_init_peak, bursts_end_peak)
 
-        if not p or not q:
-            raise cuex.MalFunction(htype.generate_exception_message("DarkNoiseMeas.purge_bursts", 
-                                                                    89264,
-                                                                    extra_info="DarkNoiseMeas.identify_bursts is not working. Its output is not consistent."))
+            if not p or not q:
+                raise cuex.MalFunction(htype.generate_exception_message("DarkNoiseMeas.purge_bursts", 
+                                                                        89264,
+                                                                        extra_info="DarkNoiseMeas.identify_bursts is not working. Its output is not consistent."))
+        
         for i in reversed(range(len(bursts_init_frame))):                               # Removal from WaveformSet 
             for j in reversed(range(bursts_init_frame[i], 1+bursts_end_frame[i])):      # (list) should be done from 
                 purged_copy.Waveforms.remove_member_by_index(j)                         # bigger to smaller iterator values
