@@ -2017,7 +2017,7 @@ class DataPreprocessor:
         This method returns a dictionary, say result, whose keys match the keys of 
         input_dict. Let us refer to the string keys of input_dict as fields. For a 
         given field 'field', this static method asks the user to input an answer. 
-        If such answer is emtpy, i.e. '', and default_dict do not contain an entry
+        If such answer is emtpy, i.e. '', and default_dict does not contain an entry
         for the key 'field', then an exception is raised. If such answer matches '' 
         and default_dict contains an entry for the key 'field', then 
         default_dict['field'] is added to result under the key 'field'. If such 
