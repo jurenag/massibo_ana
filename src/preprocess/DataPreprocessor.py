@@ -223,6 +223,7 @@ class DataPreprocessor:
                                             wvf_skiprows_identifier='TIME,',
                                             ts_skiprows_identifier='X:',
                                             data_delimiter=',',
+                                            path_to_json_default_values=None,
                                             verbose=True):
         
         """This method gets the following mandatory positional arguments:
@@ -263,6 +264,8 @@ class DataPreprocessor:
         ASCII measurements. It is given to DataPreprocessor.process_file() as 
         data_delimiter. It is used to separate entries of the different columns 
         of the ASCII input data files.
+        - path_to_json_default_values (string): If it is not none, it should be
+        the path to a json file from which some default values may be read.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -277,8 +280,40 @@ class DataPreprocessor:
         initializer class method. To do so, some information is taken from the 
         input files themselves, such as the fields 'time_unit', 'signal_unit', 
         'time_resolution', 'points_per_wvf', 'wvfs_to_read' or 'date', among 
-        others. The user is interactively asked for the remaining necessary 
-        information."""
+        others. The remaining necessary information, namely
+
+            - signal_magnitude (str),
+            - delta_t_wf (float),
+            - set_name (str),
+            - creation_dt_offset_min (float),
+            - delivery_no (int),
+            - set_no (int),
+            - tray_no (int),
+            - meas_no (int),
+            - strip_ID (int),
+            - meas_ID (str),
+            - date (str),
+            - location (str),
+            - operator (str),
+            - setup_ID (str),
+            - system_characteristics (str),
+            - thermal_cycle (int),
+            - elapsed_cryo_time_min (float),
+            - electronic_board_number (int),
+            - electronic_board_location (str),
+            - electronic_board_socket (int),
+            - sipm_location (int),
+            - overvoltage_V (float),
+            - PDE (float),
+            - status (str),
+            - LED_voltage_V (float) and
+            - threshold_mV (float),
+
+        is taken from the json file given to path_to_json_default_values, if 
+        it is available there and the values comply with the expected types. 
+        The user is interactively a interactively asked for the remaining 
+        necessary information which could not be retrieved from the given json 
+        file."""
         
         htype.check_type(   root_directory, str,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
@@ -344,6 +379,13 @@ class DataPreprocessor:
         htype.check_type(   data_delimiter, str,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
                                                                                 79439))
+        fReadDefaultsFromFile = False
+        if path_to_json_default_values is not None:
+            htype.check_type(   path_to_json_default_values, str,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                    91126))
+            fReadDefaultsFromFile = True
+
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
                                                                                 92127))
@@ -355,7 +397,15 @@ class DataPreprocessor:
                                                                                 # As of this point, every key which belongs to self.ASCIIDarkNoiseCandidates,
                                                                                 # is also present in self.TimeStampCandidates
         queried_wvf_fields = {'signal_magnitude':str}
-        queried_once_wvf_fields, queried_wvf_fields = DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
+        read_wvf_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_wvf_fields_from_file, queried_wvf_fields = DataPreprocessor.try_grabbing_from_json(queried_wvf_fields, 
+                                                                                                    path_to_json_default_values,
+                                                                                                    verbose=verbose)
+        queried_once_wvf_fields = {}
+        if bool(queried_wvf_fields):    # True if queried_wvfs_fields is not empty
+            queried_once_wvf_fields, queried_wvf_fields = DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
+
         queried_wvfset_fields = {   #'separator':str,   # In the case of ASCII files, our oscilloscope always outputs 
                                                         # the number of samples, i.e. points_per_wvf, so we won't need 
                                                         # a separator in such case. For the case of binary files, the
@@ -364,7 +414,15 @@ class DataPreprocessor:
                                                         # of cases, it is computed from the input data.
                                     'set_name':str,
                                     'creation_dt_offset_min':float}
-        queried_once_wvfset_fields, queried_wvfset_fields = DataPreprocessor.query_dictionary_splitting(queried_wvfset_fields)
+        read_wvfset_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_wvfset_fields_from_file, queried_wvfset_fields = DataPreprocessor.try_grabbing_from_json(  queried_wvfset_fields, 
+                                                                                                            path_to_json_default_values,
+                                                                                                            verbose=verbose)
+        queried_once_wvfset_fields = {}
+        if bool(queried_wvfset_fields): # True if queried_wvfset_fields is not empty
+            queried_once_wvfset_fields, queried_wvfset_fields = DataPreprocessor.query_dictionary_splitting(queried_wvfset_fields)
+
         queried_sipmmeas_fields = { 'delivery_no':int,
                                     'set_no':int,
                                     'tray_no':int,
@@ -385,13 +443,36 @@ class DataPreprocessor:
                                     'overvoltage_V':float,
                                     'PDE':float,
                                     'status':str}
-        queried_once_sipmmeas_fields, queried_sipmmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
+        read_sipmmeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_sipmmeas_fields_from_file, queried_sipmmeas_fields = DataPreprocessor.try_grabbing_from_json(  queried_sipmmeas_fields, 
+                                                                                                                path_to_json_default_values,
+                                                                                                                verbose=verbose)
+        queried_once_sipmmeas_fields = {}
+        if bool(queried_sipmmeas_fields): # True if queried_sipmmeas_fields is not empty
+            queried_once_sipmmeas_fields, queried_sipmmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
+
         queried_gainmeas_fields = { 'LED_voltage_V':float}
-        queried_once_gainmeas_fields, queried_gainmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_gainmeas_fields)
+        read_gainmeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_gainmeas_fields_from_file, queried_gainmeas_fields = DataPreprocessor.try_grabbing_from_json(  queried_gainmeas_fields, 
+                                                                                                                path_to_json_default_values,
+                                                                                                                verbose=verbose)
+        queried_once_gainmeas_fields = {}
+        if bool(queried_gainmeas_fields): # True if queried_gainmeas_fields is not empty
+            queried_once_gainmeas_fields, queried_gainmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_gainmeas_fields)
         queried_gainmeas_fields.update(queried_sipmmeas_fields)
+        
         queried_darknoisemeas_fields = {'threshold_mV':float}       # The acquisition time is not queried because 
                                                                     # it is computed from the time stamp data
-        queried_once_darknoisemeas_fields, queried_darknoisemeas_fields = DataPreprocessor.query_dictionary_splitting(queried_darknoisemeas_fields)
+        read_darknoisemeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_darknoisemeas_fields_from_file, queried_darknoisemeas_fields = DataPreprocessor.try_grabbing_from_json(    queried_darknoisemeas_fields, 
+                                                                                                                            path_to_json_default_values,
+                                                                                                                            verbose=verbose)
+        queried_once_darknoisemeas_fields = {}
+        if bool(queried_darknoisemeas_fields): # True if queried_darknoisemeas_fields is not empty
+            queried_once_darknoisemeas_fields, queried_darknoisemeas_fields = DataPreprocessor.query_dictionary_splitting(queried_darknoisemeas_fields)
         queried_darknoisemeas_fields.update(queried_sipmmeas_fields)
 
         translator = {  'Horizontal Units':[str, 'time_unit'],
@@ -404,13 +485,18 @@ class DataPreprocessor:
                                                                                 # case the user needs to manually input this value
                         'acquisition_time':[float, 'acquisition_time_min']}
 
-        # Query unique-query data
+        # Query unique-query data and add update them with the default values gotten from the json file
         print("Let us retrieve the unique-query fields. These fields will apply for every measurement in this DataPreprocessor instance.")
         aux_wvf_dict            = DataPreprocessor.query_fields_in_dictionary(queried_once_wvf_fields,          default_dict=None)
+        aux_wvf_dict            .update(read_wvf_fields_from_file)
         aux_wvfset_dict         = DataPreprocessor.query_fields_in_dictionary(queried_once_wvfset_fields,       default_dict=None)
+        aux_wvfset_dict         .update(read_wvfset_fields_from_file)
         aux_sipmmeas_dict       = DataPreprocessor.query_fields_in_dictionary(queried_once_sipmmeas_fields,     default_dict=None)
+        aux_sipmmeas_dict       .update(read_sipmmeas_fields_from_file)
         aux_gainmeas_dict       = DataPreprocessor.query_fields_in_dictionary(queried_once_gainmeas_fields,     default_dict=None)
+        aux_gainmeas_dict       .update(read_gainmeas_fields_from_file)
         aux_darknoisemeas_dict  = DataPreprocessor.query_fields_in_dictionary(queried_once_darknoisemeas_fields,default_dict=None)
+        aux_darknoisemeas_dict  .update(read_darknoisemeas_fields_from_file)
 
         aux_gainmeas_dict.update(aux_sipmmeas_dict)
         aux_darknoisemeas_dict.update(aux_sipmmeas_dict)
@@ -2301,3 +2387,87 @@ class DataPreprocessor:
                                                                                 # For example, while os.path.samefile('/a/b/c', '/a/b/c/')
                                                                                 # evaluates to True, '/a/b/c'=='/a/b/c/' does not.
                                                                                 # The only difference is the last slash.
+    
+    @staticmethod
+    def try_grabbing_from_json(catalog, path_to_json_file, verbose=False):
+
+        """This function gets the following positional arguments:
+        
+        - catalog (dictionary): Its keys must be strings and the type of its values
+        must be 'type'. P.e. type(int)==type evaluates to True.
+        - path_to_json_file (string): Absolute path which must point to a file whose 
+        extension matches '.json'.
+
+        This function gets the following keyword arguments:
+
+        - verbose (boolean): Whether to print functioning-related messages.
+        
+        For each key in catalog, this function checks whether the key is present in 
+        the dictionary which is loaded from the json file pointed by path_to_json_file.
+        If it is present, and the type of its value matches the one signalled by the
+        catalog, the key-value pair is added to the output dictionary, and the key
+        is removed from the catalog. If the key is not present in the loaded dictionary,
+        or it is present but its type is not suitable according to catalog, then the key 
+        remains in the catalog and nothing is added to the output dictionary. This
+        function returns the output dictionary and the remaining catalog, in such order."""
+
+        htype.check_type(   catalog, dict,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                48501))
+        for key in catalog.keys():
+
+            htype.check_type(   key, str,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                    29757))
+            htype.check_type(   catalog[key], type,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                    44642))
+        htype.check_type(   path_to_json_file, str,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                62236))
+        if not os.path.isfile(path_to_json_file):
+            raise FileNotFoundError(htype.generate_exception_message(   "DataPreprocessor.try_grabbing_from_json", 
+                                                                        37189,
+                                                                        extra_info=f"The path {path_to_json_file} does not exist or is not a file."))
+        elif not path_to_json_file.endswith(".json"):
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                    37756,
+                                                                                    extra_info=f"File {path_to_json_file} must end with '.json' extension.")) 
+        htype.check_type(   verbose, bool,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                88675))
+
+        output_dictionary = {}
+        remaining_catalog = catalog.copy()  # Otherwise we'll get a view to catalog
+        
+        with open(path_to_json_file, "r") as file:
+            try:
+                input_dictionary = json.load(file)
+            except json.JSONDecodeError:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                        97781,
+                                                                                        extra_info=f"File {path_to_json_file} must contain a valid json object."))
+        for key in catalog.keys():
+            if key in input_dictionary.keys():  # This key of catalog was 
+                                                # found in the input dictionary
+                try:
+                    htype.check_type(   input_dictionary[key], catalog[key],
+                                        exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                            35881))
+                except cuex.TypeException:  # Although the key was found, its 
+                                            # value does not have a suitable type
+                                            # cuex.TypeException is the exception raised
+                                            # by htype.check_type if types do not match.
+                    if verbose: 
+                        print(htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                58548,
+                                                                extra_info=f"A candidate for key '{key}' was found but its type does not match the required one. The candidate has been ignored."))
+                    continue
+
+                else:           # The found candidate has a suitable type
+                                # Actually add it to the output dictionary
+                    
+                    output_dictionary[key] = input_dictionary[key]
+                    del remaining_catalog[key]
+
+        return output_dictionary, remaining_catalog
