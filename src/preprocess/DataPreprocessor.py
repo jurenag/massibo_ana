@@ -1,11 +1,10 @@
 #######################################################################################
 #
-# Possible improvements:
+# Bugs
 #
-#   1)  In DataPreprocessor.generate_meas_config_files():
-#       1.1)    Take sipm_location field automatically from the filepaths
-#       1.2)    Add the possibility to take the parameters from a json auxiliary file,
-#               instead of querying the user for all of them
+#   1. In DataPreprocessor.generate_meas_config_files():
+#       1.1)    At some point the "date" field that is read from the json file, is
+#               overwritten by the creation date of the file.
 #
 #######################################################################################
 
@@ -224,6 +223,7 @@ class DataPreprocessor:
                                             ts_skiprows_identifier='X:',
                                             data_delimiter=',',
                                             path_to_json_default_values=None,
+                                            sipms_per_strip=None,
                                             verbose=True):
         
         """This method gets the following mandatory positional arguments:
@@ -266,6 +266,15 @@ class DataPreprocessor:
         of the ASCII input data files.
         - path_to_json_default_values (string): If it is not none, it should be
         the path to a json file from which some default values may be read.
+        - sipms_per_strip (positive integer): The number of SiPMs per strip. If 
+        it is not None, the electronic_board_socket and sipm_location fields will 
+        be inferred. To do so, for each type of measurement (namely ascii gain,
+        ascii dark noise, binary gain and binary dark noise), the candidates
+        are sorted according to its keys (p.e. for ascii gain measurements,
+        they are sorted according to the keys of self.__ascii_gain_candidates) 
+        associating an iterator value i>=0 to each candidate, so that the 
+        electronic_board_socket value is inferred as (i//sipms_per_strip)+1 and 
+        the sipm_location value is inferred as (i%sipms_per_strip)+1.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -386,6 +395,16 @@ class DataPreprocessor:
                                                                                     91126))
             fReadDefaultsFromFile = True
 
+        fInferrFields = False
+        if sipms_per_strip is not None:
+            htype.check_type(   sipms_per_strip, int, np.int64,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                    89701))
+            if sipms_per_strip<1:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                        12924))
+            fInferrFields = True
+
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
                                                                                 92127))
@@ -443,6 +462,17 @@ class DataPreprocessor:
                                     'overvoltage_V':float,
                                     'PDE':float,
                                     'status':str}
+        
+        inferred_sipmmeas_fields = {} 
+        if fInferrFields:
+            inferred_sipmmeas_fields = {'electronic_board_socket':queried_sipmmeas_fields['electronic_board_socket'],
+                                        'sipm_location':queried_sipmmeas_fields['sipm_location']}
+            del queried_sipmmeas_fields['electronic_board_socket']
+            del queried_sipmmeas_fields['sipm_location']
+
+            if not DataPreprocessor.yes_no_translator(input(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the filepaths ordering and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)")):
+                return
+
         read_sipmmeas_fields_from_file = {}
         if fReadDefaultsFromFile:
             read_sipmmeas_fields_from_file, queried_sipmmeas_fields = DataPreprocessor.try_grabbing_from_json(  queried_sipmmeas_fields, 
@@ -453,6 +483,11 @@ class DataPreprocessor:
             queried_once_sipmmeas_fields, queried_sipmmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
 
         queried_gainmeas_fields = { 'LED_voltage_V':float}
+
+        inferred_gainmeas_fields = {}
+        if fInferrFields:
+            inferred_gainmeas_fields.update(inferred_sipmmeas_fields)
+
         read_gainmeas_fields_from_file = {}
         if fReadDefaultsFromFile:
             read_gainmeas_fields_from_file, queried_gainmeas_fields = DataPreprocessor.try_grabbing_from_json(  queried_gainmeas_fields, 
@@ -465,6 +500,11 @@ class DataPreprocessor:
         
         queried_darknoisemeas_fields = {'threshold_mV':float}       # The acquisition time is not queried because 
                                                                     # it is computed from the time stamp data
+        
+        inferred_darknoisemeas_fields = {}
+        if fInferrFields:
+            inferred_darknoisemeas_fields.update(inferred_sipmmeas_fields)
+
         read_darknoisemeas_fields_from_file = {}
         if fReadDefaultsFromFile:
             read_darknoisemeas_fields_from_file, queried_darknoisemeas_fields = DataPreprocessor.try_grabbing_from_json(    queried_darknoisemeas_fields, 
@@ -501,7 +541,7 @@ class DataPreprocessor:
         aux_gainmeas_dict.update(aux_sipmmeas_dict)
         aux_darknoisemeas_dict.update(aux_sipmmeas_dict)
 
-        for key in sorted(self.ASCIIGainCandidates.keys()):
+        for i, key in enumerate(sorted(self.ASCIIGainCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.ASCIIGainCandidates[key],
                                                 *translator.keys(),
@@ -531,6 +571,10 @@ class DataPreprocessor:
                                     translator['FastFrame Count'][1]:aux['FastFrame Count']})
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
+
+            if fInferrFields:
+                aux_gainmeas_dict.update({  'electronic_board_socket':(i//sipms_per_strip)+1,
+                                            'sipm_location':(i%sipms_per_strip)+1})
 
             aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
             aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
@@ -581,7 +625,7 @@ class DataPreprocessor:
         except KeyError:                                        # case, it won't be queried again, so everything's ok.
             pass                                    
 
-        for key in sorted(self.ASCIIDarkNoiseCandidates.keys()):
+        for i, key in enumerate(sorted(self.ASCIIDarkNoiseCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.ASCIIDarkNoiseCandidates[key],
                                                 *translator.keys(),
@@ -627,6 +671,10 @@ class DataPreprocessor:
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
             
+            if fInferrFields:
+                aux_darknoisemeas_dict.update({ 'electronic_board_socket':(i//sipms_per_strip)+1,
+                                                'sipm_location':(i%sipms_per_strip)+1})
+
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux_2['acquisition_time']/60.})    # The acquisition time is not queried.
                                                                                                                 # Here, I am assuming that the time 
                                                                                                                 # stamp unit is the second.
@@ -689,7 +737,7 @@ class DataPreprocessor:
                             # 'timestamp_filepath' key.
             pass 
 
-        for key in sorted(self.BinaryGainCandidates.keys()):
+        for i, key in enumerate(sorted(self.BinaryGainCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.BinaryGainCandidates[key],
                                                 destination_folderpath=data_folderpath,
@@ -718,6 +766,10 @@ class DataPreprocessor:
                                     translator['average_delta_t_wf'][1]:aux['average_delta_t_wf']})
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
+
+            if fInferrFields:
+                aux_gainmeas_dict.update({  'electronic_board_socket':(i//sipms_per_strip)+1,
+                                            'sipm_location':(i%sipms_per_strip)+1})
 
             aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
             aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
@@ -756,7 +808,7 @@ class DataPreprocessor:
             gainmeas_output_filepath = os.path.join(load_folderpath, output_filepath_base+'_gainmeas.json')
             DataPreprocessor.generate_json_file(aux_gainmeas_dict, gainmeas_output_filepath)
 
-        for key in sorted(self.BinaryDarkNoiseCandidates.keys()):
+        for i, key in enumerate(sorted(self.BinaryDarkNoiseCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.BinaryDarkNoiseCandidates[key],
                                                 destination_folderpath=data_folderpath,
@@ -784,6 +836,10 @@ class DataPreprocessor:
                                                                                                     # for the Dark Noise case.
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
+
+            if fInferrFields:
+                aux_darknoisemeas_dict.update({ 'electronic_board_socket':(i//sipms_per_strip)+1,
+                                                'sipm_location':(i%sipms_per_strip)+1})
 
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux['acquisition_time']/60.})  # The acquisition time is not queried.
                                                                                                             # Here, I am assuming that the time 
