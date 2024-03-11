@@ -571,7 +571,9 @@ class DataPreprocessor:
                         'acquisition_time':[float, 'acquisition_time_min']}
 
         # Query unique-query data and add update them with the default values gotten from the json file
-        print("Let us retrieve the unique-query fields. These fields will apply for every measurement in this DataPreprocessor instance.")
+        if queried_once_wvf_fields or queried_once_wvfset_fields or queried_once_sipmmeas_fields or queried_once_gainmeas_fields or queried_darknoisemeas_fields:
+            print("Let us retrieve the unique-query fields. These fields will apply for every measurement in this DataPreprocessor instance.")
+
         aux_wvf_dict            = DataPreprocessor.query_fields_in_dictionary(queried_once_wvf_fields,          default_dict=None)
         aux_wvf_dict            .update(read_wvf_fields_from_file)
         aux_wvfset_dict         = DataPreprocessor.query_fields_in_dictionary(queried_once_wvfset_fields,       default_dict=None)
