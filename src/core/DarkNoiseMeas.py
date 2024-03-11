@@ -1079,8 +1079,8 @@ class DarkNoiseMeas(SiPMMeas):
         This method gets the following keyword arguments:
 
         - overwrite (bool): This parameter only makes a difference if there
-        is already a file in the given folder path whose name matches 
-        f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-{self.Date.strftime('%Y-%m-%d')}.json".
+        is already a file in the given folder path whose name matches
+        f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json".
         If that is the case, and overwrite is False, then this method does
         not generate any json file. In any other case, this method generates
         a new json file with the previously specified name in the given
@@ -1141,7 +1141,7 @@ class DarkNoiseMeas(SiPMMeas):
         The summary json file is saved within the given folder, up to folderpath.
         Its name matches the following formatted string:
 
-        f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-{self.Date.strftime('%Y-%m-%d')}.json"
+        f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
         """
         
         htype.check_type(   folderpath, str,
@@ -1162,7 +1162,7 @@ class DarkNoiseMeas(SiPMMeas):
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message("DarkNoiseMeas.output_summary", 79529))
         
-        output_filename = f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-{self.Date.strftime('%Y-%m-%d')}.json"
+        output_filename = f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
         output_filepath = os.path.join(folderpath, output_filename)
 
         if os.path.exists(output_filepath):
