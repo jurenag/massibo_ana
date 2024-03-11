@@ -224,6 +224,7 @@ class DataPreprocessor:
                                             data_delimiter=',',
                                             path_to_json_default_values=None,
                                             sipms_per_strip=None,
+                                            strips_ids=None,
                                             verbose=True):
         
         """This method gets the following mandatory positional arguments:
@@ -275,6 +276,13 @@ class DataPreprocessor:
         associating an iterator value i>=0 to each candidate, so that the 
         electronic_board_socket value is inferred as (i//sipms_per_strip)+1 and 
         the sipm_location value is inferred as (i%sipms_per_strip)+1.
+        - strips_ids (list of integers): Its value only makes a difference if
+        sipms_per_strip is defined. In such case (and if it is defined), then for
+        each type of measurement, strips_ids[i] is assumed to be the strip_ID
+        field for the k-th measurement candidate, where k takes values from
+        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1. To this end, it is required
+        that the number of candidates for whichever type of measurement is a 
+        multiple of sipms_per_strip.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -404,6 +412,35 @@ class DataPreprocessor:
                 raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
                                                                                         12924))
             fInferrFields = True
+            fAssignStripID = False
+
+            if strips_ids is not None:  # Yes, only check strips_ids if sipms_per_strip is defined
+                htype.check_type(   strips_ids, list,
+                                    exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                        42323))
+                for elem in strips_ids:
+                    htype.check_type(   elem, int, np.int64,
+                                        exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                            61191))
+                p1 = len(self.ASCIIGainCandidates)%sipms_per_strip!=0
+                p2 = len(self.ASCIIDarkNoiseCandidates)%sipms_per_strip!=0
+                p3 = len(self.BinaryGainCandidates)%sipms_per_strip!=0
+                p4 = len(self.BinaryDarkNoiseCandidates)%sipms_per_strip!=0
+
+                if p1 or p2 or p3 or p4:
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                            39450,
+                                                                                            extra_info=f"The number of candidates for at least one type of measurement is not a multiple of {sipms_per_strip}. The provided strip IDs cannot be automatically assigned to the candidates."))
+                max_candidates = max(   len(self.ASCIIGainCandidates), 
+                                        len(self.ASCIIDarkNoiseCandidates), 
+                                        len(self.BinaryGainCandidates), 
+                                        len(self.BinaryDarkNoiseCandidates))
+                
+                if len(strips_ids)<(max_candidates/sipms_per_strip):    # max_candidates is a multiple of sipms_per_strip
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files",
+                                                                                            55152,
+                                                                                            extra_info=f"For at least one type of measurement, the number of provided strip IDs is not enough for all of the given candidates. The provided strip IDs cannot be automatically assigned to the candidates."))
+                fAssignStripID = True
 
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
@@ -470,8 +507,16 @@ class DataPreprocessor:
             del queried_sipmmeas_fields['electronic_board_socket']
             del queried_sipmmeas_fields['sipm_location']
 
-            if not DataPreprocessor.yes_no_translator(input(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the filepaths ordering and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)")):
-                return
+            if fAssignStripID:
+                inferred_sipmmeas_fields['strip_ID'] = queried_sipmmeas_fields['strip_ID']
+                del queried_sipmmeas_fields['strip_ID']
+
+            if not fAssignStripID:
+                if not DataPreprocessor.yes_no_translator(input(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the filepaths ordering and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)")):
+                    return
+            else:
+                if not DataPreprocessor.yes_no_translator(input(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the filepaths ordering and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)")):
+                    return         
 
         read_sipmmeas_fields_from_file = {}
         if fReadDefaultsFromFile:
@@ -575,6 +620,8 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_gainmeas_dict.update({  'electronic_board_socket':(i//sipms_per_strip)+1,
                                             'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_gainmeas_dict.update({  'strip_ID':strips_ids[i//sipms_per_strip]})
 
             aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
             aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
@@ -674,6 +721,8 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_darknoisemeas_dict.update({ 'electronic_board_socket':(i//sipms_per_strip)+1,
                                                 'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_darknoisemeas_dict.update({ 'strip_ID':strips_ids[i//sipms_per_strip]})
 
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux_2['acquisition_time']/60.})    # The acquisition time is not queried.
                                                                                                                 # Here, I am assuming that the time 
@@ -770,6 +819,8 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_gainmeas_dict.update({  'electronic_board_socket':(i//sipms_per_strip)+1,
                                             'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_gainmeas_dict.update({  'strip_ID':strips_ids[i//sipms_per_strip]})
 
             aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
             aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
@@ -840,6 +891,8 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_darknoisemeas_dict.update({ 'electronic_board_socket':(i//sipms_per_strip)+1,
                                                 'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_darknoisemeas_dict.update({ 'strip_ID':strips_ids[i//sipms_per_strip]})
 
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux['acquisition_time']/60.})  # The acquisition time is not queried.
                                                                                                             # Here, I am assuming that the time 
