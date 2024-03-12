@@ -20,7 +20,8 @@ class GainMeas(SiPMMeas):
                         elapsed_cryo_time_min=None, electronic_board_number=None, 
                         electronic_board_location=None, electronic_board_socket=None, 
                         sipm_location=None, sampling_ns=None, overvoltage_V=None, PDE=None, 
-                        status=None, LED_voltage_V=None, **kwargs):
+                        status=None, LED_voltage_V=None, LED_frequency_kHz=None,
+                        LED_pulse_shape=None, LED_high_width_ns=None, **kwargs):
 
         """This class, which derives from SiPMMeas class, aims to implement a SiPM gain 
         measurement. In line with Waveform, WaveformSet and SiPMMeas classes, the assumed time unit 
@@ -77,8 +78,14 @@ class GainMeas(SiPMMeas):
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
-        - LED_voltage_V (semipositive float): LED feeding voltage. It is loaded into the 
-        object-attribute self.__LED_voltage_V.
+        - LED_voltage_V (positive float): Amplitude of the voltage (pulsed) signal that feeds the LED,
+        in volts. It is loaded into the object-attribute self.__LED_voltage_V.
+        - LED_frequency_kHz (positive float): Frequency of the pulsed signal that feeds the LED, 
+        in kilohertzs . It is loaded into the object-attribute self.__LED_frequency_kHz.
+        - LED_pulse_shape (string): Shape of the pulsed signal that feeds the LED. It is loaded 
+        into the object-attribute self.__LED_pulse_shape.
+        - LED_high_width_ns (positive float): Width of the high level of the pulsed signal that feeds
+        the LED, in nanoseconds. It is loaded into the object-attribute self.__LED_high_width_ns.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords 
         are points_per_wvf (int), wvfs_to_read (int), separator (string), timestamp_filepath (string), 
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and 
@@ -97,9 +104,31 @@ class GainMeas(SiPMMeas):
         if LED_voltage_V is not None:
             htype.check_type(   LED_voltage_V, float, np.float64,
                                 exception_message=htype.generate_exception_message("GainMeas.__init__", 52239))
-            if LED_voltage_V<0.:
+            if LED_voltage_V<=0.:
                 raise cuex.InvalidParameterDefinition(htype.generate_exception_message("GainMeas.__init__", 43748))
             self.__LED_voltage_V = LED_voltage_V
+
+        self.__LED_frequency_kHz = None
+        if LED_frequency_kHz is not None:
+            htype.check_type(   LED_frequency_kHz, float, np.float64,
+                                exception_message=htype.generate_exception_message("GainMeas.__init__", 21085))
+            if LED_frequency_kHz<=0.:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("GainMeas.__init__", 99855))
+            self.__LED_frequency_kHz = LED_frequency_kHz
+
+        self.__LED_pulse_shape = None
+        if LED_pulse_shape is not None:
+            htype.check_type(   LED_pulse_shape, str,
+                                exception_message=htype.generate_exception_message("GainMeas.__init__", 28436))
+            self.__LED_pulse_shape = LED_pulse_shape
+
+        self.__LED_high_width_ns = None
+        if LED_high_width_ns is not None:
+            htype.check_type(   LED_high_width_ns, float, np.float64,
+                                exception_message=htype.generate_exception_message("GainMeas.__init__", 53321))
+            if LED_high_width_ns<=0.:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("GainMeas.__init__", 57786))
+            self.__LED_high_width_ns = LED_high_width_ns
 
         # The rest of the arguments are handled by the base class initializer
 
@@ -128,6 +157,18 @@ class GainMeas(SiPMMeas):
     @property
     def LEDVoltage_V(self):
         return self.__LED_voltage_V
+    
+    @property
+    def LEDFrequency_kHz(self):
+        return self.__LED_frequency_kHz
+    
+    @property
+    def LEDPulseShape(self):
+        return self.__LED_pulse_shape
+    
+    @property
+    def LEDHighWidth_ns(self):
+        return self.__LED_high_width_ns
     
     @property
     def ChargeEntries(self):
@@ -678,7 +719,9 @@ class GainMeas(SiPMMeas):
         "elapsed_cryo_time_min", "electronic_board_number", 
         "electronic_board_location", "electronic_board_socket", 
         "sipm_location", "sampling_ns", "overvoltage_V", "PDE", 
-        "status", "LED_voltage_V" and "wvfset_json_filepath".
+        "status", "LED_voltage_V", "LED_frequency_kHz",
+        "LED_pulse_shape", "LED_high_width_ns" and 
+        "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it's is not meant to be
         read from gainmeas_config_json. The value for 
@@ -730,7 +773,9 @@ class GainMeas(SiPMMeas):
                 'electronic_board_socket':int, 
                 'sipm_location':int, 'sampling_ns':float, 
                 'overvoltage_V':float, 'PDE':float, 'status':str,
-                'LED_voltage_V':float, 'wvfset_json_filepath':str}
+                'LED_voltage_V':float, 'LED_frequency_kHz':float,
+                'LED_pulse_shape':str, 'LED_high_width_ns':float,
+                'wvfset_json_filepath':str}
 
         pks2 = {'wvf_filepath':str, 'time_resolution':float,        # These are used to
                 'points_per_wvf':int, 'wvfs_to_read':int,           # configure the 
@@ -843,6 +888,9 @@ class GainMeas(SiPMMeas):
         - "status": Contains self.Status
 
         - "LED_voltage_V": Contains self.__LED_voltage_V,
+        - "LED_frequency_kHz": Contains self.__LED_frequency_kHz,
+        - "LED_pulse_shape": Contains self.__LED_pulse_shape,
+        - "LED_high_width_ns": Contains self.__LED_high_width_ns,
         - "charge_entries": Contains self.__charge_entries
 
         Note that the output does not contain the gain of this GainMeas. To do 
@@ -916,6 +964,9 @@ class GainMeas(SiPMMeas):
                     "N_events": self.NEvents,
                     "status": self.Status,
                     "LED_voltage_V":self.__LED_voltage_V,
+                    "LED_frequency_kHz":self.__LED_frequency_kHz,
+                    "LED_pulse_shape":self.__LED_pulse_shape,
+                    "LED_high_width_ns":self.__LED_high_width_ns,
                     "charge_entries":list(self.__charge_entries)}   # Object of type numpy.ndarray is not 
                                                                     # JSON serializable, but lists are
         output.update(additional_entries)

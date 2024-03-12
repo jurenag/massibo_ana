@@ -323,7 +323,10 @@ class DataPreprocessor:
             - overvoltage_V (float),
             - PDE (float),
             - status (str),
-            - LED_voltage_V (float) and
+            - LED_voltage_V (float),
+            - LED_frequency_kHz (float),
+            - LED_pulse_shape (str),
+            - LED_high_width_ns (float) and
             - threshold_mV (float),
 
         is taken from the json file given to path_to_json_default_values, if 
@@ -527,7 +530,10 @@ class DataPreprocessor:
         if bool(queried_sipmmeas_fields): # True if queried_sipmmeas_fields is not empty
             queried_once_sipmmeas_fields, queried_sipmmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
 
-        queried_gainmeas_fields = { 'LED_voltage_V':float}
+        queried_gainmeas_fields = { 'LED_voltage_V':float,
+                                    'LED_frequency_kHz':float,
+                                    'LED_pulse_shape':str,
+                                    'LED_high_width_ns':float}
 
         inferred_gainmeas_fields = {}
         if fInferrFields:
