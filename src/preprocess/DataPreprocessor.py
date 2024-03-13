@@ -300,7 +300,6 @@ class DataPreprocessor:
         others. The remaining necessary information, namely
 
             - signal_magnitude (str),
-            - delta_t_wf (float),
             - set_name (str),
             - creation_dt_offset_min (float),
             - delivery_no (int),
@@ -469,10 +468,9 @@ class DataPreprocessor:
                                                         # the number of samples, i.e. points_per_wvf, so we won't need 
                                                         # a separator in such case. For the case of binary files, the
                                                         # read process does not need a separator either.
-                                    'delta_t_wf':float, # Only queried for ASCII gain meas. For the rest 
-                                                        # of cases, it is computed from the input data.
                                     'set_name':str,
                                     'creation_dt_offset_min':float}
+        
         read_wvfset_fields_from_file = {}
         if fReadDefaultsFromFile:
             read_wvfset_fields_from_file, queried_wvfset_fields = DataPreprocessor.try_grabbing_from_json(  queried_wvfset_fields, 
@@ -574,8 +572,17 @@ class DataPreprocessor:
                         'Record Length':[int, 'points_per_wvf'],
                         'FastFrame Count':[int, 'wvfs_to_read'],
                         'creation_date':[str, 'date'],
-                        'average_delta_t_wf':[float, 'delta_t_wf'],             # Can be used in every case but ASCII Gain - in such
-                                                                                # case the user needs to manually input this value
+                        'average_delta_t_wf':[float, 'delta_t_wf'],             # The casuistry for this one is the following:
+                                                                                # - ASCII gain: There's no timestamp from which to compute this, so
+                                                                                #               this value may be computed from LED_frequency_kHz
+                                                                                # - ASCII dark noise: The value is computed from the input timestamp
+                                                                                # - Binary gain:    For our particular case, the DAQ oscilloscope is giving an
+                                                                                #                   empty timestamp, since the trigger in this case is external
+                                                                                #                   (it comes from the LED voltage source). The code should
+                                                                                #                   try to compute 'delta_t_wf' from the timestamp, but if it
+                                                                                #                   results in 0.0, the code should alternatively compute it 
+                                                                                #                   using LED_frequency_kHz.
+                                                                                # - Binary dark noise: The value is computed from the input timestamp
                         'acquisition_time':[float, 'acquisition_time_min']}
 
         # Query unique-query data and add update them with the default values gotten from the json file
@@ -637,6 +644,14 @@ class DataPreprocessor:
             aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
                                                                                     default_dict=aux_gainmeas_dict))    # file will be available as a 
                                                                                                                         # default value
+            
+            aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Up to this point, the 'LED_frequency_kHz' 
+                                                                                                                                # field must be available in
+                                                                                                                                # aux_gainmeas_dict. Either it has 
+                                                                                                                                # been read from a json file, it has 
+                                                                                                                                # been queried-once or it has been 
+                                                                                                                                # queried for this particular measurement.
+
             output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict[translator['creation_date'][1]][:10]}"
             # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
             # Therefore, aux_gainmeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
@@ -669,18 +684,6 @@ class DataPreprocessor:
                                                                         start=root_directory)
             gainmeas_output_filepath = os.path.join(load_folderpath, output_filepath_base+'_gainmeas.json')
             DataPreprocessor.generate_json_file(aux_gainmeas_dict, gainmeas_output_filepath)
-        
-        try:                                    # This field should only be queried for ASCII gain measurements,
-            del aux_wvfset_dict['delta_t_wf']   # i.e. we should delete it from aux_wvfset_dict so it is not
-        except KeyError:                        # queried again for further measurements. However, if this
-            pass                                # parameter was not set as a query-once parameter AND there 
-                                                # are no ASCII Gain measurements, then there's no entry in 
-                                                # aux_wvfset_dict under the 'delta_t_wf' key so far. Handle
-                                                # this case. 
-        try:                                                    # The 'delta_t_wf' field might have been moved
-            del queried_wvfset_fields['delta_t_wf']             # to queried_once_wvfset_fields. If that's the case
-        except KeyError:                                        # case, it won't be queried again, so everything's ok.
-            pass                                    
 
         for i, key in enumerate(sorted(self.ASCIIDarkNoiseCandidates.keys())):
 
@@ -723,8 +726,8 @@ class DataPreprocessor:
                                     translator['Record Length'][1]:aux['Record Length'],
                                     translator['FastFrame Count'][1]:aux['FastFrame Count'],
                                     'timestamp_filepath':aux_2['processed_filepath'],
-                                    translator['average_delta_t_wf'][1]:aux_2['average_delta_t_wf']})   # Extracting this value is not necessary
-                                                                                                        # for the Dark Noise case.
+                                    translator['average_delta_t_wf'][1]:aux_2['average_delta_t_wf']})   # Extracting this value, although it is not
+                                                                                                        # strictly necessary for the Dark Noise case.
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
             
@@ -836,6 +839,16 @@ class DataPreprocessor:
             aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
                                                                                     default_dict=aux_gainmeas_dict))    # file will be available as a 
                                                                                                                         # default value
+            
+            if aux_wvfset_dict[translator['average_delta_t_wf'][1]]==0.0:   # For our particular setup, an 'empty timestamp'
+                                                                            # is actually full of null entries. The way of
+                                                                            # computing 'delta_t_wf' by 
+                                                                            # DataPreprocessor.process_core_data makes
+                                                                            # 'delta_t_wf' be 0.0 in this case.
+                
+                aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Compute 'delta_t_wf' as
+                                                                                                                                    # for the ASCII gain case.  
+
             output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict[translator['creation_date'][1]][:10]}"
             # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
             # Therefore, aux_gainmeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
@@ -2134,6 +2147,9 @@ class DataPreprocessor:
             first_sample_delay[1:]          = data['first_sample_delay']        # Merge first frame trigger 
             triggers_second_fractions[1:]   = data['trigger_second_fraction']   # info. with info. from the
             gmt_in_seconds[1:]              = data['gmt_in_seconds']            # the rest of the frames.
+
+            # N.B. For binary gain measurements (with external trigger), it was observed that all of
+            # the entries of triggers_second_fractions, and gmt_in_seconds are null at this point.
 
             # Read waveforms
             waveforms = np.memmap(  file,
