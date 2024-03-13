@@ -648,7 +648,7 @@ class DataPreprocessor:
                                                                                                                                 # been queried-once or it has been 
                                                                                                                                 # queried for this particular measurement.
 
-            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['date'][:10]}"
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
             # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
@@ -741,7 +741,7 @@ class DataPreprocessor:
             aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,
                                                                                         default_dict=aux_darknoisemeas_dict))
 
-            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['date'][:10]}"    
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
@@ -843,7 +843,7 @@ class DataPreprocessor:
                 aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Compute 'delta_t_wf' as
                                                                                                                                     # for the ASCII gain case.  
 
-            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['date'][:10]}"
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
             # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             
@@ -919,7 +919,7 @@ class DataPreprocessor:
             aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,
                                                                                         default_dict=aux_darknoisemeas_dict))
 
-            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['date'][:10]}"    
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
              
