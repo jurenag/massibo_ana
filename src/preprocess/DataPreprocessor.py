@@ -330,9 +330,8 @@ class DataPreprocessor:
 
         is taken from the json file given to path_to_json_default_values, if 
         it is available there and the values comply with the expected types. 
-        The user is interactively a interactively asked for the remaining 
-        necessary information which could not be retrieved from the given json 
-        file."""
+        The user is interactively a interactively asked for the fields which 
+        could not be retrieved from the given json file."""
         
         htype.check_type(   root_directory, str,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
