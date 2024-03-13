@@ -546,6 +546,7 @@ class DataPreprocessor:
                                                                                                                 verbose=verbose)
         queried_once_gainmeas_fields = {}
         if bool(queried_gainmeas_fields): # True if queried_gainmeas_fields is not empty
+            print('The following only applies to gain measurements: ', end='')
             queried_once_gainmeas_fields, queried_gainmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_gainmeas_fields)
         queried_gainmeas_fields.update(queried_sipmmeas_fields)
         
@@ -563,6 +564,7 @@ class DataPreprocessor:
                                                                                                                             verbose=verbose)
         queried_once_darknoisemeas_fields = {}
         if bool(queried_darknoisemeas_fields): # True if queried_darknoisemeas_fields is not empty
+            print('The following only applies to dark noise measurements: ', end='')
             queried_once_darknoisemeas_fields, queried_darknoisemeas_fields = DataPreprocessor.query_dictionary_splitting(queried_darknoisemeas_fields)
         queried_darknoisemeas_fields.update(queried_sipmmeas_fields)
 
