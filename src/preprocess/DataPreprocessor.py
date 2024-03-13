@@ -296,8 +296,8 @@ class DataPreprocessor:
         using the GainMeas.from_json_file (DarkNoiseMeas.from_json_file) 
         initializer class method. To do so, some information is taken from the 
         input files themselves, such as the fields 'time_unit', 'signal_unit', 
-        'time_resolution', 'points_per_wvf', 'wvfs_to_read' or 'date', among 
-        others. The remaining necessary information, namely
+        'time_resolution', 'points_per_wvf' or 'wvfs_to_read', among others. 
+        The remaining necessary information, namely
 
             - signal_magnitude (str),
             - set_name (str),
@@ -308,7 +308,7 @@ class DataPreprocessor:
             - meas_no (int),
             - strip_ID (int),
             - meas_ID (str),
-            - date (str),
+            - date (str, in the format 'YYYY-MM-DD HH:MM:SS'),
             - location (str),
             - operator (str),
             - setup_ID (str),
@@ -485,8 +485,8 @@ class DataPreprocessor:
                                     'meas_no':int,
                                     'strip_ID':int,
                                     'meas_ID':str,
-                                    'date':str,         # The 'date' field will be queried, although the creation
-                                    'location':str,     # date of the file will be available as default value
+                                    'date':str,         # It must be in the format 'YYYY-MM-DD HH:MM:SS'
+                                    'location':str,
                                     'operator':str,
                                     'setup_ID':str,
                                     'system_characteristics':str,
@@ -570,7 +570,6 @@ class DataPreprocessor:
                         'Sample Interval':[float, 'time_resolution'],
                         'Record Length':[int, 'points_per_wvf'],
                         'FastFrame Count':[int, 'wvfs_to_read'],
-                        'creation_date':[str, 'date'],
                         'average_delta_t_wf':[float, 'delta_t_wf'],             # The casuistry for this one is the following:
                                                                                 # - ASCII gain: There's no timestamp from which to compute this, so
                                                                                 #               this value may be computed from LED_frequency_kHz
@@ -608,7 +607,7 @@ class DataPreprocessor:
                                                 *translator.keys(),
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,                 # Extracts the creation date to aux['creation_date']
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -639,10 +638,8 @@ class DataPreprocessor:
                 if fAssignStripID:
                     aux_gainmeas_dict.update({  'strip_ID':strips_ids[i//sipms_per_strip]})
 
-            aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
-            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
-                                                                                    default_dict=aux_gainmeas_dict))    # file will be available as a 
-                                                                                                                        # default value
+            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,
+                                                                                    default_dict=aux_gainmeas_dict))
             
             aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Up to this point, the 'LED_frequency_kHz' 
                                                                                                                                 # field must be available in
@@ -651,9 +648,9 @@ class DataPreprocessor:
                                                                                                                                 # been queried-once or it has been 
                                                                                                                                 # queried for this particular measurement.
 
-            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict[translator['creation_date'][1]][:10]}"
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_gainmeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
             _, extension = os.path.splitext(aux['raw_filepath'])        # Preserve the original extension
             new_raw_filename = output_filepath_base+'_raw_gain'+extension
@@ -690,7 +687,7 @@ class DataPreprocessor:
                                                 *translator.keys(),
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -739,14 +736,14 @@ class DataPreprocessor:
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux_2['acquisition_time']/60.})    # The acquisition time is not queried.
                                                                                                                 # Here, I am assuming that the time 
                                                                                                                 # stamp unit is the second.
-                                                                                                                                # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                                # The 'date' field will be queried,
-            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,           # although the creation date of the
-                                                                                        default_dict=aux_darknoisemeas_dict))   # file will be available as a 
-                                                                                                                                # default value
-            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict[translator['creation_date'][1]][:10]}"    
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_darknoisemeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+                                                                                                                # It is computed from the time stamp.
+
+            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,
+                                                                                        default_dict=aux_darknoisemeas_dict))
+
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['date'][:10]}"    
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
             _, extension = os.path.splitext(aux['raw_filepath'])
             new_raw_filename = output_filepath_base+'_raw_darknoise'+extension
@@ -803,7 +800,7 @@ class DataPreprocessor:
             aux = DataPreprocessor.process_file(self.BinaryGainCandidates[key],
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,                 # Extracts the creation date to aux['creation_date']
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -834,10 +831,8 @@ class DataPreprocessor:
                 if fAssignStripID:
                     aux_gainmeas_dict.update({  'strip_ID':strips_ids[i//sipms_per_strip]})
 
-            aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
-            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
-                                                                                    default_dict=aux_gainmeas_dict))    # file will be available as a 
-                                                                                                                        # default value
+            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,
+                                                                                    default_dict=aux_gainmeas_dict))
             
             if aux_wvfset_dict[translator['average_delta_t_wf'][1]]==0.0:   # For our particular setup, an 'empty timestamp'
                                                                             # is actually full of null entries. The way of
@@ -848,9 +843,9 @@ class DataPreprocessor:
                 aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Compute 'delta_t_wf' as
                                                                                                                                     # for the ASCII gain case.  
 
-            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict[translator['creation_date'][1]][:10]}"
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_gainmeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             
             _, extension = os.path.splitext(aux['raw_filepath'])
             new_raw_filename = output_filepath_base+'_raw_gain'+extension
@@ -886,7 +881,7 @@ class DataPreprocessor:
             aux = DataPreprocessor.process_file(self.BinaryDarkNoiseCandidates[key],
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,                 # Extracts the creation date to aux['creation_date']
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -919,15 +914,14 @@ class DataPreprocessor:
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux['acquisition_time']/60.})  # The acquisition time is not queried.
                                                                                                             # Here, I am assuming that the time 
                                                                                                             # stamp unit is the second.
-                                                                                                                                # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                                # The 'date' field will be queried,
-            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,           # although the creation date of the
-                                                                                        default_dict=aux_darknoisemeas_dict))   # file will be available as a 
-                                                                                                                                # default value
+                                                                                                            # It is computed from the time stamp.
 
-            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict[translator['creation_date'][1]][:10]}"    
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_darknoisemeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,
+                                                                                        default_dict=aux_darknoisemeas_dict))
+
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['date'][:10]}"    
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
              
             _, extension = os.path.splitext(aux['raw_filepath'])
             new_raw_filename = output_filepath_base+'_raw_darknoise'+extension
