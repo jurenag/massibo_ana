@@ -1,13 +1,3 @@
-#######################################################################################
-#
-# Bugs
-#
-#   1. In DataPreprocessor.generate_meas_config_files():
-#       1.1)    At some point the "date" field that is read from the json file, is
-#               overwritten by the creation date of the file.
-#
-#######################################################################################
-
 import os
 import json
 import numpy as np
@@ -230,7 +220,7 @@ class DataPreprocessor:
         """This method gets the following mandatory positional arguments:
          
         - root_directory (string): Path which points to an existing directory,
-        which is consireded to be the root directory. Every path which is
+        which is considered to be the root directory. Every path which is
         written by this function is relative to this root directory.
         - load_folderpath (string): Path to a folder where the DarkNoiseMeas and
         GainMeas configuration json files will be saved. It must be contained,
