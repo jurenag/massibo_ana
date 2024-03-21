@@ -1,14 +1,3 @@
-#######################################################################################
-#
-# Possible improvements:
-#
-#   1)  In DataPreprocessor.generate_meas_config_files():
-#       1.1)    Take sipm_location field automatically from the filepaths
-#       1.2)    Add the possibility to take the parameters from a json auxiliary file,
-#               instead of querying the user for all of them
-#
-#######################################################################################
-
 import os
 import json
 import numpy as np
@@ -223,12 +212,15 @@ class DataPreprocessor:
                                             wvf_skiprows_identifier='TIME,',
                                             ts_skiprows_identifier='X:',
                                             data_delimiter=',',
+                                            path_to_json_default_values=None,
+                                            sipms_per_strip=None,
+                                            strips_ids=None,
                                             verbose=True):
         
         """This method gets the following mandatory positional arguments:
          
         - root_directory (string): Path which points to an existing directory,
-        which is consireded to be the root directory. Every path which is
+        which is considered to be the root directory. Every path which is
         written by this function is relative to this root directory.
         - load_folderpath (string): Path to a folder where the DarkNoiseMeas and
         GainMeas configuration json files will be saved. It must be contained,
@@ -263,6 +255,24 @@ class DataPreprocessor:
         ASCII measurements. It is given to DataPreprocessor.process_file() as 
         data_delimiter. It is used to separate entries of the different columns 
         of the ASCII input data files.
+        - path_to_json_default_values (string): If it is not none, it should be
+        the path to a json file from which some default values may be read.
+        - sipms_per_strip (positive integer): The number of SiPMs per strip. If 
+        it is not None, the electronic_board_socket and sipm_location fields will 
+        be inferred. To do so, for each type of measurement (namely ascii gain,
+        ascii dark noise, binary gain and binary dark noise), the candidates
+        are sorted according to its keys (p.e. for ascii gain measurements,
+        they are sorted according to the keys of self.__ascii_gain_candidates) 
+        associating an iterator value i>=0 to each candidate, so that the 
+        electronic_board_socket value is inferred as (i//sipms_per_strip)+1 and 
+        the sipm_location value is inferred as (i%sipms_per_strip)+1.
+        - strips_ids (list of integers): Its value only makes a difference if
+        sipms_per_strip is defined. In such case (and if it is defined), then for
+        each type of measurement, strips_ids[i] is assumed to be the strip_ID
+        field for the k-th measurement candidate, where k takes values from
+        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1. To this end, it is required
+        that the number of candidates for whichever type of measurement is a 
+        multiple of sipms_per_strip.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -276,9 +286,42 @@ class DataPreprocessor:
         using the GainMeas.from_json_file (DarkNoiseMeas.from_json_file) 
         initializer class method. To do so, some information is taken from the 
         input files themselves, such as the fields 'time_unit', 'signal_unit', 
-        'time_resolution', 'points_per_wvf', 'wvfs_to_read' or 'date', among 
-        others. The user is interactively asked for the remaining necessary 
-        information."""
+        'time_resolution', 'points_per_wvf' or 'wvfs_to_read', among others. 
+        The remaining necessary information, namely
+
+            - signal_magnitude (str),
+            - set_name (str),
+            - creation_dt_offset_min (float),
+            - delivery_no (int),
+            - set_no (int),
+            - tray_no (int),
+            - meas_no (int),
+            - strip_ID (int),
+            - meas_ID (str),
+            - date (str, in the format 'YYYY-MM-DD HH:MM:SS'),
+            - location (str),
+            - operator (str),
+            - setup_ID (str),
+            - system_characteristics (str),
+            - thermal_cycle (int),
+            - elapsed_cryo_time_min (float),
+            - electronic_board_number (int),
+            - electronic_board_location (str),
+            - electronic_board_socket (int),
+            - sipm_location (int),
+            - overvoltage_V (float),
+            - PDE (float),
+            - status (str),
+            - LED_voltage_V (float),
+            - LED_frequency_kHz (float),
+            - LED_pulse_shape (str),
+            - LED_high_width_ns (float) and
+            - threshold_mV (float),
+
+        is taken from the json file given to path_to_json_default_values, if 
+        it is available there and the values comply with the expected types. 
+        The user is interactively a interactively asked for the fields which 
+        could not be retrieved from the given json file."""
         
         htype.check_type(   root_directory, str,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
@@ -344,6 +387,52 @@ class DataPreprocessor:
         htype.check_type(   data_delimiter, str,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
                                                                                 79439))
+        fReadDefaultsFromFile = False
+        if path_to_json_default_values is not None:
+            htype.check_type(   path_to_json_default_values, str,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                    91126))
+            fReadDefaultsFromFile = True
+
+        fInferrFields = False
+        if sipms_per_strip is not None:
+            htype.check_type(   sipms_per_strip, int, np.int64,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                    89701))
+            if sipms_per_strip<1:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                        12924))
+            fInferrFields = True
+            fAssignStripID = False
+
+            if strips_ids is not None:  # Yes, only check strips_ids if sipms_per_strip is defined
+                htype.check_type(   strips_ids, list,
+                                    exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                        42323))
+                for elem in strips_ids:
+                    htype.check_type(   elem, int, np.int64,
+                                        exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                            61191))
+                p1 = len(self.ASCIIGainCandidates)%sipms_per_strip!=0
+                p2 = len(self.ASCIIDarkNoiseCandidates)%sipms_per_strip!=0
+                p3 = len(self.BinaryGainCandidates)%sipms_per_strip!=0
+                p4 = len(self.BinaryDarkNoiseCandidates)%sipms_per_strip!=0
+
+                if p1 or p2 or p3 or p4:
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
+                                                                                            39450,
+                                                                                            extra_info=f"The number of candidates for at least one type of measurement is not a multiple of {sipms_per_strip}. The provided strip IDs cannot be automatically assigned to the candidates."))
+                max_candidates = max(   len(self.ASCIIGainCandidates), 
+                                        len(self.ASCIIDarkNoiseCandidates), 
+                                        len(self.BinaryGainCandidates), 
+                                        len(self.BinaryDarkNoiseCandidates))
+                
+                if len(strips_ids)<(max_candidates/sipms_per_strip):    # max_candidates is a multiple of sipms_per_strip
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files",
+                                                                                            55152,
+                                                                                            extra_info=f"For at least one type of measurement, the number of provided strip IDs is not enough for all of the given candidates. The provided strip IDs cannot be automatically assigned to the candidates."))
+                fAssignStripID = True
+
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message( "DataPreprocessor.generate_meas_config_files", 
                                                                                 92127))
@@ -355,24 +444,39 @@ class DataPreprocessor:
                                                                                 # As of this point, every key which belongs to self.ASCIIDarkNoiseCandidates,
                                                                                 # is also present in self.TimeStampCandidates
         queried_wvf_fields = {'signal_magnitude':str}
-        queried_once_wvf_fields, queried_wvf_fields = DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
+        read_wvf_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_wvf_fields_from_file, queried_wvf_fields = DataPreprocessor.try_grabbing_from_json(queried_wvf_fields, 
+                                                                                                    path_to_json_default_values,
+                                                                                                    verbose=verbose)
+        queried_once_wvf_fields = {}
+        if bool(queried_wvf_fields):    # True if queried_wvfs_fields is not empty
+            queried_once_wvf_fields, queried_wvf_fields = DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
+
         queried_wvfset_fields = {   #'separator':str,   # In the case of ASCII files, our oscilloscope always outputs 
                                                         # the number of samples, i.e. points_per_wvf, so we won't need 
                                                         # a separator in such case. For the case of binary files, the
                                                         # read process does not need a separator either.
-                                    'delta_t_wf':float, # Only queried for ASCII gain meas. For the rest 
-                                                        # of cases, it is computed from the input data.
                                     'set_name':str,
                                     'creation_dt_offset_min':float}
-        queried_once_wvfset_fields, queried_wvfset_fields = DataPreprocessor.query_dictionary_splitting(queried_wvfset_fields)
+        
+        read_wvfset_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_wvfset_fields_from_file, queried_wvfset_fields = DataPreprocessor.try_grabbing_from_json(  queried_wvfset_fields, 
+                                                                                                            path_to_json_default_values,
+                                                                                                            verbose=verbose)
+        queried_once_wvfset_fields = {}
+        if bool(queried_wvfset_fields): # True if queried_wvfset_fields is not empty
+            queried_once_wvfset_fields, queried_wvfset_fields = DataPreprocessor.query_dictionary_splitting(queried_wvfset_fields)
+
         queried_sipmmeas_fields = { 'delivery_no':int,
                                     'set_no':int,
                                     'tray_no':int,
                                     'meas_no':int,
                                     'strip_ID':int,
                                     'meas_ID':str,
-                                    'date':str,         # The 'date' field will be queried, although the creation
-                                    'location':str,     # date of the file will be available as default value
+                                    'date':str,         # It must be in the format 'YYYY-MM-DD HH:MM:SS'
+                                    'location':str,
                                     'operator':str,
                                     'setup_ID':str,
                                     'system_characteristics':str,
@@ -385,13 +489,70 @@ class DataPreprocessor:
                                     'overvoltage_V':float,
                                     'PDE':float,
                                     'status':str}
-        queried_once_sipmmeas_fields, queried_sipmmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
-        queried_gainmeas_fields = { 'LED_voltage_V':float}
-        queried_once_gainmeas_fields, queried_gainmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_gainmeas_fields)
+        
+        inferred_sipmmeas_fields = {} 
+        if fInferrFields:
+            inferred_sipmmeas_fields = {'electronic_board_socket':queried_sipmmeas_fields['electronic_board_socket'],
+                                        'sipm_location':queried_sipmmeas_fields['sipm_location']}
+            del queried_sipmmeas_fields['electronic_board_socket']
+            del queried_sipmmeas_fields['sipm_location']
+
+            if fAssignStripID:
+                inferred_sipmmeas_fields['strip_ID'] = queried_sipmmeas_fields['strip_ID']
+                del queried_sipmmeas_fields['strip_ID']
+
+            if not fAssignStripID:
+                if not DataPreprocessor.yes_no_translator(input(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the filepaths ordering and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)")):
+                    return
+            else:
+                if not DataPreprocessor.yes_no_translator(input(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the filepaths ordering and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)")):
+                    return         
+
+        read_sipmmeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_sipmmeas_fields_from_file, queried_sipmmeas_fields = DataPreprocessor.try_grabbing_from_json(  queried_sipmmeas_fields, 
+                                                                                                                path_to_json_default_values,
+                                                                                                                verbose=verbose)
+        queried_once_sipmmeas_fields = {}
+        if bool(queried_sipmmeas_fields): # True if queried_sipmmeas_fields is not empty
+            queried_once_sipmmeas_fields, queried_sipmmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
+
+        queried_gainmeas_fields = { 'LED_voltage_V':float,
+                                    'LED_frequency_kHz':float,
+                                    'LED_pulse_shape':str,
+                                    'LED_high_width_ns':float}
+
+        inferred_gainmeas_fields = {}
+        if fInferrFields:
+            inferred_gainmeas_fields.update(inferred_sipmmeas_fields)
+
+        read_gainmeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_gainmeas_fields_from_file, queried_gainmeas_fields = DataPreprocessor.try_grabbing_from_json(  queried_gainmeas_fields, 
+                                                                                                                path_to_json_default_values,
+                                                                                                                verbose=verbose)
+        queried_once_gainmeas_fields = {}
+        if bool(queried_gainmeas_fields): # True if queried_gainmeas_fields is not empty
+            print('The following only applies to gain measurements: ', end='')
+            queried_once_gainmeas_fields, queried_gainmeas_fields = DataPreprocessor.query_dictionary_splitting(queried_gainmeas_fields)
         queried_gainmeas_fields.update(queried_sipmmeas_fields)
+        
         queried_darknoisemeas_fields = {'threshold_mV':float}       # The acquisition time is not queried because 
                                                                     # it is computed from the time stamp data
-        queried_once_darknoisemeas_fields, queried_darknoisemeas_fields = DataPreprocessor.query_dictionary_splitting(queried_darknoisemeas_fields)
+        
+        inferred_darknoisemeas_fields = {}
+        if fInferrFields:
+            inferred_darknoisemeas_fields.update(inferred_sipmmeas_fields)
+
+        read_darknoisemeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_darknoisemeas_fields_from_file, queried_darknoisemeas_fields = DataPreprocessor.try_grabbing_from_json(    queried_darknoisemeas_fields, 
+                                                                                                                            path_to_json_default_values,
+                                                                                                                            verbose=verbose)
+        queried_once_darknoisemeas_fields = {}
+        if bool(queried_darknoisemeas_fields): # True if queried_darknoisemeas_fields is not empty
+            print('The following only applies to dark noise measurements: ', end='')
+            queried_once_darknoisemeas_fields, queried_darknoisemeas_fields = DataPreprocessor.query_dictionary_splitting(queried_darknoisemeas_fields)
         queried_darknoisemeas_fields.update(queried_sipmmeas_fields)
 
         translator = {  'Horizontal Units':[str, 'time_unit'],
@@ -399,29 +560,44 @@ class DataPreprocessor:
                         'Sample Interval':[float, 'time_resolution'],
                         'Record Length':[int, 'points_per_wvf'],
                         'FastFrame Count':[int, 'wvfs_to_read'],
-                        'creation_date':[str, 'date'],
-                        'average_delta_t_wf':[float, 'delta_t_wf'],             # Can be used in every case but ASCII Gain - in such
-                                                                                # case the user needs to manually input this value
+                        'average_delta_t_wf':[float, 'delta_t_wf'],             # The casuistry for this one is the following:
+                                                                                # - ASCII gain: There's no timestamp from which to compute this, so
+                                                                                #               this value may be computed from LED_frequency_kHz
+                                                                                # - ASCII dark noise: The value is computed from the input timestamp
+                                                                                # - Binary gain:    For our particular case, the DAQ oscilloscope is giving an
+                                                                                #                   empty timestamp, since the trigger in this case is external
+                                                                                #                   (it comes from the LED voltage source). The code should
+                                                                                #                   try to compute 'delta_t_wf' from the timestamp, but if it
+                                                                                #                   results in 0.0, the code should alternatively compute it 
+                                                                                #                   using LED_frequency_kHz.
+                                                                                # - Binary dark noise: The value is computed from the input timestamp
                         'acquisition_time':[float, 'acquisition_time_min']}
 
-        # Query unique-query data
-        print("Let us retrieve the unique-query fields. These fields will apply for every measurement in this DataPreprocessor instance.")
+        # Query unique-query data and add update them with the default values gotten from the json file
+        if queried_once_wvf_fields or queried_once_wvfset_fields or queried_once_sipmmeas_fields or queried_once_gainmeas_fields or queried_darknoisemeas_fields:
+            print("Let us retrieve the unique-query fields. These fields will apply for every measurement in this DataPreprocessor instance.")
+
         aux_wvf_dict            = DataPreprocessor.query_fields_in_dictionary(queried_once_wvf_fields,          default_dict=None)
+        aux_wvf_dict            .update(read_wvf_fields_from_file)
         aux_wvfset_dict         = DataPreprocessor.query_fields_in_dictionary(queried_once_wvfset_fields,       default_dict=None)
+        aux_wvfset_dict         .update(read_wvfset_fields_from_file)
         aux_sipmmeas_dict       = DataPreprocessor.query_fields_in_dictionary(queried_once_sipmmeas_fields,     default_dict=None)
+        aux_sipmmeas_dict       .update(read_sipmmeas_fields_from_file)
         aux_gainmeas_dict       = DataPreprocessor.query_fields_in_dictionary(queried_once_gainmeas_fields,     default_dict=None)
+        aux_gainmeas_dict       .update(read_gainmeas_fields_from_file)
         aux_darknoisemeas_dict  = DataPreprocessor.query_fields_in_dictionary(queried_once_darknoisemeas_fields,default_dict=None)
+        aux_darknoisemeas_dict  .update(read_darknoisemeas_fields_from_file)
 
         aux_gainmeas_dict.update(aux_sipmmeas_dict)
         aux_darknoisemeas_dict.update(aux_sipmmeas_dict)
 
-        for key in sorted(self.ASCIIGainCandidates.keys()):
+        for i, key in enumerate(sorted(self.ASCIIGainCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.ASCIIGainCandidates[key],
                                                 *translator.keys(),
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,                 # Extracts the creation date to aux['creation_date']
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -446,13 +622,25 @@ class DataPreprocessor:
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
 
-            aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
-            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
-                                                                                    default_dict=aux_gainmeas_dict))    # file will be available as a 
-                                                                                                                        # default value
-            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict[translator['creation_date'][1]][:10]}"
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_gainmeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+            if fInferrFields:
+                aux_gainmeas_dict.update({  'electronic_board_socket':(i//sipms_per_strip)+1,
+                                            'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_gainmeas_dict.update({  'strip_ID':strips_ids[i//sipms_per_strip]})
+
+            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,
+                                                                                    default_dict=aux_gainmeas_dict))
+            
+            aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Up to this point, the 'LED_frequency_kHz' 
+                                                                                                                                # field must be available in
+                                                                                                                                # aux_gainmeas_dict. Either it has 
+                                                                                                                                # been read from a json file, it has 
+                                                                                                                                # been queried-once or it has been 
+                                                                                                                                # queried for this particular measurement.
+
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
             _, extension = os.path.splitext(aux['raw_filepath'])        # Preserve the original extension
             new_raw_filename = output_filepath_base+'_raw_gain'+extension
@@ -482,26 +670,14 @@ class DataPreprocessor:
                                                                         start=root_directory)
             gainmeas_output_filepath = os.path.join(load_folderpath, output_filepath_base+'_gainmeas.json')
             DataPreprocessor.generate_json_file(aux_gainmeas_dict, gainmeas_output_filepath)
-        
-        try:                                    # This field should only be queried for ASCII gain measurements,
-            del aux_wvfset_dict['delta_t_wf']   # i.e. we should delete it from aux_wvfset_dict so it is not
-        except KeyError:                        # queried again for further measurements. However, if this
-            pass                                # parameter was not set as a query-once parameter AND there 
-                                                # are no ASCII Gain measurements, then there's no entry in 
-                                                # aux_wvfset_dict under the 'delta_t_wf' key so far. Handle
-                                                # this case. 
-        try:                                                    # The 'delta_t_wf' field might have been moved
-            del queried_wvfset_fields['delta_t_wf']             # to queried_once_wvfset_fields. If that's the case
-        except KeyError:                                        # case, it won't be queried again, so everything's ok.
-            pass                                    
 
-        for key in sorted(self.ASCIIDarkNoiseCandidates.keys()):
+        for i, key in enumerate(sorted(self.ASCIIDarkNoiseCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.ASCIIDarkNoiseCandidates[key],
                                                 *translator.keys(),
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -536,22 +712,28 @@ class DataPreprocessor:
                                     translator['Record Length'][1]:aux['Record Length'],
                                     translator['FastFrame Count'][1]:aux['FastFrame Count'],
                                     'timestamp_filepath':aux_2['processed_filepath'],
-                                    translator['average_delta_t_wf'][1]:aux_2['average_delta_t_wf']})   # Extracting this value is not necessary
-                                                                                                        # for the Dark Noise case.
+                                    translator['average_delta_t_wf'][1]:aux_2['average_delta_t_wf']})   # Extracting this value, although it is not
+                                                                                                        # strictly necessary for the Dark Noise case.
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
             
+            if fInferrFields:
+                aux_darknoisemeas_dict.update({ 'electronic_board_socket':(i//sipms_per_strip)+1,
+                                                'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_darknoisemeas_dict.update({ 'strip_ID':strips_ids[i//sipms_per_strip]})
+
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux_2['acquisition_time']/60.})    # The acquisition time is not queried.
                                                                                                                 # Here, I am assuming that the time 
                                                                                                                 # stamp unit is the second.
-                                                                                                                                # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                                # The 'date' field will be queried,
-            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,           # although the creation date of the
-                                                                                        default_dict=aux_darknoisemeas_dict))   # file will be available as a 
-                                                                                                                                # default value
-            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict[translator['creation_date'][1]][:10]}"    
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_darknoisemeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+                                                                                                                # It is computed from the time stamp.
+
+            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,
+                                                                                        default_dict=aux_darknoisemeas_dict))
+
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
             _, extension = os.path.splitext(aux['raw_filepath'])
             new_raw_filename = output_filepath_base+'_raw_darknoise'+extension
@@ -603,12 +785,12 @@ class DataPreprocessor:
                             # 'timestamp_filepath' key.
             pass 
 
-        for key in sorted(self.BinaryGainCandidates.keys()):
+        for i, key in enumerate(sorted(self.BinaryGainCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.BinaryGainCandidates[key],
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,                 # Extracts the creation date to aux['creation_date']
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -633,13 +815,27 @@ class DataPreprocessor:
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
 
-            aux_gainmeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                             # The 'date' field will be queried,
-            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,            # although the creation date of the
-                                                                                    default_dict=aux_gainmeas_dict))    # file will be available as a 
-                                                                                                                        # default value
-            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict[translator['creation_date'][1]][:10]}"
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_gainmeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+            if fInferrFields:
+                aux_gainmeas_dict.update({  'electronic_board_socket':(i//sipms_per_strip)+1,
+                                            'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_gainmeas_dict.update({  'strip_ID':strips_ids[i//sipms_per_strip]})
+
+            aux_gainmeas_dict.update(DataPreprocessor.query_fields_in_dictionary(   queried_gainmeas_fields,
+                                                                                    default_dict=aux_gainmeas_dict))
+            
+            if aux_wvfset_dict[translator['average_delta_t_wf'][1]]==0.0:   # For our particular setup, an 'empty timestamp'
+                                                                            # is actually full of null entries. The way of
+                                                                            # computing 'delta_t_wf' by 
+                                                                            # DataPreprocessor.process_core_data makes
+                                                                            # 'delta_t_wf' be 0.0 in this case.
+                
+                aux_wvfset_dict.update({translator['average_delta_t_wf'][1]:(1./(1000.*aux_gainmeas_dict['LED_frequency_kHz']))})   # Compute 'delta_t_wf' as
+                                                                                                                                    # for the ASCII gain case.  
+
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             
             _, extension = os.path.splitext(aux['raw_filepath'])
             new_raw_filename = output_filepath_base+'_raw_gain'+extension
@@ -670,12 +866,12 @@ class DataPreprocessor:
             gainmeas_output_filepath = os.path.join(load_folderpath, output_filepath_base+'_gainmeas.json')
             DataPreprocessor.generate_json_file(aux_gainmeas_dict, gainmeas_output_filepath)
 
-        for key in sorted(self.BinaryDarkNoiseCandidates.keys()):
+        for i, key in enumerate(sorted(self.BinaryDarkNoiseCandidates.keys())):
 
             aux = DataPreprocessor.process_file(self.BinaryDarkNoiseCandidates[key],
                                                 destination_folderpath=data_folderpath,
                                                 backup_folderpath=backup_folderpath,
-                                                get_creation_date=True,                 # Extracts the creation date to aux['creation_date']
+                                                get_creation_date=False,
                                                 overwrite_files=False,
                                                 ndecimals=18,
                                                 verbose=verbose,
@@ -699,18 +895,23 @@ class DataPreprocessor:
             aux_wvfset_dict.update(DataPreprocessor.query_fields_in_dictionary( queried_wvfset_fields,
                                                                                 default_dict=aux_wvfset_dict))
 
+            if fInferrFields:
+                aux_darknoisemeas_dict.update({ 'electronic_board_socket':(i//sipms_per_strip)+1,
+                                                'sipm_location':(i%sipms_per_strip)+1})
+                if fAssignStripID:
+                    aux_darknoisemeas_dict.update({ 'strip_ID':strips_ids[i//sipms_per_strip]})
+
             aux_darknoisemeas_dict.update({translator['acquisition_time'][1]:aux['acquisition_time']/60.})  # The acquisition time is not queried.
                                                                                                             # Here, I am assuming that the time 
                                                                                                             # stamp unit is the second.
-                                                                                                                                # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update({translator['creation_date'][1]:aux['creation_date']})                                # The 'date' field will be queried,
-            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,           # although the creation date of the
-                                                                                        default_dict=aux_darknoisemeas_dict))   # file will be available as a 
-                                                                                                                                # default value
+                                                                                                            # It is computed from the time stamp.
 
-            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict[translator['creation_date'][1]][:10]}"    
-            # The creation date extracted by process follows the format 'YYYY-MM-DD HH:MM:SS'. 
-            # Therefore, aux_darknoisemeas_dict[translator['creation_date'][1]][:10], gives 'YYYY-MM-DD'.
+            aux_darknoisemeas_dict.update(DataPreprocessor.query_fields_in_dictionary(  queried_darknoisemeas_fields,
+                                                                                        default_dict=aux_darknoisemeas_dict))
+
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus, 
+            # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
              
             _, extension = os.path.splitext(aux['raw_filepath'])
             new_raw_filename = output_filepath_base+'_raw_darknoise'+extension
@@ -1930,6 +2131,9 @@ class DataPreprocessor:
             triggers_second_fractions[1:]   = data['trigger_second_fraction']   # info. with info. from the
             gmt_in_seconds[1:]              = data['gmt_in_seconds']            # the rest of the frames.
 
+            # N.B. For binary gain measurements (with external trigger), it was observed that all of
+            # the entries of triggers_second_fractions, and gmt_in_seconds are null at this point.
+
             # Read waveforms
             waveforms = np.memmap(  file,
                                     dtype = metadata['samples_datatype'],
@@ -2017,7 +2221,7 @@ class DataPreprocessor:
         This method returns a dictionary, say result, whose keys match the keys of 
         input_dict. Let us refer to the string keys of input_dict as fields. For a 
         given field 'field', this static method asks the user to input an answer. 
-        If such answer is emtpy, i.e. '', and default_dict do not contain an entry
+        If such answer is emtpy, i.e. '', and default_dict does not contain an entry
         for the key 'field', then an exception is raised. If such answer matches '' 
         and default_dict contains an entry for the key 'field', then 
         default_dict['field'] is added to result under the key 'field'. If such 
@@ -2301,3 +2505,87 @@ class DataPreprocessor:
                                                                                 # For example, while os.path.samefile('/a/b/c', '/a/b/c/')
                                                                                 # evaluates to True, '/a/b/c'=='/a/b/c/' does not.
                                                                                 # The only difference is the last slash.
+    
+    @staticmethod
+    def try_grabbing_from_json(catalog, path_to_json_file, verbose=False):
+
+        """This function gets the following positional arguments:
+        
+        - catalog (dictionary): Its keys must be strings and the type of its values
+        must be 'type'. P.e. type(int)==type evaluates to True.
+        - path_to_json_file (string): Absolute path which must point to a file whose 
+        extension matches '.json'.
+
+        This function gets the following keyword arguments:
+
+        - verbose (boolean): Whether to print functioning-related messages.
+        
+        For each key in catalog, this function checks whether the key is present in 
+        the dictionary which is loaded from the json file pointed by path_to_json_file.
+        If it is present, and the type of its value matches the one signalled by the
+        catalog, the key-value pair is added to the output dictionary, and the key
+        is removed from the catalog. If the key is not present in the loaded dictionary,
+        or it is present but its type is not suitable according to catalog, then the key 
+        remains in the catalog and nothing is added to the output dictionary. This
+        function returns the output dictionary and the remaining catalog, in such order."""
+
+        htype.check_type(   catalog, dict,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                48501))
+        for key in catalog.keys():
+
+            htype.check_type(   key, str,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                    29757))
+            htype.check_type(   catalog[key], type,
+                                exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                    44642))
+        htype.check_type(   path_to_json_file, str,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                62236))
+        if not os.path.isfile(path_to_json_file):
+            raise FileNotFoundError(htype.generate_exception_message(   "DataPreprocessor.try_grabbing_from_json", 
+                                                                        37189,
+                                                                        extra_info=f"The path {path_to_json_file} does not exist or is not a file."))
+        elif not path_to_json_file.endswith(".json"):
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                    37756,
+                                                                                    extra_info=f"File {path_to_json_file} must end with '.json' extension.")) 
+        htype.check_type(   verbose, bool,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                88675))
+
+        output_dictionary = {}
+        remaining_catalog = catalog.copy()  # Otherwise we'll get a view to catalog
+        
+        with open(path_to_json_file, "r") as file:
+            try:
+                input_dictionary = json.load(file)
+            except json.JSONDecodeError:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                        97781,
+                                                                                        extra_info=f"File {path_to_json_file} must contain a valid json object."))
+        for key in catalog.keys():
+            if key in input_dictionary.keys():  # This key of catalog was 
+                                                # found in the input dictionary
+                try:
+                    htype.check_type(   input_dictionary[key], catalog[key],
+                                        exception_message=htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                                            35881))
+                except cuex.TypeException:  # Although the key was found, its 
+                                            # value does not have a suitable type
+                                            # cuex.TypeException is the exception raised
+                                            # by htype.check_type if types do not match.
+                    if verbose: 
+                        print(htype.generate_exception_message( "DataPreprocessor.try_grabbing_from_json", 
+                                                                58548,
+                                                                extra_info=f"A candidate for key '{key}' was found but its type does not match the required one. The candidate has been ignored."))
+                    continue
+
+                else:           # The found candidate has a suitable type
+                                # Actually add it to the output dictionary
+                    
+                    output_dictionary[key] = input_dictionary[key]
+                    del remaining_catalog[key]
+
+        return output_dictionary, remaining_catalog
