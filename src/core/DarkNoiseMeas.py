@@ -289,11 +289,24 @@ class DarkNoiseMeas(SiPMMeas):
                                         # The amplitudes of the secondary peaks (secondary
                                         # in time) are not correctly evaluated.
 
-        for i in range(np.shape(ordering_wvfs_idx)[0]):                                 
-            aux_t = np.array(self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_pos'])   # 'peaks_pos' and 'peaks_top' are always defined as a key 
-            aux_t += self.Waveforms[ordering_wvfs_idx[i]].T0                            # of a Waveform object Signs attribute, even if its associated
-            times += list(aux_t)                                                        # value is an empty list (case of no found peaks). That's why
-                                                                                        # there's no need to try to handle a KeyError here.
+        for i in range(np.shape(ordering_wvfs_idx)[0]):
+            try:                                
+                aux_t = np.array(self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_pos'])
+
+            except KeyError:    # Happens if the 'peaks_pos' key is not available in the 
+                                # Signs attribute of the Waveform object, which means that
+                                # that no peaks-analysis was run prior to this point, such
+                                # as the find_peaks() method of the of the underlying 
+                                # waveform-set. Such analysis should be responsible for
+                                # creating and populating such entry in the waveforms 
+                                # Signs attribute.
+
+                raise cuex.NoAvailableData(htype.generate_exception_message("DarkNoiseMeas.construct_absolute_time_peaks_map", 
+                                                                            72522,
+                                                                            extra_info="There is no peak information available in the underlying waveform set. Such information must have been created prior to this point."))
+            aux_t += self.Waveforms[ordering_wvfs_idx[i]].T0                            
+            times += list(aux_t)                                                        
+
             aux_baseline = self.Waveforms[ordering_wvfs_idx[i]].Signs['first_peak_baseline'][0]
             aux_a = [self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_top'][j]-aux_baseline for j in range(len(self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_top']))]
             amplitudes += aux_a
