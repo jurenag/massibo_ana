@@ -1138,6 +1138,7 @@ class DarkNoiseMeas(SiPMMeas):
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
         - "N_events": Contains self.NEvents
+        - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
 
         - "acquisition_time_min": Contains self.__acquisition_time_min,
@@ -1212,6 +1213,7 @@ class DarkNoiseMeas(SiPMMeas):
                     "overvoltage_V": self.Overvoltage_V,
                     "PDE": self.PDE,
                     "N_events": self.NEvents,
+                    "signal_unit": self.SignalUnit,
                     "status": self.Status,
 
                     "acquisition_time_min":self.__acquisition_time_min,

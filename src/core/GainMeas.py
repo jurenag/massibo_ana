@@ -885,6 +885,7 @@ class GainMeas(SiPMMeas):
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
         - "N_events": Contains self.NEvents
+        - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
 
         - "LED_voltage_V": Contains self.__LED_voltage_V,
@@ -962,6 +963,7 @@ class GainMeas(SiPMMeas):
                     "overvoltage_V": self.Overvoltage_V,
                     "PDE": self.PDE,
                     "N_events": self.NEvents,
+                    "signal_unit": self.SignalUnit,
                     "status": self.Status,
                     "LED_voltage_V":self.__LED_voltage_V,
                     "LED_frequency_kHz":self.__LED_frequency_kHz,
