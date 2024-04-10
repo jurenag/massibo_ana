@@ -825,6 +825,7 @@ class GainMeas(SiPMMeas):
                                 *args,
                                 overwrite=False,
                                 additional_entries={}, 
+                                indent=None,
                                 verbose=False,
 
                                 **kwargs):
@@ -854,6 +855,16 @@ class GainMeas(SiPMMeas):
         additional_entries.keys() already exists in the output dictionary,
         it will be overwritten. Below, you can consult the keys that will 
         be part of the output dictionary by default.
+        - indent (None, non-negative integer or string): This parameter controls
+        the indentation with which the json summary-file is generated. It is
+        passed to the 'indent' parameter of json.dump. If indent is None, then 
+        the most compact representation is used. If indent is a non-negative 
+        integer, then one new line is added per each key-value pair, and indent 
+        is the number of spaces that are added at the very beginning of each 
+        new line. If indent is a string, then one new line is added per each
+        key-value pair, and indent is the string that is added at the very
+        beginning of each new line. P.e. if indent is a string (such as "\t"), 
+        each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
         - kwargs: Included so that this signature matches that of the
         overrided method. It is not used, although it may be used in the
@@ -885,6 +896,7 @@ class GainMeas(SiPMMeas):
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
         - "N_events": Contains self.NEvents
+        - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
 
         - "LED_voltage_V": Contains self.__LED_voltage_V,
@@ -922,6 +934,15 @@ class GainMeas(SiPMMeas):
         
         htype.check_type(   additional_entries, dict,
                             exception_message=htype.generate_exception_message("GainMeas.output_summary", 55230))
+        
+        if indent is not None:
+
+            htype.check_type(   indent, int, np.int64, str,
+                                exception_message=htype.generate_exception_message("GainMeas.output_summary", 12557))
+            
+            if isinstance(indent, int) or isinstance(indent, np.int64):
+                if indent<0:
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message("GainMeas.output_summary", 56299))
         
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message("GainMeas.output_summary", 88321))
@@ -962,6 +983,7 @@ class GainMeas(SiPMMeas):
                     "overvoltage_V": self.Overvoltage_V,
                     "PDE": self.PDE,
                     "N_events": self.NEvents,
+                    "signal_unit": self.SignalUnit,
                     "status": self.Status,
                     "LED_voltage_V":self.__LED_voltage_V,
                     "LED_frequency_kHz":self.__LED_frequency_kHz,
@@ -972,7 +994,7 @@ class GainMeas(SiPMMeas):
         output.update(additional_entries)
         
         with open(output_filepath, 'w') as file:
-            json.dump(output, file)
+            json.dump(output, file, indent=indent)
 
         if verbose:
             print(f"In function GainMeas.output_summary(): The output file has been written to {output_filepath}.")

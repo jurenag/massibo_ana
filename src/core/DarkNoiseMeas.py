@@ -131,6 +131,7 @@ class DarkNoiseMeas(SiPMMeas):
                                         # automatised within this initializer because it requires some keyword arguments 
                                         # (kwargs) which are passed to the peak-finding algorithm (scipy.signal.find_peaks()). 
                                         # It is convenient to keep those kwargs apart from the kwargs of this initializer.
+        
         self.__frame_idx = None         # This is intended to be a one dimensional float numpy array, whose length
                                         # matches that of self.__timedelay and self.__amplitude. self.__frame_idx[i]
                                         # is meant to be iterator value, within self.Waveforms, for the waveform where
@@ -288,11 +289,24 @@ class DarkNoiseMeas(SiPMMeas):
                                         # The amplitudes of the secondary peaks (secondary
                                         # in time) are not correctly evaluated.
 
-        for i in range(np.shape(ordering_wvfs_idx)[0]):                                 
-            aux_t = np.array(self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_pos'])   # 'peaks_pos' and 'peaks_top' are always defined as a key 
-            aux_t += self.Waveforms[ordering_wvfs_idx[i]].T0                            # of a Waveform object Signs attribute, even if its associated
-            times += list(aux_t)                                                        # value is an empty list (case of no found peaks). That's why
-                                                                                        # there's no need to try to handle a KeyError here.
+        for i in range(np.shape(ordering_wvfs_idx)[0]):
+            try:                                
+                aux_t = np.array(self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_pos'])
+
+            except KeyError:    # Happens if the 'peaks_pos' key is not available in the 
+                                # Signs attribute of the Waveform object, which means that
+                                # that no peaks-analysis was run prior to this point, such
+                                # as the find_peaks() method of the of the underlying 
+                                # waveform-set. Such analysis should be responsible for
+                                # creating and populating such entry in the waveforms 
+                                # Signs attribute.
+
+                raise cuex.NoAvailableData(htype.generate_exception_message("DarkNoiseMeas.construct_absolute_time_peaks_map", 
+                                                                            72522,
+                                                                            extra_info="There is no peak information available in the underlying waveform set. Such information must have been created prior to this point."))
+            aux_t += self.Waveforms[ordering_wvfs_idx[i]].T0                            
+            times += list(aux_t)                                                        
+
             aux_baseline = self.Waveforms[ordering_wvfs_idx[i]].Signs['first_peak_baseline'][0]
             aux_a = [self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_top'][j]-aux_baseline for j in range(len(self.Waveforms[ordering_wvfs_idx[i]].Signs['peaks_top']))]
             amplitudes += aux_a
@@ -1065,6 +1079,7 @@ class DarkNoiseMeas(SiPMMeas):
                                 *args,
                                 overwrite=False,
                                 additional_entries={}, 
+                                indent=None,
                                 verbose=False,
 
                                 **kwargs):
@@ -1093,6 +1108,16 @@ class DarkNoiseMeas(SiPMMeas):
         additional_entries.keys() already exists in the output dictionary,
         it will be overwritten. Below, you can consult the keys that will 
         be part of the output dictionary by default.
+        - indent (None, non-negative integer or string): This parameter controls
+        the indentation with which the json summary-file is generated. It is
+        passed to the 'indent' parameter of json.dump. If indent is None, then 
+        the most compact representation is used. If indent is a non-negative 
+        integer, then one new line is added per each key-value pair, and indent 
+        is the number of spaces that are added at the very beginning of each 
+        new line. If indent is a string, then one new line is added per each
+        key-value pair, and indent is the string that is added at the very
+        beginning of each new line. P.e. if indent is a string (such as "\t"), 
+        each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
         - kwargs: Included so that this signature matches that of the
         overrided method. It is not used, although it may be used in the
@@ -1124,6 +1149,7 @@ class DarkNoiseMeas(SiPMMeas):
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
         - "N_events": Contains self.NEvents
+        - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
 
         - "acquisition_time_min": Contains self.__acquisition_time_min,
@@ -1158,6 +1184,15 @@ class DarkNoiseMeas(SiPMMeas):
         
         htype.check_type(   additional_entries, dict,
                             exception_message=htype.generate_exception_message("DarkNoiseMeas.output_summary", 71007))
+        
+        if indent is not None:
+
+            htype.check_type(   indent, int, np.int64, str,
+                                exception_message=htype.generate_exception_message("DarkNoiseMeas.output_summary", 46082))
+            
+            if isinstance(indent, int) or isinstance(indent, np.int64):
+                if indent<0:
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message("DarkNoiseMeas.output_summary", 47294))
         
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message("DarkNoiseMeas.output_summary", 79529))
@@ -1198,6 +1233,7 @@ class DarkNoiseMeas(SiPMMeas):
                     "overvoltage_V": self.Overvoltage_V,
                     "PDE": self.PDE,
                     "N_events": self.NEvents,
+                    "signal_unit": self.SignalUnit,
                     "status": self.Status,
 
                     "acquisition_time_min":self.__acquisition_time_min,
@@ -1218,7 +1254,7 @@ class DarkNoiseMeas(SiPMMeas):
         output.update(additional_entries)
         
         with open(output_filepath, 'w') as file:
-            json.dump(output, file)
+            json.dump(output, file, indent=indent)
 
         if verbose:
             print(f"In function DarkNoiseMeas.output_summary(): The output file has been written to {output_filepath}.")

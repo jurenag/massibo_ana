@@ -257,6 +257,19 @@ class SiPMMeas(ABC):
         # The WaveformSet date is set to match the SiPMMeas date
         # Up to this point, self.__date is either None or a datetime
 
+        if self.__waveforms.check_homogeneity_of_sign_through_set('signal_unit'):
+            self.__signal_unit = self.__waveforms[0].Signs['signal_unit'][0]        # Note that this attribute has a
+                                                                                    # different data flow compared to 
+                                                                                    # the rest of attributes. It is
+                                                                                    # not explictly given to this
+                                                                                    # initializer, but implictly given
+                                                                                    # to WaveformSet.from_files. Then,
+                                                                                    # we recover it from the WaveformSet
+                                                                                    # object.
+        else:
+            raise cuex.InconsistentParametersDefinition(htype.generate_exception_message(   "SiPMMeas.__init__", 
+                                                                                            84774,
+                                                                                            extra_info="The signal unit must be the same for every waveform in this waveform set."))
         self.__N_events = len(self.__waveforms)
 
         self.__waveform_window_mus = 1e+6*np.mean([wvf.Time[-1] for wvf in self.__waveforms])   # Remember that the absolute time 
@@ -365,11 +378,15 @@ class SiPMMeas(ABC):
 
         """This attribute, together with self.__waveform_window_mus, is the 
         only one that is not assigned from a parameter given to the initializer, 
-        but  it is computed out of the rest of information given to the 
+        but it is computed out of the rest of information given to the 
         initializer. self.__N_events is meant to be a semipositive integer 
         which gives the number of waveforms contained in self.__waveforms."""
 
         return self.__N_events
+    
+    @property
+    def SignalUnit(self):
+        return self.__signal_unit
     
     @property
     def Status(self):
@@ -936,6 +953,7 @@ class SiPMMeas(ABC):
                                 *args,
                                 overwrite=False,
                                 additional_entries={}, 
+                                indent=None,
                                 verbose=False,
                                 **kwargs):
 
@@ -962,6 +980,16 @@ class SiPMMeas(ABC):
         additional_entries.keys() already exists in the output dictionary,
         it will be overwritten. Below, you can consult the keys that will 
         be part of the output dictionary by default.
+        - indent (None, non-negative integer or string): This parameter controls
+        the indentation with which the json summary-file is generated. It is
+        passed to the 'indent' parameter of json.dump. If indent is None, then 
+        the most compact representation is used. If indent is a non-negative 
+        integer, then one new line is added per each key-value pair, and indent 
+        is the number of spaces that are added at the very beginning of each 
+        new line. If indent is a string, then one new line is added per each
+        key-value pair, and indent is the string that is added at the very
+        beginning of each new line. P.e. if indent is a string (such as "\t"), 
+        each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
         - kwargs: For use in derived-classes implementations.
         
@@ -995,6 +1023,7 @@ class SiPMMeas(ABC):
         - "overvoltage_V": Contains self.__overvoltage_V
         - "PDE": Contains self.__PDE
         - "N_events": Contains self.__N_events
+        - "signal_unit": Contains self.__signal_unit
         - "status": Contains self.__status
 
         The summary json file is saved within the given folder, up to folderpath.
@@ -1018,6 +1047,15 @@ class SiPMMeas(ABC):
         htype.check_type(   additional_entries, dict,
                             exception_message=htype.generate_exception_message("SiPMMeas.output_summary", 15693))
         
+        if indent is not None:
+
+            htype.check_type(   indent, int, np.int64, str,
+                                exception_message=htype.generate_exception_message("SiPMMeas.output_summary", 87057))
+            
+            if isinstance(indent, int) or isinstance(indent, np.int64):
+                if indent<0:
+                    raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.output_summary", 68241))
+
         htype.check_type(   verbose, bool,
                             exception_message=htype.generate_exception_message("SiPMMeas.output_summary", 40366))
         
@@ -1057,12 +1095,13 @@ class SiPMMeas(ABC):
                     "overvoltage_V": self.__overvoltage_V,
                     "PDE": self.__PDE,
                     "N_events": self.__N_events,
+                    "signal_unit": self.__signal_unit,
                     "status": self.__status}
         
         output.update(additional_entries)
         
         with open(output_filepath, 'w') as file:
-            json.dump(output, file)
+            json.dump(output, file, indent=indent)
 
         if verbose:
             print(f"In function SiPMMeas.output_summary(): The output file has been written to {output_filepath}.")

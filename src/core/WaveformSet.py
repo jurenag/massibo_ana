@@ -1948,3 +1948,41 @@ class WaveformSet(OneTypeRTL):
                                                                     # integrating a defective waveform.    
         else:
             return np.array(result)
+        
+    def check_homogeneity_of_sign_through_set(self, sign):
+        
+        """This method gets the following positional argument:
+        
+        - sign (string): It must belong to any of the two following Waveform class
+        variables: Waveform.stackable_aks or Waveform.nonstackable_aks. For more 
+        information, check the definition of those class variables in the Waveform
+        class definition.
+        
+        This method returns True if, for every waveform wvf in this waveform set, 
+        wvf.Signs[sign] is the same."""
+
+        htype.check_type(   sign, str,
+                            exception_message=htype.generate_exception_message( "WaveformSet.check_homogeneity_of_sign_through_set", 
+                                                                                52547))
+        if not sign in Waveform.stackable_aks+Waveform.nonstackable_aks:
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "WaveformSet.check_homogeneity_of_sign_through_set", 
+                                                                                    87272))
+        result = True
+
+        try:
+            standard = self[0].Signs[sign]
+            for wvf in self[1:]:
+                if wvf.Signs[sign]!=standard:
+                    result = False
+                    break
+
+        except KeyError:    # Even if the given sign belongs to Waveform.stackable_aks
+                            # or Waveform.nonstackable_aks, it may not be defined as 
+                            # a key in the Signs attribute. An example, is the 
+                            # 'peaks_pos' key for waveform sets which are meant to 
+                            # belong to a GainMeas object.
+
+            raise cuex.NoAvailableData(htype.generate_exception_message("WaveformSet.check_homogeneity_of_sign_through_set", 
+                                                                        86306,
+                                                                        extra_info=f"The given sign ({sign}) is not defined in the Signs dictionary of some waveform in this waveform set."))
+        return result

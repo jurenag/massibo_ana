@@ -102,9 +102,10 @@ class ListsRKD(RigidKeyDictionary):
                     for i in range(len(potential_keys))
                 ]
 
-        return super().__init__(    potential_keys, 
-                                    is_typed=True, 
-                                    values_types=values_types)    
+        super().__init__(   potential_keys, 
+                            is_typed=True, 
+                            values_types=values_types)
+        return
     
     @property
     def ValuesSubtypes(self):
