@@ -442,10 +442,10 @@ class DarkNoiseMeas(SiPMMeas):
         5) then fits one gaussian function to each one of these two peaks
         6) and uses the fit mean of both gaussian functions to compute the desired
         attributes. Say that the fit mean of the gaussian function which fits to the
-        1-PE (resp. 2-PE) peak is \mu_1 (resp. \mu_2), then the attributes are 
+        1-PE (resp. 2-PE) peak is mu_1 (resp. mu_2), then the attributes are 
         computed in the following way:
-            6.1) The 0.5-PE voltage amplitude is computed as \mu_1 -((\mu_2-\mu_1)/2)
-            6.2) The 1.5-PE voltage amplitude is computed as (\mu_1+\mu_2)/2"""
+            6.1) The 0.5-PE voltage amplitude is computed as mu_1 -((mu_2-mu_1)/2)
+            6.2) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2"""
 
         htype.check_type(   bins_no, int,
                             exception_message=htype.generate_exception_message( "DarkNoiseMeas.compute_amplitude_levels", 
