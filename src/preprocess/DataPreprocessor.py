@@ -309,6 +309,8 @@ class DataPreprocessor:
             - electronic_board_location (str),
             - electronic_board_socket (int),
             - sipm_location (int),
+            - cover_type (str),
+            - operation_voltage_V (float),
             - overvoltage_V (float),
             - PDE (float),
             - status (str),
@@ -486,6 +488,8 @@ class DataPreprocessor:
                                     'electronic_board_location':str,
                                     'electronic_board_socket':int,
                                     'sipm_location':int,
+                                    'cover_type':str,
+                                    'operation_voltage_V':float,
                                     'overvoltage_V':float,
                                     'PDE':float,
                                     'status':str}

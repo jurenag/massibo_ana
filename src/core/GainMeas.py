@@ -19,7 +19,8 @@ class GainMeas(SiPMMeas):
                         setup_ID=None, system_characteristics=None, thermal_cycle=None,
                         elapsed_cryo_time_min=None, electronic_board_number=None, 
                         electronic_board_location=None, electronic_board_socket=None, 
-                        sipm_location=None, sampling_ns=None, overvoltage_V=None, PDE=None, 
+                        sipm_location=None, sampling_ns=None, cover_type=None, 
+                        operation_voltage_V=None,  overvoltage_V=None, PDE=None, 
                         status=None, LED_voltage_V=None, LED_frequency_kHz=None,
                         LED_pulse_shape=None, LED_high_width_ns=None, **kwargs):
 
@@ -74,6 +75,9 @@ class GainMeas(SiPMMeas):
         I.e. the time delta between one time point and the following one. If it is not provided 
         (i.e. if it is None), it is taken from the second positional argument, which is assumed to 
         be the time resolution in seconds.
+        - cover_type (string): String which identifies the type of cover used to optically-isolate
+        the SiPM from the bulk of the cryogenic bath and from the rest of the SiPMs.
+        - operation_voltage_V (semipositive float): Feeding voltage given to the measured SiPM.
         - overvoltage_V (semipositive float): Feeding voltage given to the measured SiPM, measured 
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
@@ -151,8 +155,8 @@ class GainMeas(SiPMMeas):
                             electronic_board_location=electronic_board_location,
                             electronic_board_socket=electronic_board_socket, 
                             sipm_location=sipm_location, sampling_ns=sampling_ns,
-                            overvoltage_V=overvoltage_V, PDE=PDE, 
-                            status=status, **kwargs)
+                            cover_type=cover_type, operation_voltage_V=operation_voltage_V,
+                            overvoltage_V=overvoltage_V, PDE=PDE, status=status, **kwargs)
 
     @property
     def LEDVoltage_V(self):
@@ -718,7 +722,8 @@ class GainMeas(SiPMMeas):
         "setup_ID", "system_characteristics", "thermal_cycle",
         "elapsed_cryo_time_min", "electronic_board_number", 
         "electronic_board_location", "electronic_board_socket", 
-        "sipm_location", "sampling_ns", "overvoltage_V", "PDE", 
+        "sipm_location", "sampling_ns", "cover_type", 
+        "operation_voltage_V", "overvoltage_V", "PDE", 
         "status", "LED_voltage_V", "LED_frequency_kHz",
         "LED_pulse_shape", "LED_high_width_ns" and 
         "wvfset_json_filepath".
@@ -771,7 +776,8 @@ class GainMeas(SiPMMeas):
                 'electronic_board_number':int,
                 'electronic_board_location':str, 
                 'electronic_board_socket':int, 
-                'sipm_location':int, 'sampling_ns':float, 
+                'sipm_location':int, 'sampling_ns':float,
+                'cover_type':str, 'operation_voltage_V':float,
                 'overvoltage_V':float, 'PDE':float, 'status':str,
                 'LED_voltage_V':float, 'LED_frequency_kHz':float,
                 'LED_pulse_shape':str, 'LED_high_width_ns':float,
@@ -893,6 +899,8 @@ class GainMeas(SiPMMeas):
         - "sipm_location": Contains self.SiPMLocation
         - "sampling_ns": Contains self.Sampling_ns
         - "waveform_window_mus": Contains self.WaveformWindow_mus
+        - "cover_type": Contains self.CoverType
+        - "operation_voltage_V": Contains self.OperationVoltage_V
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
         - "N_events": Contains self.NEvents
@@ -980,6 +988,8 @@ class GainMeas(SiPMMeas):
                     "sipm_location": self.SiPMLocation,
                     "sampling_ns": self.Sampling_ns,
                     "waveform_window_mus": self.WaveformWindow_mus,
+                    "cover_type": self.CoverType,
+                    "operation_voltage_V": self.OperationVoltage_V,
                     "overvoltage_V": self.Overvoltage_V,
                     "PDE": self.PDE,
                     "N_events": self.NEvents,
