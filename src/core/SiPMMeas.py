@@ -21,7 +21,8 @@ class SiPMMeas(ABC):
                         setup_ID=None, system_characteristics=None, thermal_cycle=None,
                         elapsed_cryo_time_min=None, electronic_board_number=None, 
                         electronic_board_location=None, electronic_board_socket=None, 
-                        sipm_location=None, sampling_ns=None, overvoltage_V=None, PDE=None, 
+                        sipm_location=None, sampling_ns=None, cover_type=None, 
+                        operation_voltage_V=None, overvoltage_V=None, PDE=None, 
                         status=None, **kwargs):
         
         """This class aims to model a base class from which to derive certain SiPM measurements.
@@ -76,6 +77,9 @@ class SiPMMeas(ABC):
         I.e. the time delta between one time point and the following one. If it is not provided 
         (i.e. if it is None), it is taken from the second positional argument, which is assumed to 
         be the time resolution in seconds.
+        - cover_type (string): String which identifies the type of cover used to optically-isolate
+        the SiPM from the bulk of the cryogenic bath and from the rest of the SiPMs.
+        - operation_voltage_V (semipositive float): Feeding voltage given to the measured SiPM.
         - overvoltage_V (semipositive float): Feeding voltage given to the measured SiPM, measured 
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
@@ -231,6 +235,20 @@ class SiPMMeas(ABC):
         else:
             self.__sampling_ns = 1e+9*args[1]
 
+        self.__cover_type = None
+        if cover_type is not None:
+            htype.check_type(   cover_type, str,
+                                exception_message=htype.generate_exception_message("SiPMMeas.__init__", 66836))
+            self.__cover_type = cover_type
+
+        self.__operation_voltage_V = None
+        if operation_voltage_V is not None:
+            htype.check_type(   operation_voltage_V, float, np.float64,
+                                exception_message=htype.generate_exception_message("SiPMMeas.__init__", 62399))
+            if operation_voltage_V<0.:
+                raise cuex.InvalidParameterDefinition(htype.generate_exception_message("SiPMMeas.__init__", 41690))
+            self.__operation_voltage_V = operation_voltage_V
+
         self.__overvoltage_V = None
         if overvoltage_V is not None:
             htype.check_type(   overvoltage_V, float, np.float64,
@@ -364,6 +382,14 @@ class SiPMMeas(ABC):
         acquire each waveform."""
 
         return self.__waveform_window_mus
+    
+    @property
+    def CoverType(self):
+        return self.__cover_type
+    
+    @property
+    def OperationVoltage_V(self):
+        return self.__operation_voltage_V
     
     @property
     def Overvoltage_V(self):
@@ -849,7 +875,8 @@ class SiPMMeas(ABC):
         "setup_ID", "system_characteristics", "thermal_cycle",
         "elapsed_cryo_time_min", "electronic_board_number", 
         "electronic_board_location", "electronic_board_socket", 
-        "sipm_location", "sampling_ns", "overvoltage_V", "PDE", 
+        "sipm_location", "sampling_ns", "cover_type", 
+        "operation_voltage_V", "overvoltage_V", "PDE", 
         "status" and "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it is not meant to be
@@ -900,7 +927,8 @@ class SiPMMeas(ABC):
                 'electronic_board_number':int,
                 'electronic_board_location':str, 
                 'electronic_board_socket':int, 
-                'sipm_location':int, 'sampling_ns':float, 
+                'sipm_location':int, 'sampling_ns':float,
+                'cover_type':str, 'operation_voltage_V':float,
                 'overvoltage_V':float, 'PDE':float, 'status':str,
                 'wvfset_json_filepath':str}
 
@@ -1020,6 +1048,8 @@ class SiPMMeas(ABC):
         - "sipm_location": Contains self.__sipm_location
         - "sampling_ns": Contains self.__sampling_ns
         - "waveform_window_mus": Contains self.__waveform_window_mus
+        - "cover_type": Contains self.__cover_type
+        - "operation_voltage_V": Contains self.__operation_voltage_V
         - "overvoltage_V": Contains self.__overvoltage_V
         - "PDE": Contains self.__PDE
         - "N_events": Contains self.__N_events
@@ -1092,6 +1122,8 @@ class SiPMMeas(ABC):
                     "sipm_location": self.__sipm_location,
                     "sampling_ns": self.__sampling_ns,
                     "waveform_window_mus": self.__waveform_window_mus,
+                    "cover_type": self.__cover_type,
+                    "operation_voltage_V": self.__operation_voltage_V,
                     "overvoltage_V": self.__overvoltage_V,
                     "PDE": self.__PDE,
                     "N_events": self.__N_events,
