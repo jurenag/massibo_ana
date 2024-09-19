@@ -136,7 +136,7 @@ class DarkNoiseMeas(SiPMMeas):
                                         # (kwargs) which are passed to the peak-finding algorithm (scipy.signal.find_peaks()). 
                                         # It is convenient to keep those kwargs apart from the kwargs of this initializer.
         
-        self.__frame_idx = None         # This is intended to be a one dimensional float numpy array, whose length
+        self.__frame_idx = None         # This is intended to be a one dimensional integer numpy array, whose length
                                         # matches that of self.__timedelay and self.__amplitude. self.__frame_idx[i]
                                         # is meant to be iterator value, within self.Waveforms, for the waveform where
                                         # the peak whose time delay with respect the previous one is self.__timedelay[i]
