@@ -1035,9 +1035,9 @@ class DarkNoiseMeas(SiPMMeas):
                 del amplitude[j]
                 del frame_idx[j]                
 
-        purged_copy.TimeDelay   = np.array(timedelay)
-        purged_copy.Amplitude   = np.array(amplitude)
-        purged_copy.FrameIDX    = np.array(frame_idx)
+        purged_copy.TimeDelay   = np.array(timedelay, dtype=np.float64)
+        purged_copy.Amplitude   = np.array(amplitude, dtype=np.float64)
+        purged_copy.FrameIDX    = np.array(frame_idx, dtype=np.int64)
 
         return purged_copy
 
