@@ -489,10 +489,15 @@ class DarkNoiseMeas(SiPMMeas):
                                                                                     23163))
         htype.check_type(   timedelay_cut, float, np.float64,
                             exception_message=htype.generate_exception_message( "DarkNoiseMeas.compute_amplitude_levels", 
-                                                                                21739))   
+                                                                                21739))
         
         samples = Waveform.filter_infs_and_nans(self.__amplitude[self.__timedelay>=timedelay_cut], get_mask=False)  # Applying time-delay cut and
                                                                                                                     # filtering out infs and nans
+        if len(samples)==0:
+            raise cuex.NoAvailableData(htype.generate_exception_message("DarkNoiseMeas.compute_amplitude_levels", 
+                                                                        47289,
+                                                                        extra_info=f"After applying the timedelay cut (timedelay_cut = {timedelay_cut}), no amplitude samples are left. This may be due to a too restrictive timedelay_cut value or to a dataset which is not well-formed."))
+
         popt, _ = SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(  samples,                                            # Note that we filtered out 'inf' and
                                                                             peaks_to_detect=peaks_to_detect,                    # 'nan' entries JUST FOR 1.5 PE amplitude 
                                                                             peaks_to_fit=(0,1),                                 # computation. Such entries may still
