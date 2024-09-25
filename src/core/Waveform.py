@@ -371,7 +371,8 @@ class Waveform:
             
         ax.plot(self.__time, 
                 self.__signal,
-                linewidth=wvf_linewidth)#, label="Signal")
+                linewidth=wvf_linewidth,
+                color='black')#, label="Signal")
         
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
