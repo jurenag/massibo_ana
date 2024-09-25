@@ -2593,3 +2593,280 @@ class DataPreprocessor:
                     del remaining_catalog[key]
 
         return output_dictionary, remaining_catalog
+    
+    @staticmethod
+    def count_folders(  input_folderpath,
+                        ignore_hidden_folders=True,
+                        return_foldernames=False):
+
+        """This function gets the following positional argument:
+
+        - input_folderpath (string): Path to an existing folder
+
+        This function gets the following keyword argument:
+
+        - ignore_hidden_folders (boolean): Whether to ignore hidden
+        folders, i.e. folders whose name starts with a dot ('.').
+        - return_foldernames (boolean): Whether to return the names
+        of the folders, in addition to the number of folders.
+        
+        This function gets the path to a folder, and returns the
+        number of sub-folders within that folder. If return_foldernames
+        is set to True, then, in addition to the number of sub-folders,
+        this function also returns the names of such sub-folders, i.e.
+        a list of strings."""
+
+        htype.check_type(   input_folderpath, str,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_folders", 
+                                                                                27138))
+        htype.check_type(   ignore_hidden_folders, bool,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_folders", 
+                                                                                32748))
+        htype.check_type(   return_foldernames, bool,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_folders", 
+                                                                                98900))
+        if not os.path.isdir(input_folderpath):
+            raise FileNotFoundError(htype.generate_exception_message(   "DataPreprocessor.count_folders", 
+                                                                        12972))
+        if ignore_hidden_folders:
+            aux = [name for name in os.listdir(input_folderpath) if os.path.isdir(os.path.join(input_folderpath, name)) and not name.startswith('.')]
+        else:
+            aux = [name for name in os.listdir(input_folderpath) if os.path.isdir(os.path.join(input_folderpath, name))]
+
+        if return_foldernames:
+            return len(aux), aux
+        else:
+            return len(aux)
+        
+    def count_files_by_extension_in_folder( input_folderpath,
+                                            extension,
+                                            ignore_hidden_files=True,
+                                            return_filenames=False):
+        
+        """This function gets the following positional arguments:
+        
+        - input_folderpath (string): Path to an existing folder.
+        - extension (string): Extension of the files whose names
+        will be counted. I.e. the file names, say x, that will 
+        contribute to the count are those for which 
+        x.endswith('.'+extension) evaluates to True.
+
+        This function gets the following keyword arguments:
+
+        - ignore_hidden_files (boolean): Whether to ignore hidden
+        files, i.e. files whose name starts with a dot ('.').
+        - return_filenames (boolean): Whether to return the names
+        of the files whose extension matches the given one, in 
+        addition to the number of files.
+
+        This function gets the path to a folder, and returns the
+        number of files whose extension matches the given one. If
+        return_filenames is True, then this function also returns
+        the names of such files, i.e. a list of strings."""
+
+        htype.check_type(   input_folderpath, str,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_files_by_extension_in_folder", 
+                                                                                67390))
+        if not os.path.isdir(input_folderpath):
+            raise FileNotFoundError(htype.generate_exception_message(   "DataPreprocessor.count_files_by_extension_in_folder", 
+                                                                        66829))
+        htype.check_type(   extension, str,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_files_by_extension_in_folder", 
+                                                                                78573))
+        htype.check_type(   ignore_hidden_files, bool,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_files_by_extension_in_folder", 
+                                                                                23241))
+        htype.check_type(   return_filenames, bool,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.count_files_by_extension_in_folder", 
+                                                                                13523))
+        if ignore_hidden_files:
+            aux = [filename for filename in os.listdir(input_folderpath) if filename.endswith('.'+extension) and not filename.startswith('.')]
+
+        else:
+            aux = [filename for filename in os.listdir(input_folderpath) if filename.endswith('.'+extension)]
+
+        if return_filenames:
+            return len(aux), aux
+        else:
+            return len(aux)    
+
+    @staticmethod
+    def check_well_formedness_of_input_folder(  input_folderpath,
+                                                subfolders_no=7,
+                                                json_files_no_at_2nd_level=2,
+                                                json_files_no_at_3rd_level=1,
+                                                wfm_files_no_at_2nd_and_3rd_level=18):
+        
+        """This function gets the following positional argument:
+
+        - input_folderpath (string): Path to the folder where the input
+        data is hosted.
+
+        This function also gets the following keyword arguments:
+
+        - subfolders_no (positive integer): It must match the number 
+        of folders within the given input folder. On top of that, the 
+        names of these sub-folders must be set so that for each integer 
+        in [1, ..., subfolders_no], say i, there is at least one sub-
+        folder that contains the string str(i).
+        - json_files_no_at_2nd_level (positive integer): It must match 
+        the number of json files at every second level. I.e. any folder
+        within the given input folder must contain exactly this number 
+        of json files.
+        - json_files_no_at_3rd_level (positive integer): It must match
+        the number of json files at every third level. I.e. any folder
+        within any folder within the given input folder must contain
+        exactly this number of json files.
+        - wfm_files_no_at_2nd_and_3rd_level (positive integer): It must 
+        match the number of wfm files at every second or third level. 
+        I.e. any folder within the given input folder, or any folder
+        within any folder within the given input folder, must contain
+        exactly this number of wfm files.
+
+        This function gets the path to a folder, and checks that the
+        file structure within that folder follows the expected pattern.
+        This function returns a list of strings, each of which is an
+        incidence, i.e. a description of a deviation from the expected
+        file structure. If the file structure is well-formed, then
+        the returned list is empty."""
+
+        htype.check_type(   input_folderpath, str,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                74528))
+        if not os.path.isdir(input_folderpath):
+
+            raise FileNotFoundError(htype.generate_exception_message(   "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                        22434))
+        htype.check_type(   subfolders_no, int,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                23452))
+        if subfolders_no<1:
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                    45244))
+        htype.check_type(   json_files_no_at_2nd_level, int,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                95821))
+        if json_files_no_at_2nd_level<1:
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                    36144))
+        htype.check_type(   json_files_no_at_3rd_level, int,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                47829))
+        if json_files_no_at_3rd_level<1:
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                    12311))
+        htype.check_type(   wfm_files_no_at_2nd_and_3rd_level, int,
+                            exception_message=htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                45829))
+        if wfm_files_no_at_2nd_and_3rd_level<1:
+            raise cuex.InvalidParameterDefinition(htype.generate_exception_message( "DataPreprocessor.check_well_formedness_of_input_folder", 
+                                                                                    58821))
+        incidences_report = []
+
+        folders_no, folders_names = DataPreprocessor.count_folders( input_folderpath,
+                                                                    ignore_hidden_folders=True,
+                                                                    return_foldernames=True)
+        folders_names.sort()
+
+        if folders_no!=subfolders_no:
+            incidences_report.append(f"Expected {subfolders_no} sub-folder(s) in {input_folderpath}, but {folders_no} were found.")
+
+        folders_names_copy = folders_names.copy()
+
+        for i in reversed(range(len(folders_names_copy))):  # In reversed order because we'll be
+                                                            # deleting elements from the list
+            for j in range(1, subfolders_no+1):
+
+                if str(j) in folders_names_copy[i]:
+                    del folders_names_copy[i]
+                    break
+        
+        if len(folders_names_copy)!=0:  # Means that there is one or more
+                                        # sub-folders which do not contain
+                                        # one of the expected sub-strings
+                                        # (str(i), for some i=1,...,subfolders_no)
+
+            incidences_report.append(f"The following sub-folder(s) of the given root folder are not integer-labelled: {folders_names_copy}")
+
+        for folder_name in folders_names:
+
+            incidences_report += DataPreprocessor.__check_well_formedness_of_subfolder( os.path.join(input_folderpath, folder_name),
+                                                                                        json_files_no_at_1st_level=json_files_no_at_2nd_level,
+                                                                                        json_files_no_at_2nd_level=json_files_no_at_3rd_level,
+                                                                                        wfm_files_no_at_1st_and_2nd_level=wfm_files_no_at_2nd_and_3rd_level)
+        return incidences_report
+    
+    @staticmethod
+    def __check_well_formedness_of_subfolder(   input_folderpath,
+                                                json_files_no_at_1st_level=2,
+                                                json_files_no_at_2nd_level=1,
+                                                wfm_files_no_at_1st_and_2nd_level=18):
+        
+        """This static method is a helper method which should only be
+        called by the method check_well_formedness_of_input_folder().
+        No type-checking is performed on the arguments of this method.
+        This method gets the following positional argument:
+
+        - input_folderpath (string): Path to an existing folder.
+        
+        This function also gets the following keyword arguments:
+
+        - json_files_no_at_1st_level (positive integer): It must match 
+        the number of json files at the first level. I.e. the given
+        input folder must contain exactly this number of json files.
+        - json_files_no_at_2nd_level (positive integer): It must match
+        the number of json files at every second level. I.e. any folder
+        within the given input folder must contain exactly this number 
+        of json files.
+        - wfm_files_no_at_1st_and_2nd_level (positive integer): It must 
+        match the number of wfm files at the first level and every second 
+        level. I.e. the given folder and any folder within it, must 
+        contain exactly this number of wfm files.
+
+        This function gets the path to a folder, and checks that the
+        file structure within that folder follows the expected pattern.
+        This function returns a list of strings, each of which is an
+        incidence, i.e. a description of a deviation from the expected
+        file structure. If the file structure is well-formed, then
+        the returned list is empty."""
+
+        incidences_report = []
+
+        aux_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(input_folderpath,
+                                                                                'json',
+                                                                                ignore_hidden_files=True,
+                                                                                return_filenames=False)
+        if aux_json_files_no!=json_files_no_at_1st_level:
+            incidences_report.append(f"Expected {json_files_no_at_1st_level} json file(s) in {input_folderpath}, but {aux_json_files_no} were found.")
+
+        aux_wfm_files_no = DataPreprocessor.count_files_by_extension_in_folder( input_folderpath,
+                                                                                'wfm',
+                                                                                ignore_hidden_files=True,
+                                                                                return_filenames=False)
+        if aux_wfm_files_no!=wfm_files_no_at_1st_and_2nd_level:
+            incidences_report.append(f"Expected {wfm_files_no_at_1st_and_2nd_level} wfm file(s) in {input_folderpath}, but {aux_wfm_files_no} were found.")
+
+        _, folders_names = DataPreprocessor.count_folders(  input_folderpath,
+                                                            ignore_hidden_folders=True,
+                                                            return_foldernames=True)
+        folders_names.sort()
+
+        for folder_name in folders_names:
+
+            subfolder_path = os.path.join(input_folderpath, folder_name)
+
+            aux_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(subfolder_path,
+                                                                                    'json',
+                                                                                    ignore_hidden_files=True,
+                                                                                    return_filenames=False)
+            if aux_json_files_no!=json_files_no_at_2nd_level:
+                incidences_report.append(f"Expected {json_files_no_at_2nd_level} json file(s) in {subfolder_path}, but {aux_json_files_no} were found.")
+
+            aux_wfm_files_no = DataPreprocessor.count_files_by_extension_in_folder( subfolder_path,
+                                                                                    'wfm',
+                                                                                    ignore_hidden_files=True,
+                                                                                    return_filenames=False)
+            if aux_wfm_files_no!=wfm_files_no_at_1st_and_2nd_level:
+                incidences_report.append(f"Expected {wfm_files_no_at_1st_and_2nd_level} wfm file(s) in {subfolder_path}, but {aux_wfm_files_no} were found.")
+
+        return incidences_report
