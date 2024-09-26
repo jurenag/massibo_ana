@@ -39,9 +39,13 @@ class IdentifiedDict(dict):
 
         input_data_ = input_data.copy()
 
-        for key in input_data.keys():  # Yes, iterate over input_data, not
-            if key in ignored_fields:  # input_data_, because the size of
-                del input_data_[key]  # input_data_ may change through the loop
+        # Yes, iterate over input_data, not
+        # input_data_, because the size of
+        # input_data_ may change through the loop
+
+        for key in input_data.keys():
+            if key in ignored_fields:
+                del input_data_[key]
 
         self.__id = None
         super().__init__(input_data_)

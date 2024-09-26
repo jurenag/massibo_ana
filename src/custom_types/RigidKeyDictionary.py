@@ -120,8 +120,10 @@ class RigidKeyDictionary(dict):
                 self.__values_types = (
                     values_types  # len(values_types)==len(potential_keys)
                 )
-            else:  # In this case, aux is equal to
+            else:
+                # In this case, aux is equal to
                 # the number of True's in is_typed
+
                 gen = (n for n in range(0, aux))
                 self.__values_types = [
                     values_types[next(gen)] if is_typed[i] is True else object
