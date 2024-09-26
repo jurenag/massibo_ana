@@ -1008,7 +1008,7 @@ class DarkNoiseMeas(SiPMMeas):
         
         if len(bursts_init_frame)==0:   # No bursts were found
             if verbose: 
-                print(f"In function DarkNoiseMeas.purge_bursts(): No bursts were found. An identical copy of the original object will be returned.")
+                print("In function DarkNoiseMeas.purge_bursts(): No bursts were found. An identical copy of the original object will be returned.")
             return purged_copy
         
         elif len(bursts_init_frame)==1: # Only one burst was found
