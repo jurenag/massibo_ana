@@ -2651,16 +2651,6 @@ class DataPreprocessor:
         if get_creation_date:
             result["creation_date"] = DataPreprocessor.get_str_creation_date(filepath)
 
-        filepaths_dict = DataPreprocessor.process_core_data(
-            filepath,
-        )
-
-        # If applicable, filepaths_dict will also include
-        # an entry with the key 'acquisition_time' and
-        # another one with the key 'average_delta_t_wf'.
-        # We are adding them to the resulting dictionary here.
-        result.update(filepaths_dict)  
-
         if verbose:
             print(
                 f"In function DataPreprocessor.clean_file(): Succesfully processed {filepath}"
