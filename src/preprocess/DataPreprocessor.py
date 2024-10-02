@@ -2683,7 +2683,7 @@ class DataPreprocessor:
                 return_skiprows=True,
             )
         else:
-            parameters, supplementary_extraction = (
+            parameters, _ = (
                 DataPreprocessor.extract_tek_wfm_metadata(filepath)
             )
         result.update(parameters)
