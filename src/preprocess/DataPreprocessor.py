@@ -2442,7 +2442,6 @@ class DataPreprocessor:
         backup_folderpath=None,
         get_creation_date=False,
         overwrite_files=False,
-        ndecimals=18,
         verbose=True,
         is_ASCII=True,
         contains_timestamp=False,
@@ -2480,9 +2479,6 @@ class DataPreprocessor:
         - overwrite_files (boolean): If it set to True (resp. False), the goal files,
         i.e. the raw and processed files, will (resp. won't) be overwritten if they
         already exist.
-
-        - ndecimals (int): Number of decimals to use to save the real values to the
-        processed file(s). Scientific notation is assumed.
 
         - verbose (boolean): Whether to print functioning-related messages.
 
@@ -2635,13 +2631,6 @@ class DataPreprocessor:
             ),
         )
         htype.check_type(
-            ndecimals,
-            int,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 57103
-            ),
-        )
-        htype.check_type(
             verbose,
             bool,
             exception_message=htype.generate_exception_message(
@@ -2742,7 +2731,6 @@ class DataPreprocessor:
             overwrite_files=overwrite_files,
             skiprows=skiprows if is_ASCII else 0,
             data_delimiter=data_delimiter,
-            ndecimals=ndecimals,
             tek_wfm_metadata=tek_wfm_metadata,
         )
 
