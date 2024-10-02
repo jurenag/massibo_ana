@@ -2691,14 +2691,8 @@ class DataPreprocessor:
         if get_creation_date:
             result["creation_date"] = DataPreprocessor.get_str_creation_date(filepath)
 
-        if is_ASCII:
-            file_type_code = 0 if not contains_timestamp else 1
-        else:
-            file_type_code = 2 if not contains_timestamp else 3
-
         filepaths_dict = DataPreprocessor.process_core_data(
             filepath,
-            file_type_code,
             destination_folderpath=destination_folderpath,
             backup_folderpath=backup_folderpath,
             skiprows=skiprows if is_ASCII else 0,
