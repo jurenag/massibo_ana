@@ -2441,7 +2441,6 @@ class DataPreprocessor:
         destination_folderpath=None,
         backup_folderpath=None,
         get_creation_date=False,
-        overwrite_files=False,
         verbose=True,
         is_ASCII=True,
         contains_timestamp=False,
@@ -2474,10 +2473,6 @@ class DataPreprocessor:
         is added to the resulting dictionary under the key 'creation_date'. The
         associated value is an string which follows the format 'YYYY-MM-DD HH:MM:SS'.
         If False, no extra entry is added to the resulting dictionary.
-
-        - overwrite_files (boolean): If it set to True (resp. False), the goal files,
-        i.e. the raw and processed files, will (resp. won't) be overwritten if they
-        already exist.
 
         - verbose (boolean): Whether to print functioning-related messages.
 
@@ -2618,13 +2613,6 @@ class DataPreprocessor:
             ),
         )
         htype.check_type(
-            overwrite_files,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 44161
-            ),
-        )
-        htype.check_type(
             verbose,
             bool,
             exception_message=htype.generate_exception_message(
@@ -2713,7 +2701,6 @@ class DataPreprocessor:
             file_type_code,
             destination_folderpath=destination_folderpath,
             backup_folderpath=backup_folderpath,
-            overwrite_files=overwrite_files,
             skiprows=skiprows if is_ASCII else 0,
         )
 
