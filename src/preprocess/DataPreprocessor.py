@@ -2674,7 +2674,7 @@ class DataPreprocessor:
 
         result = {}
         if is_ASCII:
-            parameters, skiprows = DataPreprocessor.parse_headers(
+            parameters, _ = DataPreprocessor.parse_headers(
                 filepath,
                 *parameters_identifiers,
                 identifier_delimiter=parameters_delimiter,
@@ -2695,7 +2695,6 @@ class DataPreprocessor:
             filepath,
             destination_folderpath=destination_folderpath,
             backup_folderpath=backup_folderpath,
-            skiprows=skiprows if is_ASCII else 0,
         )
 
         # If applicable, filepaths_dict will also include
