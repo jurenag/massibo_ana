@@ -2653,7 +2653,7 @@ class DataPreprocessor:
 
         if verbose:
             print(
-                f"In function DataPreprocessor.clean_file(): Succesfully processed {filepath}"
+                f"In function DataPreprocessor.process_file(): Succesfully processed {filepath}"
             )
 
         return result
