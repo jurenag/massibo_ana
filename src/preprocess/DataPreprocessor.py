@@ -2447,7 +2447,6 @@ class DataPreprocessor:
         contains_timestamp=False,
         skiprows_identifier="TIME,",
         parameters_delimiter=",",
-        data_delimiter=",",
         casting_functions=None,
     ):
         """This static method gets the following mandatory positional argument:
@@ -2519,11 +2518,6 @@ class DataPreprocessor:
         is_ASCII is True. In such case, it is given to DataPreprocessor.parse_headers()
         as identifier_delimiter. This string is used to separate each identifier
         from its value.
-
-        - data_delimiter (string): This parameter only makes a difference if is_ASCII
-        is True. In such case, it is given to DataPreprocessor.process_core_data(),
-        which in turn passes it to numpy.loadtxt() as delimiter. It is used to separate
-        entries of the different columns of the input file.
 
         - casting_functions (tuple/list of functions): This parameter only makes a
         difference if is_ASCII is True. In such case, it is given to
@@ -2665,13 +2659,6 @@ class DataPreprocessor:
                 "DataPreprocessor.process_file", 12851
             ),
         )
-        htype.check_type(
-            data_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 64539
-            ),
-        )
         casting_functions_ = [lambda x: x for y in parameters_identifiers]
         if casting_functions is not None:
             htype.check_type(
@@ -2728,7 +2715,6 @@ class DataPreprocessor:
             backup_folderpath=backup_folderpath,
             overwrite_files=overwrite_files,
             skiprows=skiprows if is_ASCII else 0,
-            data_delimiter=data_delimiter
         )
 
         # If applicable, filepaths_dict will also include
