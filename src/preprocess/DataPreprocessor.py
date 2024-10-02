@@ -2438,8 +2438,6 @@ class DataPreprocessor:
     def process_file(
         filepath,
         *parameters_identifiers,
-        destination_folderpath=None,
-        backup_folderpath=None,
         get_creation_date=False,
         verbose=True,
         is_ASCII=True,
@@ -2461,13 +2459,6 @@ class DataPreprocessor:
         within the input file headers.
 
         This function also gets the following optional keyword arguments:
-
-        - destination_folderpath (None or string): If it is defined, then the
-        processed file(s) are removed from the input-filepath folder and moved
-        to the folder whose path matches destination_folderpath.
-
-        - backup_folderpath (None or string): If it is defined, then the backup
-        of the input file is moved to the folder whose path matches backup_folderpath.
 
         - get_creation_date (bool): If True, the creation date of the input file
         is added to the resulting dictionary under the key 'creation_date'. The
@@ -2573,38 +2564,7 @@ class DataPreprocessor:
                     "DataPreprocessor.process_file", 43177
                 ),
             )
-        if destination_folderpath is not None:
-            htype.check_type(
-                destination_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 85829
-                ),
-            )
-            if not os.path.isdir(destination_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_file",
-                        21570,
-                        extra_info=f"Path {destination_folderpath} does not exist or is not a directory.",
-                    )
-                )
-        if backup_folderpath is not None:
-            htype.check_type(
-                backup_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 32598
-                ),
-            )
-            if not os.path.isdir(backup_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_file",
-                        47109,
-                        extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
-                    )
-                )
+
         htype.check_type(
             get_creation_date,
             bool,
@@ -2693,8 +2653,6 @@ class DataPreprocessor:
 
         filepaths_dict = DataPreprocessor.process_core_data(
             filepath,
-            destination_folderpath=destination_folderpath,
-            backup_folderpath=backup_folderpath,
         )
 
         # If applicable, filepaths_dict will also include
