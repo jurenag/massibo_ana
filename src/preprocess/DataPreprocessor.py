@@ -1941,7 +1941,7 @@ class DataPreprocessor:
         contain the metadata for the stored fast frames by the Tektronix oscilloscope
         (See the Tektronix Reference Waveform File Format Instructions). This method
         performs some consistency checks and then returns two dictionaries which host
-        meta-data for the FastFrame set which is stored in the provided filepaht. The
+        meta-data for the FastFrame set which is stored in the provided filepath. The
         first returned dictionary comprises the following key-value pairs:
 
             - 'Horizontal Units' (resp. 'Vertical Units') (string): Indicates the
