@@ -2698,7 +2698,6 @@ class DataPreprocessor:
             casting_functions_ = casting_functions
 
         result = {}
-        tek_wfm_metadata = {}
         if is_ASCII:
             parameters, skiprows = DataPreprocessor.parse_headers(
                 filepath,
@@ -2712,7 +2711,6 @@ class DataPreprocessor:
             parameters, supplementary_extraction = (
                 DataPreprocessor.extract_tek_wfm_metadata(filepath)
             )
-            tek_wfm_metadata = parameters | supplementary_extraction
         result.update(parameters)
 
         if get_creation_date:
@@ -2730,8 +2728,7 @@ class DataPreprocessor:
             backup_folderpath=backup_folderpath,
             overwrite_files=overwrite_files,
             skiprows=skiprows if is_ASCII else 0,
-            data_delimiter=data_delimiter,
-            tek_wfm_metadata=tek_wfm_metadata,
+            data_delimiter=data_delimiter
         )
 
         # If applicable, filepaths_dict will also include
