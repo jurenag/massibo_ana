@@ -1074,10 +1074,10 @@ class DataPreprocessor:
             # Not removing the following chunk of code because you will probably 
             # re-use this when including the shutil.move functionality here
             # ---------------------------------------------------------------------
-            _, extension = os.path.splitext(aux["raw_filepath"]) #### THIS ONE PROBABLY NEEDS TO BE CHANGED WITH THE PREPROCESS RESTRUCTURING !!!!
+            _, extension = os.path.splitext(aux["raw_filepath"])  ## This one probably needs to be changed with the preprocessing restructuring
             new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
             _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose #### THIS ONE PROBABLY NEEDS TO BE CHANGED WITH THE PREPROCESS RESTRUCTURING !!!!
+                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose  ## This one probably needs to be changed with the preprocessing restructuring
             )
             # ---------------------------------------------------------------------
 
