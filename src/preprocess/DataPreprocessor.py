@@ -2070,10 +2070,6 @@ class DataPreprocessor:
             bo + "I", header_bytes, offset=78
         )[0]
         if data_buffer["fastframe"] != 1:
-            print(
-                f"In extract_tek_wfm_metadata(), data_buffer['fastframe']={data_buffer['fastframe']}"
-            )
-            print(f"In extract_tek_wfm_metadata(), filepath={filepath}")
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
                     "DataPreprocessor._extract_tek_wfm_metadata",
