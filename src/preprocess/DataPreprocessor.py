@@ -987,28 +987,37 @@ class DataPreprocessor:
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
 
-            # Not removing the following chunk of code because you will probably 
-            # re-use this when including the shutil.move functionality here
-            # ---------------------------------------------------------------------
-            _, extension = os.path.splitext(aux["raw_filepath"])  ## This one probably needs to be changed with the preprocessing restructuring
-            new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose  ## This one probably needs to be changed with the preprocessing restructuring
-            )
-            # ---------------------------------------------------------------------
+            _, extension = os.path.splitext(self.ASCIIDarkNoiseCandidates[key])
+            _, ts_extension = os.path.splitext(self.TimeStampCandidates[key])
 
-            # You probably also need to add a 'timestamp_filepath' new entry to this dictionary
-            # at this level, because in this context (generate_meas_config_files()) you have
-            # successfully paired up ASCII core data files with their corresponding timestamps.
-            # ---------------------------------------------------------------------
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_darknoise" + extension)
+            
+            new_raw_ts_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_ts_darknoise" + ts_extension)  
+
+            shutil.move(
+                self.ASCIIDarkNoiseCandidates[key], 
+                new_raw_filepath
+            )
+
+            shutil.move(
+                self.TimeStampCandidates[key], 
+                new_raw_ts_filepath
+            )
+
             aux_wvfset_dict.update(
                 {
-                    "timestamp_filepath": os.path.relpath( ## However, instead of updating, just consider adding a new entry
-                        new_processed_filepath, start=root_directory
-                    )
+                    "wvf_filepath": os.path.relpath(
+                        new_raw_filepath, start=root_directory
+                    ),
+                    "timestamp_filepath": os.path.relpath(
+                        new_raw_ts_filepath, start=root_directory
+                    ),
                 }
             )
-            # ---------------------------------------------------------------------
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
