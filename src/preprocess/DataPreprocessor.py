@@ -1887,8 +1887,9 @@ class DataPreprocessor:
 
     @staticmethod
     def _extract_tek_wfm_metadata(filepath):
-        """This static method has a fixed purposed and is not tunable via input
-        parameters. This method gets the following mandatory positional argument:
+        """This helper static method has a fixed purposed and is not tunable via 
+        input parameters. This method gets the following mandatory positional 
+        argument:
 
         - filepath (str): Path to a binary file which is interpreted to have the
         Tektronix WFM file format. Its extension must be equal to '.wfm'.
