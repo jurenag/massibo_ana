@@ -290,7 +290,6 @@ class DataPreprocessor:
         aux_folderpath,
         data_folderpath,
         wvf_skiprows_identifier="TIME,",
-        ts_skiprows_identifier="X:",
         data_delimiter=",",
         path_to_json_default_values=None,
         sipms_per_strip=None,
@@ -321,12 +320,6 @@ class DataPreprocessor:
         as skiprows_identifier for the case where files hosting ASCII waveform
         sets are processed. Check DataPreprocessor.get_metadata() docstring for
         more information on this parameter.
-        - ts_skiprows_identifier (string): This parameter only makes a difference
-        for dark noise ASCII measurements. It is given to
-        DataPreprocessor.process_file() as skiprows_identifier for the case where
-        files hosting ASCII time stamps are processed. Check
-        DataPreprocessor.process_file docstring for more information on this
-        parameter.
         - data_delimiter (string): This parameter only makes a difference for
         ASCII measurements. It is given to DataPreprocessor.process_file() as
         data_delimiter. It is used to separate entries of the different columns
@@ -497,13 +490,6 @@ class DataPreprocessor:
             )
         htype.check_type(
             wvf_skiprows_identifier,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 42451
-            ),
-        )
-        htype.check_type(
-            ts_skiprows_identifier,
             str,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.generate_meas_config_files", 42451
