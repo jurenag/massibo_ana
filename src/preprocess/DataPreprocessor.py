@@ -1275,14 +1275,9 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
                     translator["FastFrame Count"][1]: aux["FastFrame Count"],
-                    "timestamp_filepath": aux["processed_ts_filepath"],
-                    # Extracting this value is not necessary
-                    # for the Dark Noise case.
-                    translator["average_delta_t_wf"][1]: aux["average_delta_t_wf"],
                 }
             )
 
@@ -1304,14 +1299,6 @@ class DataPreprocessor:
                         {"strip_ID": strips_ids[i // sipms_per_strip]}
                     )
 
-            # The acquisition time is not queried.
-            # Here, I am assuming that the time
-            # stamp unit is the second.
-            # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update(
-                {translator["acquisition_time"][1]: aux["acquisition_time"] / 60.0}
-            )
-
             aux_darknoisemeas_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_darknoisemeas_fields, default_dict=aux_darknoisemeas_dict
@@ -1322,72 +1309,48 @@ class DataPreprocessor:
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
-            _, extension = os.path.splitext(aux["raw_filepath"])
+            # Not removing the following chunk of code because you will probably 
+            # re-use this when including the shutil.move functionality here
+            # ---------------------------------------------------------------------
+            _, extension = os.path.splitext(aux["raw_filepath"]) ## This one probably needs to be changed with the preprocessing restructuring
             new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
             _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose  ## This one probably needs to be changed with the preprocessing restructuring
             )
-
-            _, extension = os.path.splitext(aux["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
-            aux_wvfset_dict.update(
-                {
-                    "wvf_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
-                }
-            )
-
-            _, extension = os.path.splitext(aux["processed_ts_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_ts_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_ts_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
-            aux_wvfset_dict.update(
-                {
-                    "timestamp_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
-                }
-            )
+            # ---------------------------------------------------------------------
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
             )
+
             aux_wvf_dict = {
                 key: [value] for (key, value) in aux_wvf_dict.items()
             }  # Waveform.Signs.setter inputs must be lists
+
             DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
+
             # Transform back to scalars to preserve
             # proper functioning of this method
             aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
             )
+
             wvfset_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvfset.json"
             )
+
             DataPreprocessor.generate_json_file(aux_wvfset_dict, wvfset_output_filepath)
 
             aux_darknoisemeas_dict["wvfset_json_filepath"] = os.path.relpath(
                 wvfset_output_filepath, start=root_directory
             )
+
             darknoisemeas_output_filepath = os.path.join(
                 load_folderpath, output_filepath_base + "_darknoisemeas.json"
             )
+
             DataPreprocessor.generate_json_file(
                 aux_darknoisemeas_dict, darknoisemeas_output_filepath
             )
