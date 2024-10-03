@@ -439,103 +439,29 @@ class DataPreprocessor:
 
         is taken from the json file given to path_to_json_default_values, if
         it is available there and the values comply with the expected types.
-        The user is interactively a interactively asked for the fields which
-        could not be retrieved from the given json file."""
+        The user is interactively asked for the fields which could not be 
+        retrieved from the given json file."""
 
-        htype.check_type(
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             root_directory,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 44391
-            ),
+            container_folderpath=None
         )
-        if not os.path.isdir(root_directory):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    61665,
-                    extra_info=f"Path {root_directory} does not exist or is not a directory.",
-                )
-            )
-        htype.check_type(
+
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             load_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 47131
-            ),
+            container_folderpath=root_directory
         )
-        if not os.path.isdir(load_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    44692,
-                    extra_info=f"Path {load_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            load_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    24323,
-                    extra_info=f"{load_folderpath} is not contained within {root_directory}.",
-                )
-            )
-        htype.check_type(
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             aux_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 96001
-            ),
+            container_folderpath=root_directory
         )
-        if not os.path.isdir(aux_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    54053,
-                    extra_info=f"Path {aux_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            aux_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    79077,
-                    extra_info=f"{aux_folderpath} is not contained within {root_directory}.",
-                )
-            )
-
-        htype.check_type(
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             data_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 46722
-            ),
+            container_folderpath=root_directory
         )
-        if not os.path.isdir(data_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    21355,
-                    extra_info=f"Path {data_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            data_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    84451,
-                    extra_info=f"{data_folderpath} is not contained within {root_directory}.",
-                )
-            )
         htype.check_type(
             wvf_skiprows_identifier,
             str,
