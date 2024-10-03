@@ -1781,7 +1781,10 @@ class DataPreprocessor:
         headers_end_identifier=None,
         return_skiprows=True,
     ):
-        """This static method gets the following compulsory positional arguments:
+        """This static method is a helper method which must only be called
+        by DataPreprocessor.get_metadata(), where the well-formedness checks
+        of the input parameters have been performed. This method gets the 
+        following compulsory positional arguments:
 
         - filepath (string): Path to the file which will be parsed.
 
@@ -1820,53 +1823,6 @@ class DataPreprocessor:
         'result' dictionary.
         """
 
-        htype.check_type(
-            filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor._parse_headers", 41251
-            ),
-        )
-        for i in range(len(identifiers)):
-            htype.check_type(
-                identifiers[i],
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor._parse_headers", 27001
-                ),
-            )
-        htype.check_type(
-            identifier_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor._parse_headers", 76281
-            ),
-        )
-        casting_functions_ = [lambda x: x for y in identifiers]
-        if casting_functions is not None:
-            htype.check_type(
-                casting_functions,
-                tuple,
-                list,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor._parse_headers", 38100
-                ),
-            )
-            for i in range(len(casting_functions)):
-                if not callable(casting_functions[i]):
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "DataPreprocessor._parse_headers", 13721
-                        )
-                    )
-            if len(casting_functions) != len(identifiers):
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message(
-                        "DataPreprocessor._parse_headers", 38293
-                    )
-                )
-            casting_functions_ = casting_functions
-
         headers_endline = -1
         if headers_end_identifier is not None:
             htype.check_type(
@@ -1893,7 +1849,7 @@ class DataPreprocessor:
                     if line.startswith(identifiers[i]):
                         aux = line.strip().split(identifier_delimiter)[-1]
                         if aux != "":
-                            result[identifiers[i]] = casting_functions_[i](aux)
+                            result[identifiers[i]] = casting_functions[i](aux)
                             # Stop the search (the while loop)
                             # only if a value was successfully
                             # added to result
