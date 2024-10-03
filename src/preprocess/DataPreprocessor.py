@@ -317,9 +317,9 @@ class DataPreprocessor:
         This method gets the following optional keyword arguments:
 
         - wvf_skiprows_identifier (string): This parameter only makes a difference
-        for ASCII input files. It is given to DataPreprocessor.process_file()
+        for ASCII input files. It is given to DataPreprocessor.get_metadata()
         as skiprows_identifier for the case where files hosting ASCII waveform
-        sets are processed. Check DataPreprocessor.process_file docstring for
+        sets are processed. Check DataPreprocessor.get_metadata() docstring for
         more information on this parameter.
         - ts_skiprows_identifier (string): This parameter only makes a difference
         for dark noise ASCII measurements. It is given to
