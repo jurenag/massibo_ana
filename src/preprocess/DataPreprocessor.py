@@ -1026,6 +1026,7 @@ class DataPreprocessor:
                     translator["Vertical Units"][1]: aux["Vertical Units"],
                 }
             )
+
             aux_wvf_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvf_fields, default_dict=aux_wvf_dict
@@ -1034,13 +1035,14 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
+                    # Extracting this value, although it is not
+                    # strictly necessary for the Dark Noise case.
                     translator["FastFrame Count"][1]: aux["FastFrame Count"]
                 }
-            )  # Extracting this value, although it is not
-            # strictly necessary for the Dark Noise case.
+            )  
+
             aux_wvfset_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvfset_fields, default_dict=aux_wvfset_dict
@@ -1069,46 +1071,37 @@ class DataPreprocessor:
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
 
-            _, extension = os.path.splitext(aux["raw_filepath"])
+            # Not removing the following chunk of code because you will probably 
+            # re-use this when including the shutil.move functionality here
+            # ---------------------------------------------------------------------
+            _, extension = os.path.splitext(aux["raw_filepath"]) #### THIS ONE PROBABLY NEEDS TO BE CHANGED WITH THE PREPROCESS RESTRUCTURING !!!!
             new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
             _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose #### THIS ONE PROBABLY NEEDS TO BE CHANGED WITH THE PREPROCESS RESTRUCTURING !!!!
             )
+            # ---------------------------------------------------------------------
 
-            _, extension = os.path.splitext(aux["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
+            # You probably also need to add a 'timestamp_filepath' new entry to this dictionary
+            # at this level, because in this context (generate_meas_config_files()) you have
+            # successfully paired up ASCII core data files with their corresponding timestamps.
+            # ---------------------------------------------------------------------
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": os.path.relpath(
+                    "timestamp_filepath": os.path.relpath( ## However, instead of updating, just consider adding a new entry
                         new_processed_filepath, start=root_directory
                     )
                 }
             )
-
-            # The name of the processed timestamp filepath has changed,
-            # so we must correct it in aux_wvfset_dict
-            aux_wvfset_dict.update(
-                {
-                    "timestamp_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
-                }
-            )
+            # ---------------------------------------------------------------------
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
             )
+
             aux_wvf_dict = {
                 key: [value] for (key, value) in aux_wvf_dict.items()
             }  # Waveform.Signs.setter inputs must be lists
+
             DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
 
             # Transform back to scalars to preserve
