@@ -950,6 +950,19 @@ class DataPreprocessor:
             )
             # ---------------------------------------------------------------------
 
+            # You probably also need to add a 'timestamp_filepath' new entry to this dictionary
+            # at this level, because in this context (generate_meas_config_files()) you have
+            # successfully paired up ASCII core data files with their corresponding timestamps.
+            # ---------------------------------------------------------------------
+            aux_wvfset_dict.update(
+                {
+                    "timestamp_filepath": os.path.relpath( ## However, instead of updating, just consider adding a new entry
+                        new_processed_filepath, start=root_directory
+                    )
+                }
+            )
+            # ---------------------------------------------------------------------
+
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
             )
