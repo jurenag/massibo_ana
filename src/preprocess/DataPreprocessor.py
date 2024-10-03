@@ -1243,15 +1243,24 @@ class DataPreprocessor:
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
-            # Not removing the following chunk of code because you will probably 
-            # re-use this when including the shutil.move functionality here
-            # ---------------------------------------------------------------------
-            _, extension = os.path.splitext(aux["raw_filepath"]) ## This one probably needs to be changed with the preprocessing restructuring
-            new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose  ## This one probably needs to be changed with the preprocessing restructuring
+            _, extension = os.path.splitext(self.BinaryDarkNoiseCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_darknoise" + extension)
+            
+            shutil.move(
+                self.BinaryDarkNoiseCandidates[key], 
+                new_raw_filepath
             )
-            # ---------------------------------------------------------------------
+
+            aux_wvfset_dict.update(
+                {
+                    "wvf_filepath": os.path.relpath(
+                        new_raw_filepath, start=root_directory
+                    )
+                }
+            )
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
