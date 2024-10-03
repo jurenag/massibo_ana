@@ -283,6 +283,59 @@ class DataPreprocessor:
     def NumFiles(self):
         return self.__num_files
 
+    @staticmethod
+    def check_well_formedness_of_input_folderpath(
+        folderpath, 
+        container_folderpath=None
+    ):
+        """This helper method gets the following positional argument:
+        
+        - folderpath (string): The folderpath to be checked
+        
+        And the following optional keyword argument:
+        
+        - container_folderpath (string): If it is not None, then folder
+        pointed to by folderpath is checked to be contained within the
+        folder pointed to by container_folderpath.
+
+        This method checks that folderpath is a string and that it points 
+        to an existing directory. Additionally, if container_folderpath 
+        is not None, then it checks that the folder pointed to by folderpath 
+        is contained within the folder pointed to by container_folderpath."""
+
+        htype.check_type(
+            folderpath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.check_well_formedness_of_input_folderpath", 
+                45200
+            ),
+        )
+
+        if not os.path.isdir(folderpath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.check_well_formedness_of_input_folderpath",
+                    91371,
+                    extra_info=f"Path {folderpath} does not exist or is not a directory.",
+                )
+            )
+
+        # In this case, the well-formedness of container_folderpath is
+        # checked by DataPreprocessor.path_is_contained_in_dir()
+        if container_folderpath is not None:
+            if not DataPreprocessor.path_is_contained_in_dir(
+                folderpath, container_folderpath
+            ):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.check_well_formedness_of_input_folderpath",
+                        86735,
+                        extra_info=f"{folderpath} is not contained within {container_folderpath}.",
+                    )
+                )
+        return
+
     def generate_meas_config_files(
         self,
         root_directory,
