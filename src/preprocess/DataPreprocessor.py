@@ -1161,6 +1161,7 @@ class DataPreprocessor:
                     translator["Vertical Units"][1]: aux["Vertical Units"],
                 }
             )
+
             aux_wvf_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvf_fields, default_dict=aux_wvf_dict
@@ -1265,6 +1266,7 @@ class DataPreprocessor:
                     translator["Vertical Units"][1]: aux["Vertical Units"],
                 }
             )
+
             aux_wvf_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvf_fields, default_dict=aux_wvf_dict
