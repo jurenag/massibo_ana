@@ -1024,7 +1024,7 @@ class DataPreprocessor:
                     "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
-                    translator["FastFrame Count"][1]: aux["FastFrame Count"],
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"]
                 }
             )  # Extracting this value, although it is not
             # strictly necessary for the Dark Noise case.
@@ -2311,7 +2311,7 @@ class DataPreprocessor:
         is_ASCII=True,
         skiprows_identifier="TIME,",
         parameters_delimiter=",",
-        casting_functions=None,
+        casting_functions=None
     ):
         """This static method gets the following mandatory positional argument:
 
