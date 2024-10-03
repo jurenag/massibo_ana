@@ -3595,7 +3595,7 @@ class DataPreprocessor:
             return len(aux)
 
     @staticmethod
-    def check_well_formedness_of_input_folder(
+    def check_structure_of_input_folder(
         input_folderpath,
         subfolders_no=7,
         json_files_no_at_2nd_level=2,
@@ -3639,66 +3639,66 @@ class DataPreprocessor:
             input_folderpath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 74528
+                "DataPreprocessor.check_structure_of_input_folder", 74528
             ),
         )
         if not os.path.isdir(input_folderpath):
 
             raise FileNotFoundError(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 22434
+                    "DataPreprocessor.check_structure_of_input_folder", 22434
                 )
             )
         htype.check_type(
             subfolders_no,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 23452
+                "DataPreprocessor.check_structure_of_input_folder", 23452
             ),
         )
         if subfolders_no < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 45244
+                    "DataPreprocessor.check_structure_of_input_folder", 45244
                 )
             )
         htype.check_type(
             json_files_no_at_2nd_level,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 95821
+                "DataPreprocessor.check_structure_of_input_folder", 95821
             ),
         )
         if json_files_no_at_2nd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 36144
+                    "DataPreprocessor.check_structure_of_input_folder", 36144
                 )
             )
         htype.check_type(
             json_files_no_at_3rd_level,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 47829
+                "DataPreprocessor.check_structure_of_input_folder", 47829
             ),
         )
         if json_files_no_at_3rd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 12311
+                    "DataPreprocessor.check_structure_of_input_folder", 12311
                 )
             )
         htype.check_type(
             wfm_files_no_at_2nd_and_3rd_level,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 45829
+                "DataPreprocessor.check_structure_of_input_folder", 45829
             ),
         )
         if wfm_files_no_at_2nd_and_3rd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 58821
+                    "DataPreprocessor.check_structure_of_input_folder", 58821
                 )
             )
         incidences_report = []
@@ -3750,7 +3750,7 @@ class DataPreprocessor:
         wfm_files_no_at_1st_and_2nd_level=18,
     ):
         """This static method is a helper method which should only be
-        called by the method check_well_formedness_of_input_folder().
+        called by the method check_structure_of_input_folder().
         No type-checking is performed on the arguments of this method.
         This method gets the following positional argument:
 
