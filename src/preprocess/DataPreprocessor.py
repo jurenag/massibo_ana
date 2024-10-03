@@ -2441,7 +2441,6 @@ class DataPreprocessor:
         get_creation_date=False,
         verbose=True,
         is_ASCII=True,
-        contains_timestamp=False,
         skiprows_identifier="TIME,",
         parameters_delimiter=",",
         casting_functions=None,
@@ -2469,25 +2468,7 @@ class DataPreprocessor:
 
         - is_ASCII (bool): Indicates whether the input file should be interpreted
         as an ASCII file, or as a binary file (in the Tektronix .WFM file format).
-        This parameter, together with contains_timestamp, determines how the input
-        file needs to be processed.
-
-        - contains_timestamp (bool): If contains_timestamp is True, then two
-        additional entries are added to the resulting dictionary. First, the average
-        of the time difference between consecutive triggers is added under the key
-        'average_delta_t_wf'. Second, the time difference between the last trigger
-        and the first trigger of the waveforms dataset stored in the provided
-        filepath, which is added under the key 'acquisition_time'. In such case,
-        the way of computing such entry is different depending on is_ASCII. If
-        is_ASCII is True, then it is assumed that the provided filepath points
-        to an ASCII timestamp file, whose second column hosts the time stamp of
-        the set of triggers of the waveform set, where the i-th time stamp should
-        be understood as a time increment with respect to the (i-1)-th time stamp.
-        In this context, the acquistion time is computed as the sum of all of the
-        entries in the second column of the file. If is_ASCII is False, then it
-        is understood that the provided filepath points to a binary WFM file whose
-        time stamp needs to be extracted and then the acquisition time is computed
-        as the time difference between the last-trigger time stamp and the first-trigger.
+        This parameter determines how the input file needs to be processed.
 
         - skiprows_identifier (string): This parameter only makes a difference
         if is_ASCII is True. In such case, it is passed to DataPreprocessor.parse_headers()
@@ -2584,13 +2565,6 @@ class DataPreprocessor:
             bool,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.process_file", 67189
-            ),
-        )
-        htype.check_type(
-            contains_timestamp,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 19270
             ),
         )
         htype.check_type(
