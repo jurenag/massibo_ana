@@ -883,17 +883,10 @@ class DataPreprocessor:
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
             )
 
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {
-                key: value[0] for (key, value) in aux_wvf_dict.items()
-            }
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
 
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
@@ -1023,15 +1016,10 @@ class DataPreprocessor:
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
             )
 
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
 
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
@@ -1152,15 +1140,10 @@ class DataPreprocessor:
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
             )
 
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
 
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
@@ -1266,15 +1249,10 @@ class DataPreprocessor:
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
             )
 
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
 
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
