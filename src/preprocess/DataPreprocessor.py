@@ -1003,20 +1003,6 @@ class DataPreprocessor:
                 )
             )
 
-            aux_2 = DataPreprocessor.process_file(
-                self.TimeStampCandidates[key],  # Process the time stamps as well
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
-                get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=10,
-                verbose=verbose,
-                is_ASCII=True,
-                contains_timestamp=True,  # Extracts the acquisition time to aux_2['acquisition_time']
-                skiprows_identifier=ts_skiprows_identifier,
-                data_delimiter=data_delimiter,
-            )
-
             print(
                 f"Let us retrieve some information for the waveform set in {self.ASCIIDarkNoiseCandidates[key]}"
             )
@@ -1039,8 +1025,6 @@ class DataPreprocessor:
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
                     translator["FastFrame Count"][1]: aux["FastFrame Count"],
-                    "timestamp_filepath": aux_2["processed_filepath"],
-                    translator["average_delta_t_wf"][1]: aux_2["average_delta_t_wf"],
                 }
             )  # Extracting this value, although it is not
             # strictly necessary for the Dark Noise case.
@@ -1061,14 +1045,6 @@ class DataPreprocessor:
                     aux_darknoisemeas_dict.update(
                         {"strip_ID": strips_ids[i // sipms_per_strip]}
                     )
-
-            # The acquisition time is not queried.
-            # Here, I am assuming that the time
-            # stamp unit is the second.
-            # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update(
-                {translator["acquisition_time"][1]: aux_2["acquisition_time"] / 60.0}
-            )
 
             aux_darknoisemeas_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
@@ -1102,17 +1078,6 @@ class DataPreprocessor:
                         new_processed_filepath, start=root_directory
                     )
                 }
-            )
-
-            _, extension = os.path.splitext(aux_2["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_ts_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux_2["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
             )
 
             # The name of the processed timestamp filepath has changed,
