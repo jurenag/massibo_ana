@@ -1129,15 +1129,24 @@ class DataPreprocessor:
             # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
 
-            # Not removing the following chunk of code because you will probably 
-            # re-use this when including the shutil.move functionality here
-            # ---------------------------------------------------------------------
-            _, extension = os.path.splitext(aux["raw_filepath"])  ## This one probably needs to be changed with the preprocessing restructuring
-            new_raw_filename = output_filepath_base + "_raw_gain" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose  ## This one probably needs to be changed with the preprocessing restructuring
+            _, extension = os.path.splitext(self.BinaryGainCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_gain" + extension)
+            
+            shutil.move(
+                self.BinaryGainCandidates[key], 
+                new_raw_filepath
             )
-            # ---------------------------------------------------------------------
+
+            aux_wvfset_dict.update(
+                {
+                    "wvf_filepath": os.path.relpath(
+                        new_raw_filepath, start=root_directory
+                    )
+                }
+            )
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
