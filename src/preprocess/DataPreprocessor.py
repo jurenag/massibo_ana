@@ -1886,7 +1886,7 @@ class DataPreprocessor:
         return "".join(filtered_alphabetic_characters)
 
     @staticmethod
-    def extract_tek_wfm_metadata(filepath):
+    def _extract_tek_wfm_metadata(filepath):
         """This static method has a fixed purposed and is not tunable via input
         parameters. This method gets the following mandatory positional argument:
 
@@ -1936,13 +1936,13 @@ class DataPreprocessor:
             filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.extract_tek_wfm_metadata", 48219
+                "DataPreprocessor._extract_tek_wfm_metadata", 48219
             ),
         )
         if not os.path.isfile(filepath):
             raise FileNotFoundError(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     11539,
                     extra_info=f"Path {filepath} does not exist or is not a file.",
                 )
@@ -1952,7 +1952,7 @@ class DataPreprocessor:
             if extension != ".wfm":
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "DataPreprocessor.extract_tek_wfm_metadata",
+                        "DataPreprocessor._extract_tek_wfm_metadata",
                         42881,
                         extra_info=f"The extension of the input file must match '.wfm'.",
                     )
@@ -1963,7 +1963,7 @@ class DataPreprocessor:
         if len(header_bytes) != 838:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     47199,
                     extra_info="WFM header comprise 838 bytes. A different value was given.",
                 )
@@ -2007,7 +2007,7 @@ class DataPreprocessor:
         if data_buffer["record_type"] != 2:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     67112,
                     extra_info="For normal YT waveforms, the record type must be 2.",
                 )
@@ -2020,7 +2020,7 @@ class DataPreprocessor:
         if data_buffer["imp_dim_count"] != 1:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     10925,
                     extra_info="For normal YT waveforms, the number of implicit dimensions must be 1.",
                 )
@@ -2033,7 +2033,7 @@ class DataPreprocessor:
         if data_buffer["exp_dim_count"] != 1:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     48108,
                     extra_info="For normal YT waveforms, the number of explicit dimensions must be 1.",
                 )
@@ -2046,7 +2046,7 @@ class DataPreprocessor:
         if data_buffer["exp_dim_1_type"] != 0:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     48108,
                     extra_info="This value must be 0, which matches the case of 'EXPLICIT_SAMPLE'.",
                 )
@@ -2059,7 +2059,7 @@ class DataPreprocessor:
         if data_buffer["time_base_1"] != 0:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     48108,
                     extra_info="This value must be 0, which matches the case of 'BASE_TIME'.",
                 )
@@ -2076,7 +2076,7 @@ class DataPreprocessor:
             print(f"In extract_tek_wfm_metadata(), filepath={filepath}")
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     30182,
                     extra_info="This value must be 1, which matches the case of a FastFrame set.",
                 )
@@ -2234,7 +2234,7 @@ class DataPreprocessor:
         else:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     21230,
                     extra_info="The data-type code is not consistent with the read bytes-per-sample.",
                 )
@@ -2426,7 +2426,7 @@ class DataPreprocessor:
         as an ASCII file, or as a binary file (in the Tektronix .WFM file format).
         This parameter determines whether this function delegates the meta-data
         extraction to DataPreprocessor._parse_headers() (is_ASCII is True) or
-        to DataPreprocessor.extract_tek_wfm_metadata() (is_ASCII is False).
+        to DataPreprocessor._extract_tek_wfm_metadata() (is_ASCII is False).
 
         - skiprows_identifier (string): This parameter only makes a difference
         if is_ASCII is True. In such case, it is passed to DataPreprocessor._parse_headers()
@@ -2456,7 +2456,7 @@ class DataPreprocessor:
             (in the Tektronix .WFM file format),
             - extracts some meta-data from it which is partially returned by this method
             as a dictionary. Such extraction is carried out by
-            DataPreprocessor._parse_headers() or DataPreprocessor.extract_tek_wfm_metadata()
+            DataPreprocessor._parse_headers() or DataPreprocessor._extract_tek_wfm_metadata()
             for the case where is_ASCII is True or False, respectively.
             - optionally, if get_creation_date is True, the creation date of the input
             file is also retrieved and added to the resulting dictionary under the key
@@ -2556,7 +2556,7 @@ class DataPreprocessor:
             )
         else:
             parameters, _ = (
-                DataPreprocessor.extract_tek_wfm_metadata(filepath)
+                DataPreprocessor._extract_tek_wfm_metadata(filepath)
             )
         result.update(parameters)
 
@@ -2624,7 +2624,7 @@ class DataPreprocessor:
         for the case of binary input files, i.e. either file_type_code is 2
         or 3. In such case, it must be defined. It is a dictionary containing
         the metadata of the provided input file. It must be the union of the
-        two dictionaries returned by DataPreprocessor.extract_tek_wfm_metadata().
+        two dictionaries returned by DataPreprocessor._extract_tek_wfm_metadata().
         For more information on the keys which these dictionaries should contain,
         check such method documentation.
 
@@ -2880,13 +2880,13 @@ class DataPreprocessor:
 
         - filepath (string): Path to the binary file (Tektronix WFM file format),
         which must host a FastFrame set and whose core data should be extracted.
-        DataPreprocessor.extract_tek_wfm_metadata() should have previously checked
+        DataPreprocessor._extract_tek_wfm_metadata() should have previously checked
         that, indeed, the input file hosts a FastFrame set. It is a check based
         on the 4-bytes integer which you can find at offset 78 of the WFM file.
         - metadata (dictionary): It is a dictionary which contains meta-data of
         the input file which is necessary to extract the core data. It should
         contain the union of the two dictionaries returned by
-        DataPreprocessor.extract_tek_wfm_metadata(). For more information on
+        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
         the data contained in such dictionaries, check such method documentation.
 
         This method returns two arrays. The first one is an unidimensional array
@@ -2896,7 +2896,7 @@ class DataPreprocessor:
         of (user-accesible) points per waveform, while M is the number of
         waveforms. The waveform entries in such array are already expressed in
         the vertical units which are extracted to the key 'Vertical Units' by
-        DataPreprocessor.extract_tek_wfm_metadata(). In this context, the i-th
+        DataPreprocessor._extract_tek_wfm_metadata(). In this context, the i-th
         entry of the first array returned by this function gives the time
         difference, in seconds, between the trigger of the i-th waveform and
         the trigger of the (i-1)-th waveform. The first entry, which is undefined
