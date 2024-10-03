@@ -290,7 +290,6 @@ class DataPreprocessor:
         aux_folderpath,
         data_folderpath,
         wvf_skiprows_identifier="TIME,",
-        data_delimiter=",",
         path_to_json_default_values=None,
         sipms_per_strip=None,
         strips_ids=None,
@@ -320,10 +319,6 @@ class DataPreprocessor:
         as skiprows_identifier for the case where files hosting ASCII waveform
         sets are processed. Check DataPreprocessor.get_metadata() docstring for
         more information on this parameter.
-        - data_delimiter (string): This parameter only makes a difference for
-        ASCII measurements. It is given to DataPreprocessor.process_file() as
-        data_delimiter. It is used to separate entries of the different columns
-        of the ASCII input data files.
         - path_to_json_default_values (string): If it is not none, it should be
         the path to a json file from which some default values may be read.
         - sipms_per_strip (positive integer): The number of SiPMs per strip. If
@@ -493,13 +488,6 @@ class DataPreprocessor:
             str,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.generate_meas_config_files", 42451
-            ),
-        )
-        htype.check_type(
-            data_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 79439
             ),
         )
         fReadDefaultsFromFile = False
