@@ -288,7 +288,6 @@ class DataPreprocessor:
         root_directory,
         load_folderpath,
         aux_folderpath,
-        backup_folderpath,
         data_folderpath,
         wvf_skiprows_identifier="TIME,",
         ts_skiprows_identifier="X:",
@@ -309,10 +308,6 @@ class DataPreprocessor:
         - aux_folderpath (string): Path to a folder where the WaveformSet and
         Waveform json configuration files will be saved. It must be contained,
         at an arbitrary depth, within the root directory.
-        - backup_folderpath (string): A backup of the raw input data, regardless
-        if it's a binary or an ASCII measurement file, will be saved in this
-        folder. It must be contained, at an arbitrary depth, within the root
-        directory.
         - data_folderpath (string): Clean data files (following the unified format
         of one column with no headers), regardless its original format, will be
         saved in this folder. Time stamp data files, if applicable, will be also
@@ -473,32 +468,7 @@ class DataPreprocessor:
                     extra_info=f"{aux_folderpath} is not contained within {root_directory}.",
                 )
             )
-        htype.check_type(
-            backup_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 31414
-            ),
-        )
-        if not os.path.isdir(backup_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    74660,
-                    extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            backup_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    74514,
-                    extra_info=f"{backup_folderpath} is not contained within {root_directory}.",
-                )
-            )
         htype.check_type(
             data_folderpath,
             str,
