@@ -874,23 +874,17 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.ASCIIGainCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.ASCIIGainCandidates[key],
                 *translator.keys(),
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
                 is_ASCII=True,
-                contains_timestamp=False,
                 skiprows_identifier=wvf_skiprows_identifier,
                 parameters_delimiter=",",
-                data_delimiter=data_delimiter,
                 casting_functions=tuple(
                     [translator[key][0] for key in translator.keys()]
-                ),
+                )
             )
 
             print(
@@ -1021,23 +1015,17 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.ASCIIDarkNoiseCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.ASCIIDarkNoiseCandidates[key],
                 *translator.keys(),
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
                 is_ASCII=True,
-                contains_timestamp=False,
                 skiprows_identifier=wvf_skiprows_identifier,
                 parameters_delimiter=",",
-                data_delimiter=data_delimiter,
                 casting_functions=tuple(
                     [translator[key][0] for key in translator.keys()]
-                ),
+                )
             )
 
             aux_2 = DataPreprocessor.process_file(
@@ -1210,19 +1198,11 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.BinaryGainCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.BinaryGainCandidates[key],
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
-                is_ASCII=False,
-                # Even though this is a gain-case,
-                # we need to process the time stamp
-                # to extract the 'delta_t_wf' field.
-                contains_timestamp=True,
+                is_ASCII=False
             )
 
             os.remove(
@@ -1354,16 +1334,11 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.BinaryDarkNoiseCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.BinaryDarkNoiseCandidates[key],
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
-                is_ASCII=False,
-                contains_timestamp=True,
+                is_ASCII=False
             )
 
             print(
