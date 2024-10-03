@@ -359,11 +359,10 @@ class DataPreprocessor:
         - aux_folderpath (string): Path to a folder where the WaveformSet and
         Waveform json configuration files will be saved. It must be contained,
         at an arbitrary depth, within the root directory.
-        - data_folderpath (string): Clean data files (following the unified format
-        of one column with no headers), regardless its original format, will be
-        saved in this folder. Time stamp data files, if applicable, will be also
-        saved in this folder, following the same format.  It must be contained,
-        at an arbitrary depth, within the root directory.
+        - data_folderpath (string): Raw data files regardless its original 
+        format, will be saved in this folder. Time stamp data files, if applicable, 
+        will be also saved in this folder. It must be contained, at an arbitrary 
+        depth, within the root directory.
 
         This method gets the following optional keyword arguments:
 
