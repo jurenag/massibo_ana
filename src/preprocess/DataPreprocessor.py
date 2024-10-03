@@ -2435,7 +2435,7 @@ class DataPreprocessor:
         return raw_filepath, processed_filepath
 
     @staticmethod
-    def process_file(
+    def get_metadata(
         filepath,
         *parameters_identifiers,
         get_creation_date=False,
@@ -2447,7 +2447,7 @@ class DataPreprocessor:
     ):
         """This static method gets the following mandatory positional argument:
 
-        - filepath (string): Path to the file which will be processed.
+        - filepath (string): Path to the file whose meta-data will be retrieved.
 
         This function gets the following optional positional arguments:
 
@@ -2468,7 +2468,9 @@ class DataPreprocessor:
 
         - is_ASCII (bool): Indicates whether the input file should be interpreted
         as an ASCII file, or as a binary file (in the Tektronix .WFM file format).
-        This parameter determines how the input file needs to be processed.
+        This parameter determines whether this function delegates the meta-data
+        extraction to DataPreprocessor.parse_headers() (is_ASCII is True) or
+        to DataPreprocessor.extract_tek_wfm_metadata() (is_ASCII is False).
 
         - skiprows_identifier (string): This parameter only makes a difference
         if is_ASCII is True. In such case, it is passed to DataPreprocessor.parse_headers()
@@ -2500,41 +2502,21 @@ class DataPreprocessor:
             as a dictionary. Such extraction is carried out by
             DataPreprocessor.parse_headers() or DataPreprocessor.extract_tek_wfm_metadata()
             for the case where is_ASCII is True or False, respectively.
-            - Then, backs it up with a modified name (the backup filename is formed by
-            pre-appending the 'raw_' string to the original filename) to a location which
-            depends on the backup_folderpath parameter (overwritting may occur, up to
-            overwrite_files),
-            - crafts one* ASCII file in a unified format which comprises just one
-            column of float values with no headers, whose filename is crafted out of
-            the original filename by pre-appending the 'processed_'* string,
-            - saves it to a tunable location (up to the destination_folderpath parameter,
-            overwritting may occur),
-            - and adds the raw-and-processed filepaths to the returned dictionary under
-            the keys 'raw_filepath' and 'processed_filepath'*, respectively.
-
-        *In the particular case when is_ASCII is False and contains_timestamp is True,
-        then two processed files are crafted: a processed waveform-set file and a processed
-        timestamp. In such case, the pre-appended strings to the processed filenames
-        are 'processed_' and 'processed_ts_' respectively. Both resulting filepaths are
-        added to the resulting dictionary under the keys 'processed_filepath' and
-        'processed_ts_filepath' respectively.
-
-        Some additional entries could be added to the resulting dictionary, up to the boolean
-        values given to get_creation_date and contains_timestamp. Check such parameters
-        documentation for more information.
+            - optionally, if get_creation_date is True, the creation date of the input
+            file is also retrieved and added to the resulting dictionary under the key
+            'creation_date'.
 
         For DataPreprocessor.generate_meas_config_files() to work properly, the dictionary
         returned by this method must, at least, contain the following keys: 'Horizontal Units',
-        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count', 'creation_date'.
-        If contains_timestamp is True, then the returned dictionary must also contain the
-        following keys: 'average_delta_t_wf' and 'acquisition_time'. If get_creation_date is
-        True, then the returned dictionary must also contain the 'creation_date' key."""
+        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count' and 
+        'creation_date'.
+        """
 
         htype.check_type(
             filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 17219
+                "DataPreprocessor.get_metadata", 17219
             ),
         )
         for i in range(len(parameters_identifiers)):
@@ -2542,7 +2524,7 @@ class DataPreprocessor:
                 parameters_identifiers[i],
                 str,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 43177
+                    "DataPreprocessor.get_metadata", 43177
                 ),
             )
 
@@ -2550,35 +2532,35 @@ class DataPreprocessor:
             get_creation_date,
             bool,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 11280
+                "DataPreprocessor.get_metadata", 11280
             ),
         )
         htype.check_type(
             verbose,
             bool,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 56912
+                "DataPreprocessor.get_metadata", 56912
             ),
         )
         htype.check_type(
             is_ASCII,
             bool,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 67189
+                "DataPreprocessor.get_metadata", 67189
             ),
         )
         htype.check_type(
             skiprows_identifier,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 99170
+                "DataPreprocessor.get_metadata", 99170
             ),
         )
         htype.check_type(
             parameters_delimiter,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 12851
+                "DataPreprocessor.get_metadata", 12851
             ),
         )
         casting_functions_ = [lambda x: x for y in parameters_identifiers]
@@ -2588,20 +2570,20 @@ class DataPreprocessor:
                 tuple,
                 list,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 41470
+                    "DataPreprocessor.get_metadata", 41470
                 ),
             )
             for i in range(len(casting_functions)):
                 if not callable(casting_functions[i]):
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "DataPreprocessor.process_file", 55415
+                            "DataPreprocessor.get_metadata", 55415
                         )
                     )
             if len(casting_functions) != len(parameters_identifiers):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "DataPreprocessor.process_file", 99167
+                        "DataPreprocessor.get_metadata", 99167
                     )
                 )
             casting_functions_ = casting_functions
@@ -2627,7 +2609,7 @@ class DataPreprocessor:
 
         if verbose:
             print(
-                f"In function DataPreprocessor.process_file(): Succesfully processed {filepath}"
+                f"In function DataPreprocessor.get_metadata(): Succesfully processed {filepath}"
             )
 
         return result
