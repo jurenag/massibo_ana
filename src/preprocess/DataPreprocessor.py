@@ -1293,7 +1293,7 @@ class DataPreprocessor:
             darknoisemeas_output_filepath = os.path.join(
                 load_folderpath, output_filepath_base + "_darknoisemeas.json"
             )
-
+            
             DataPreprocessor.generate_json_file(
                 aux_darknoisemeas_dict, darknoisemeas_output_filepath
             )
