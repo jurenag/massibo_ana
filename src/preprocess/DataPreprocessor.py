@@ -1151,10 +1151,6 @@ class DataPreprocessor:
                 is_ASCII=False
             )
 
-            os.remove(
-                aux["processed_ts_filepath"]
-            )  # We do not want to keep the processed timestamp file though
-
             print(
                 f"Let us retrieve some information for the waveform set in {self.BinaryGainCandidates[key]}"
             )
@@ -1173,13 +1169,12 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
-                    translator["FastFrame Count"][1]: aux["FastFrame Count"],
-                    translator["average_delta_t_wf"][1]: aux["average_delta_t_wf"],
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"]
                 }
             )
+
             aux_wvfset_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvfset_fields, default_dict=aux_wvfset_dict
@@ -1204,58 +1199,30 @@ class DataPreprocessor:
                 )
             )
 
-            # For our particular setup, an 'empty timestamp'
-            # is actually full of null entries. The way of
-            # computing 'delta_t_wf' by
-            # DataPreprocessor.process_core_data makes
-            # 'delta_t_wf' be 0.0 in this case.
-            if aux_wvfset_dict[translator["average_delta_t_wf"][1]] == 0.0:
-
-                # Compute 'delta_t_wf' as
-                # for the ASCII gain case.
-                aux_wvfset_dict.update(
-                    {
-                        translator["average_delta_t_wf"][1]: (
-                            1.0 / (1000.0 * aux_gainmeas_dict["LED_frequency_kHz"])
-                        )
-                    }
-                )
-
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
             # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
 
-            _, extension = os.path.splitext(aux["raw_filepath"])
+            # Not removing the following chunk of code because you will probably 
+            # re-use this when including the shutil.move functionality here
+            # ---------------------------------------------------------------------
+            _, extension = os.path.splitext(aux["raw_filepath"])  ## This one probably needs to be changed with the preprocessing restructuring
             new_raw_filename = output_filepath_base + "_raw_gain" + extension
             _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose  ## This one probably needs to be changed with the preprocessing restructuring
             )
-
-            _, extension = os.path.splitext(aux["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_gain" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
-            aux_wvfset_dict.update(
-                {
-                    "wvf_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
-                }
-            )
+            # ---------------------------------------------------------------------
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
             )
+
             aux_wvf_dict = {
                 key: [value] for (key, value) in aux_wvf_dict.items()
             }  # Waveform.Signs.setter inputs must be lists
+
             DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
+
             # Transform back to scalars to preserve
             # proper functioning of this method
             aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
@@ -1263,6 +1230,7 @@ class DataPreprocessor:
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
             )
+
             wvfset_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvfset.json"
             )
