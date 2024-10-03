@@ -1773,7 +1773,7 @@ class DataPreprocessor:
             return -1
 
     @staticmethod
-    def parse_headers(
+    def _parse_headers(
         filepath,
         *identifiers,
         identifier_delimiter=",",
@@ -1824,7 +1824,7 @@ class DataPreprocessor:
             filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.parse_headers", 41251
+                "DataPreprocessor._parse_headers", 41251
             ),
         )
         for i in range(len(identifiers)):
@@ -1832,14 +1832,14 @@ class DataPreprocessor:
                 identifiers[i],
                 str,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.parse_headers", 27001
+                    "DataPreprocessor._parse_headers", 27001
                 ),
             )
         htype.check_type(
             identifier_delimiter,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.parse_headers", 76281
+                "DataPreprocessor._parse_headers", 76281
             ),
         )
         casting_functions_ = [lambda x: x for y in identifiers]
@@ -1849,20 +1849,20 @@ class DataPreprocessor:
                 tuple,
                 list,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.parse_headers", 38100
+                    "DataPreprocessor._parse_headers", 38100
                 ),
             )
             for i in range(len(casting_functions)):
                 if not callable(casting_functions[i]):
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "DataPreprocessor.parse_headers", 13721
+                            "DataPreprocessor._parse_headers", 13721
                         )
                     )
             if len(casting_functions) != len(identifiers):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "DataPreprocessor.parse_headers", 38293
+                        "DataPreprocessor._parse_headers", 38293
                     )
                 )
             casting_functions_ = casting_functions
@@ -1873,7 +1873,7 @@ class DataPreprocessor:
                 headers_end_identifier,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.parse_headers", 17819
+                    "DataPreprocessor._parse_headers", 17819
                 ),
             )
             headers_endline = DataPreprocessor.find_skiprows(
@@ -2324,7 +2324,7 @@ class DataPreprocessor:
 
         # For now, the only reason for this dictionary splitting is simply to make the first returned
         # dictionary resemble that of the ASCII case, i.e. the one returned by
-        # DataPreprocessor.parse_headers(). This might not be the optimal way and may vary in the future.
+        # DataPreprocessor._parse_headers(). This might not be the optimal way and may vary in the future.
 
         return main_extraction, supplementary_extraction
 
@@ -2453,7 +2453,7 @@ class DataPreprocessor:
 
         - parameters_identifiers (tuple of strings): These parameters only make
         a difference if is_ASCII is True. In such case, they are given to
-        DataPreprocessor.parse_headers() as identifiers. Each one is considered
+        DataPreprocessor._parse_headers() as identifiers. Each one is considered
         to be the string which precedes the value of a parameter of interest
         within the input file headers.
 
@@ -2469,11 +2469,11 @@ class DataPreprocessor:
         - is_ASCII (bool): Indicates whether the input file should be interpreted
         as an ASCII file, or as a binary file (in the Tektronix .WFM file format).
         This parameter determines whether this function delegates the meta-data
-        extraction to DataPreprocessor.parse_headers() (is_ASCII is True) or
+        extraction to DataPreprocessor._parse_headers() (is_ASCII is True) or
         to DataPreprocessor.extract_tek_wfm_metadata() (is_ASCII is False).
 
         - skiprows_identifier (string): This parameter only makes a difference
-        if is_ASCII is True. In such case, it is passed to DataPreprocessor.parse_headers()
+        if is_ASCII is True. In such case, it is passed to DataPreprocessor._parse_headers()
         as headers_end_identifier, which, in turn, passes it to
         DataPreprocessor.find_skiprows() as identifier. This string is used to
         identify the line which immediately precedes the data columns in an
@@ -2484,13 +2484,13 @@ class DataPreprocessor:
         parameters_identifiers, from the first line through the L-th line.
 
         - parameters_delimiter (string): This parameter only makes a difference if
-        is_ASCII is True. In such case, it is given to DataPreprocessor.parse_headers()
+        is_ASCII is True. In such case, it is given to DataPreprocessor._parse_headers()
         as identifier_delimiter. This string is used to separate each identifier
         from its value.
 
         - casting_functions (tuple/list of functions): This parameter only makes a
         difference if is_ASCII is True. In such case, it is given to
-        DataPreprocessor.parse_headers() as casting_functions. The i-th function
+        DataPreprocessor._parse_headers() as casting_functions. The i-th function
         within casting_functions will be used to transform the string read from the
         input file for the i-th parameter identifier.
 
@@ -2500,7 +2500,7 @@ class DataPreprocessor:
             (in the Tektronix .WFM file format),
             - extracts some meta-data from it which is partially returned by this method
             as a dictionary. Such extraction is carried out by
-            DataPreprocessor.parse_headers() or DataPreprocessor.extract_tek_wfm_metadata()
+            DataPreprocessor._parse_headers() or DataPreprocessor.extract_tek_wfm_metadata()
             for the case where is_ASCII is True or False, respectively.
             - optionally, if get_creation_date is True, the creation date of the input
             file is also retrieved and added to the resulting dictionary under the key
@@ -2590,7 +2590,7 @@ class DataPreprocessor:
 
         result = {}
         if is_ASCII:
-            parameters, _ = DataPreprocessor.parse_headers(
+            parameters, _ = DataPreprocessor._parse_headers(
                 filepath,
                 *parameters_identifiers,
                 identifier_delimiter=parameters_delimiter,
