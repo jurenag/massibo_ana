@@ -817,11 +817,7 @@ class WaveformSet(OneTypeRTL):
         file which stores the timestamp of the waveforms. This class
         method gets the following mandatory positional arguments:
 
-        -  input_filepath (string): File from which to read the waveforms,
-        where there's one entry per row. I.e. one waveform datapoint per
-        file row. The format of this file should comply with some rules
-        depending on the value of points_per_wvf and separator. Refer to
-        the documentation of such parameters for more information.
+        -  input_filepath (string): File from which to read the waveforms.
         - time_resolution (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
         - points_per_wvf (int): The expected number of points per 
@@ -830,13 +826,13 @@ class WaveformSet(OneTypeRTL):
         This method also takes the following optional keyword arguments:
 
         - wvfs_to_read (int): This parameter only makes a difference if
-        points_per_wvf is not None and timestamp_filepath is None. For this
-        particular case, providing this argument speeds up the reading process.
-        It is the expected number of waveforms within the input filepath.
-        Assume input_filepath hosts N waveforms. Then, if wvfs_to_read<N, only
-        the first wvfs_to_read waveforms of input_filepath are read. If
-        wvfs_to_read>=N, all of the waveforms within input_filepath are read.
-        If it is not provided, this number is inferred from the input file.
+        timestamp_filepath is None. For this particular case, providing 
+        this argument speeds up the reading process. It is the expected 
+        number of waveforms within the input filepath. Assume input_filepath 
+        hosts N waveforms. Then, if wvfs_to_read<N, only the first wvfs_to_read 
+        waveforms of input_filepath are read. If wvfs_to_read>=N, all of the 
+        waveforms within input_filepath are read. If it is not provided, 
+        this number is inferred from the input file.
         - timestamp_filepath (string): File path to the file which hosts a
         a time stamp of the waveforms which are hosted in input_filepath. The
         i-th entry of this file is considered to be the initial time of
