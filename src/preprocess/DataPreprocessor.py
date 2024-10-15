@@ -582,10 +582,15 @@ class DataPreprocessor:
                 DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
             )
 
-        # In the case of ASCII files, our oscilloscope always outputs
-        # the number of samples, i.e. points_per_wvf, so we won't need
-        # a separator in such case. For the case of binary files, the
-        # read process does not need a separator either.
+        # Deprecation note: The 'separator' field is not needed 
+        # anymore, and so, its support in the WaveformSet reading
+        # methods has been removed. The 'separator' field was used
+        # in the past to separate the last signal sample of the i-th
+        # waveform from the first signal sample of the (i+1)-th 
+        # waveform. In the case of ASCII files, our oscilloscope 
+        # always outputs the number of samples, i.e. points_per_wvf, 
+        # so we won't need a separator in such case. For the case of 
+        # binary files, the read process does not need a separator either.
         queried_wvfset_fields = {  #'separator':str,
             "set_name": str,
             "creation_dt_offset_min": float,
