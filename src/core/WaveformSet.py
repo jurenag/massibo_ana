@@ -980,7 +980,6 @@ class WaveformSet(OneTypeRTL):
     def process_core_data(
         filepath,
         file_type_code,
-        backup_folderpath=None,
         overwrite_files=True,
         skiprows=0,
         data_delimiter=",",
@@ -999,10 +998,6 @@ class WaveformSet(OneTypeRTL):
         timestamp should be extracted.
 
         This function also gets the following optional keyword arguments:
-
-        - backup_folderpath (None or string): If it is defined, then the
-        backup of the input file is moved to the folder whose path matches
-        backup_folderpath.
 
         - overwrite_files (boolean): If it set to True (resp. False), the
         resulting files, i.e. the raw and processed files, will (resp. won't)
@@ -1120,22 +1115,6 @@ class WaveformSet(OneTypeRTL):
                     extra_info=f"Binary input files must be WFM files.",
                 )
             )
-        if backup_folderpath is not None:
-            htype.check_type(
-                backup_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 79090
-                ),
-            )
-            if not os.path.isdir(backup_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_core_data",
-                        34147,
-                        extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
-                    )
-                )
         htype.check_type(
             overwrite_files,
             bool,
