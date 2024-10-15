@@ -980,7 +980,6 @@ class WaveformSet(OneTypeRTL):
     def process_core_data(
         filepath,
         file_type_code,
-        overwrite_files=True,
         skiprows=0,
         data_delimiter=",",
         ndecimals=18,
@@ -998,10 +997,6 @@ class WaveformSet(OneTypeRTL):
         timestamp should be extracted.
 
         This function also gets the following optional keyword arguments:
-
-        - overwrite_files (boolean): If it set to True (resp. False), the
-        resulting files, i.e. the raw and processed files, will (resp. won't)
-        be overwritten if they already exist.
 
         - skiprows (integer scalar): This parameter is only used for the
         case of ASCII input files, i.e. either file_type_code is 0 or 1.
@@ -1115,13 +1110,6 @@ class WaveformSet(OneTypeRTL):
                     extra_info=f"Binary input files must be WFM files.",
                 )
             )
-        htype.check_type(
-            overwrite_files,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 60125
-            ),
-        )
         htype.check_type(
             skiprows,
             int,
