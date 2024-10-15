@@ -975,7 +975,311 @@ class WaveformSet(OneTypeRTL):
             )
             waveforms_pack.append(waveform_holder)
         return cls(*waveforms_pack, set_name=set_name, ref_datetime=ref_datetime_)
-    
+
+    @staticmethod
+    def process_core_data(
+        filepath,
+        file_type_code,
+        destination_folderpath=None,
+        backup_folderpath=None,
+        overwrite_files=True,
+        skiprows=0,
+        data_delimiter=",",
+        ndecimals=18,
+        tek_wfm_metadata=None,
+    ):
+        """This static method gets the following mandatory positional argument:
+
+        - filepath (string): Path to the file whose data will be processed.
+
+        - file_type_code (scalar integer): It must be either 0, 1, 2 or 3.
+        This integer indicates the type of file which should be processed.
+        0 matches an ASCII waveform dataset and 1 matches an ASCII timestamp.
+        2 matches a binary (Tektronix WFM file format) file whose timestamp
+        should not be extracted, while 3 matches a binary file whose
+        timestamp should be extracted.
+
+        This function also gets the following optional keyword arguments:
+
+        - destination_folderpath (None or string): If it is defined, then
+        the processed file(s) are removed from the input file folder and
+        moved to the folder whose path matches destination_folderpath.
+
+        - backup_folderpath (None or string): If it is defined, then the
+        backup of the input file is moved to the folder whose path matches
+        backup_folderpath.
+
+        - overwrite_files (boolean): If it set to True (resp. False), the
+        resulting files, i.e. the raw and processed files, will (resp. won't)
+        be overwritten if they already exist.
+
+        - skiprows (integer scalar): This parameter is only used for the
+        case of ASCII input files, i.e. either file_type_code is 0 or 1.
+        It indicates the number of rows to skip in the input file in order
+        to access the core data.
+
+        - data_delimiter (string): This parameter is only used for the case
+        of ASCII input files, i.e. either file_type_code is 0 or 1. In such
+        case, it is given to numpy.loadtxt() as delimiter, which in turn,
+        uses it to separate entries of the different columns of the input file.
+
+        - ndecimals (int): Number of decimals to use to save the real values
+        to the processed file(s). Scientific notation is assumed.
+
+        - tek_wfm_metadata (None or dictionary): This parameter is only used
+        for the case of binary input files, i.e. either file_type_code is 2
+        or 3. In such case, it must be defined. It is a dictionary containing
+        the metadata of the provided input file. It must be the union of the
+        two dictionaries returned by DataPreprocessor._extract_tek_wfm_metadata().
+        For more information on the keys which these dictionaries should contain,
+        check such method documentation.
+
+        This static method returns a dictionary. To do so, it does the following:
+            - Backs up the input file to a filepath whose file name is crafted
+            by pre-appending the 'raw_' string to the input file name.
+            - Then, if file_type_code is 0, 1 or 2,
+                - it creates one ASCII file in a unified format which comprises
+                just one column of float values, which is the result of
+                removing the headers and the first column from the input file,
+                and whose filename is crafted out of the original filename by
+                pre-appending the 'processed_' string. Such file contains the
+                formatted waveform dataset information (file_type_code==0, 2)
+                or the formatted timestamp information (file_type_code==1) and
+                is given a file name which is crafted by pre-appending the
+                'processed_' string to the input file name.
+            - Else, if file_type_code is 3, then
+                - it creates two ASCII files following the unified format
+                specified before. The first (resp. second) one contains the
+                waveform dataset (resp. the timestamp). The filename of the
+                first (resp. second) is crafted out of the original filename
+                by pre-appending the 'processed_' (resp. 'processed_ts_')
+                string. For both generated ASCII files, the data cleaning goes
+                as in the previous case.
+            - Then, saves the processed file(s) to a tunable location (up
+            to the destination_folderpath parameter, overwritting may occur).
+            - Then, if file_type_code is 0, 1 or 2, this method
+                - adds the raw-and-processed filepaths to the returned
+                dictionary under the keys 'raw_filepath' and 'processed_filepath',
+                respectively.
+            - Else, if file_type_code is 3, then
+                - adds the raw filepath, the processed-waveforms filepath
+                and the processed-timestamp filepath to the returned dictionary
+                under the keys 'raw_filepath', 'processed_filepath' and
+                'processed_ts_filepath'.
+            - To end with, if file_type_code is 1 or 3, then two additional
+            quantities are computed and saved to the returned dictionary. The
+            first one is saved under the key 'average_delta_t_wf' and is the
+            average of the time differences between consecutive triggers in the
+            waveforms dataset. The second one is saved under the key
+            'acquisition_time' and is the acquisition time of the waveform
+            dataset which is stored in the provided input file. By acquisition
+            time we refer to the time difference between the last trigger and
+            the first trigger of the waveforms dataset stored in the provided
+            filepath. It is assumed that the i-th entry of the time stamp is
+            time increment of the i-th waveform trigger with respect to the
+            (i-1)-th waveform trigger. Therefore, the acquisition time is
+            computed as the sum of all of the entries of the time stamp."""
+
+        htype.check_type(
+            filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.process_core_data", 46221
+            ),
+        )
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data",
+                    49000,
+                    extra_info=f"Path {filepath} does not exist or is not a file.",
+                )
+            )
+        else:
+            _, extension = os.path.splitext(filepath)
+
+        htype.check_type(
+            file_type_code,
+            int,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.process_core_data", 79829
+            ),
+        )
+        if file_type_code < 0 or file_type_code > 3:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data", 66937
+                )
+            )
+        elif file_type_code < 2 and extension not in (".csv", ".txt", ".dat"):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data",
+                    12823,
+                    extra_info=f"Not allowed extension for an ASCII input file.",
+                )
+            )
+        elif file_type_code > 1 and extension != ".wfm":
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data",
+                    47001,
+                    extra_info=f"Binary input files must be WFM files.",
+                )
+            )
+        if destination_folderpath is not None:
+            htype.check_type(
+                destination_folderpath,
+                str,
+                exception_message=htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data", 19713
+                ),
+            )
+            if not os.path.isdir(destination_folderpath):
+                raise FileNotFoundError(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.process_core_data",
+                        24040,
+                        extra_info=f"Path {destination_folderpath} does not exist or is not a directory.",
+                    )
+                )
+        if backup_folderpath is not None:
+            htype.check_type(
+                backup_folderpath,
+                str,
+                exception_message=htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data", 79090
+                ),
+            )
+            if not os.path.isdir(backup_folderpath):
+                raise FileNotFoundError(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.process_core_data",
+                        34147,
+                        extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
+                    )
+                )
+        htype.check_type(
+            overwrite_files,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.process_core_data", 60125
+            ),
+        )
+        htype.check_type(
+            skiprows,
+            int,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.process_core_data", 96245
+            ),
+        )
+        htype.check_type(
+            data_delimiter,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.process_core_data", 68852
+            ),
+        )
+        htype.check_type(
+            ndecimals,
+            int,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.process_core_data", 72220
+            ),
+        )
+        if file_type_code > 1:
+            htype.check_type(
+                tek_wfm_metadata,
+                dict,
+                exception_message=htype.generate_exception_message(
+                    "DataPreprocessor.process_core_data", 72345
+                ),
+            )
+        result = {}
+        raw_filepath, processed_filepath = (
+            DataPreprocessor.get_raw_and_processed_filepaths(
+                filepath,
+                raw_prelabel="raw_",
+                processed_prelabel="processed_",
+                raw_folderpath=backup_folderpath,
+                processed_folderpath=destination_folderpath,
+            )
+        )
+        result["raw_filepath"], result["processed_filepath"] = (
+            raw_filepath,
+            processed_filepath,
+        )
+        if file_type_code == 3:
+            _, processed_ts_filepath = DataPreprocessor.get_raw_and_processed_filepaths(
+                filepath,
+                raw_prelabel="raw_",
+                processed_prelabel="processed_ts_",
+                raw_folderpath=backup_folderpath,
+                processed_folderpath=destination_folderpath,
+            )
+            result["processed_ts_filepath"] = processed_ts_filepath
+
+        if file_type_code < 2:  # ASCII input
+            data = np.loadtxt(filepath, delimiter=data_delimiter, skiprows=skiprows)
+            if np.ndim(data) < 2 or np.shape(data)[1] < 2:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.process_core_data",
+                        41984,
+                        extra_info="Input ASCII data must have at least two columns.",
+                    )
+                )
+            # Either voltage entries or a timestamp,
+            # we remove the rest of the data and
+            # preserve the second column
+            data = data[:, 1]
+
+            np.savetxt(processed_filepath, data, fmt=f"%.{ndecimals}e", delimiter=",")
+
+            if file_type_code == 1:
+                # Assuming that the acquisition time of the
+                # last waveform is negligible with respect
+                # to the time difference between triggers
+                result["acquisition_time"] = np.sum(data)
+                result["average_delta_t_wf"] = result["acquisition_time"] / (
+                    data.shape[0] - 1
+                )
+
+        else:  # Binary input
+            timestamp, waveforms = DataPreprocessor.extract_tek_wfm_coredata(
+                filepath, tek_wfm_metadata
+            )
+
+            waveforms = waveforms.flatten(
+                order="F"
+            )  # Concatenate waveforms in a 1D-array
+            np.savetxt(
+                processed_filepath, waveforms, fmt=f"%.{ndecimals}e", delimiter=","
+            )
+
+            if file_type_code == 3:
+                # Assuming that the acquisition time of the
+                # last waveform is negligible with respect
+                # to the time difference between triggers
+                result["acquisition_time"] = np.sum(timestamp)
+
+                # The time stamp, as returned by
+                # DataPreprocessor.extract_tek_wfm_coredata(),
+                # contains as many entries as waveforms in
+                # in the FastFrame set. The first one is null.
+                result["average_delta_t_wf"] = result["acquisition_time"] / (
+                    timestamp.shape[0] - 1
+                )
+                np.savetxt(
+                    processed_ts_filepath,
+                    timestamp,
+                    fmt=f"%.{ndecimals}e",
+                    delimiter=",",
+                )
+
+        shutil.move(filepath, raw_filepath)  # Backup
+        return result
+
     @staticmethod
     def extract_tek_wfm_coredata(filepath, metadata):
         """This static method gets the following mandatory positional arguments:
