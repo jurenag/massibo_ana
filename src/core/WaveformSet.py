@@ -804,7 +804,6 @@ class WaveformSet(OneTypeRTL):
         time_resolution,
         points_per_wvf=None,
         wvfs_to_read=None,
-        separator=None,
         timestamp_filepath=None,
         delta_t_wf=None,
         set_name=None,
@@ -842,17 +841,6 @@ class WaveformSet(OneTypeRTL):
         the first wvfs_to_read waveforms of input_filepath are read. If
         wvfs_to_read>=N, all of the waveforms within input_filepath are read.
         If it is not provided, this number is inferred from the input file.
-        - separator (string): If points_per_wvf is None and separator is not
-        None, then this is the expected separator between waveforms. What
-        this means is that when this function tries to read a certain row
-        of input_filepath and encounters an string equal to separator (without
-        taking into consideration the newline character), this function will
-        assume that the previous waveform has ended and the row that come next
-        is the first datapoint of the following waveform. When this parameter
-        applies, it is assumed that every entry of the input file must be
-        either broadcastable to float or equal to separator. Also, the first
-        and last entries within the input file cannot be separators, and
-        two separators cannot be next to each other.
         - timestamp_filepath (string): File path to the file which hosts a
         a time stamp of the waveforms which are hosted in input_filepath. The
         i-th entry of this file is considered to be the initial time of
@@ -962,7 +950,6 @@ class WaveformSet(OneTypeRTL):
             input_filepath,
             points_per_wvf=points_per_wvf,
             wvfs_to_read=wvfs_to_read,
-            separator=separator,
             timestamp_filepath=timestamp_filepath,
             delta_t_wf=delta_t_wf,
         )
