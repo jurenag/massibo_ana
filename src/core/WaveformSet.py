@@ -980,7 +980,6 @@ class WaveformSet(OneTypeRTL):
     def process_core_data(
         filepath,
         file_type_code,
-        destination_folderpath=None,
         backup_folderpath=None,
         overwrite_files=True,
         skiprows=0,
@@ -1000,10 +999,6 @@ class WaveformSet(OneTypeRTL):
         timestamp should be extracted.
 
         This function also gets the following optional keyword arguments:
-
-        - destination_folderpath (None or string): If it is defined, then
-        the processed file(s) are removed from the input file folder and
-        moved to the folder whose path matches destination_folderpath.
 
         - backup_folderpath (None or string): If it is defined, then the
         backup of the input file is moved to the folder whose path matches
@@ -1055,8 +1050,6 @@ class WaveformSet(OneTypeRTL):
                 by pre-appending the 'processed_' (resp. 'processed_ts_')
                 string. For both generated ASCII files, the data cleaning goes
                 as in the previous case.
-            - Then, saves the processed file(s) to a tunable location (up
-            to the destination_folderpath parameter, overwritting may occur).
             - Then, if file_type_code is 0, 1 or 2, this method
                 - adds the raw-and-processed filepaths to the returned
                 dictionary under the keys 'raw_filepath' and 'processed_filepath',
@@ -1127,22 +1120,6 @@ class WaveformSet(OneTypeRTL):
                     extra_info=f"Binary input files must be WFM files.",
                 )
             )
-        if destination_folderpath is not None:
-            htype.check_type(
-                destination_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 19713
-                ),
-            )
-            if not os.path.isdir(destination_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_core_data",
-                        24040,
-                        extra_info=f"Path {destination_folderpath} does not exist or is not a directory.",
-                    )
-                )
         if backup_folderpath is not None:
             htype.check_type(
                 backup_folderpath,
