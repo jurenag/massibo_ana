@@ -975,6 +975,164 @@ class WaveformSet(OneTypeRTL):
             )
             waveforms_pack.append(waveform_holder)
         return cls(*waveforms_pack, set_name=set_name, ref_datetime=ref_datetime_)
+    
+    @staticmethod
+    def extract_tek_wfm_coredata(filepath, metadata):
+        """This static method gets the following mandatory positional arguments:
+
+        - filepath (string): Path to the binary file (Tektronix WFM file format),
+        which must host a FastFrame set and whose core data should be extracted.
+        DataPreprocessor._extract_tek_wfm_metadata() should have previously checked
+        that, indeed, the input file hosts a FastFrame set. It is a check based
+        on the 4-bytes integer which you can find at offset 78 of the WFM file.
+        - metadata (dictionary): It is a dictionary which contains meta-data of
+        the input file which is necessary to extract the core data. It should
+        contain the union of the two dictionaries returned by
+        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
+        the data contained in such dictionaries, check such method documentation.
+
+        This method returns two arrays. The first one is an unidimensional array
+        of length M, which stores timestamp information. The second one is a
+        bidimensional array which stores the waveforms of the FastFrame set of
+        the given input file. Say such array has shape NxM: then N is the number
+        of (user-accesible) points per waveform, while M is the number of
+        waveforms. The waveform entries in such array are already expressed in
+        the vertical units which are extracted to the key 'Vertical Units' by
+        DataPreprocessor._extract_tek_wfm_metadata(). In this context, the i-th
+        entry of the first array returned by this function gives the time
+        difference, in seconds, between the trigger of the i-th waveform and
+        the trigger of the (i-1)-th waveform. The first entry, which is undefined
+        up to the given definition, is manually set to zero."""
+
+        htype.check_type(
+            filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.extract_tek_wfm_coredata", 82855
+            ),
+        )
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "WaveformSet.extract_tek_wfm_coredata",
+                    58749,
+                    extra_info=f"Path {filepath} does not exist or is not a file.",
+                )
+            )
+        else:
+            _, extension = os.path.splitext(filepath)
+            if extension != ".wfm":
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.extract_tek_wfm_coredata",
+                        21667,
+                        extra_info=f"The extension of the input file must match '.wfm'.",
+                    )
+                )
+        htype.check_type(
+            metadata,
+            dict,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.extract_tek_wfm_coredata", 35772
+            ),
+        )
+
+        # Fraction of the sample time
+        # from the trigger time stamp
+        # to the next sample.
+        first_sample_delay = np.empty((metadata["FastFrame Count"],), dtype=np.double)
+
+        # The fraction of the second
+        # when the trigger occurred.
+        triggers_second_fractions = np.empty(
+            (metadata["FastFrame Count"],), dtype=np.double
+        )
+
+        # GMT (in seconds from the epoch)
+        # when the trigger occurred.
+        gmt_in_seconds = np.empty((metadata["FastFrame Count"],), dtype=np.double)
+
+        first_sample_delay[0] = metadata["tfrac[0]"]  # Add info of the first frame
+        triggers_second_fractions[0] = metadata["tdatefrac[0]"]
+        gmt_in_seconds[0] = metadata["tdate[0]"]
+
+        # For FastFrame, we've got a chunk of metadata['FastFrame Count']*54
+        # bytes which store WfmUpdateSpec and WfmCurveSpec objects, containing
+        # data on the timestamp and the number of points of each frame.
+
+        with open(filepath, "rb") as file:  # Binary read mode
+            _ = file.read(838)  # Throw away the header bytes (838 bytes)
+
+            # WUS stands for Waveform Update Specification. WUS objects count on a 4 bytes
+            # unsigned long, a 8 bytes double, another 8 bytes double and a 4 bytes long.
+
+            # Structure of the output array of np.fromfile
+            # The first element of each tuple is the name
+            # of the field, whereas the second element is the
+            # data type of each field
+            dtype = [
+                ("_", "i4"),
+                ("first_sample_delay", "f8"),
+                ("trigger_second_fraction", "f8"),
+                ("gmt_in_seconds", "i4"),
+            ]
+
+            # Within the same 'with' context,
+            # np.fromfile continues the reading
+            # process as of the already-read
+            # 838 bytes. Also, we are taking into
+            # account that the time information
+            # of the first frame was already read.
+            data = np.fromfile(
+                file, dtype=dtype, count=(metadata["FastFrame Count"] - 1)
+            )
+
+            # Merge first frame trigger
+            # info. with info. from the
+            # the rest of the frames.
+            first_sample_delay[1:] = data["first_sample_delay"]
+            triggers_second_fractions[1:] = data["trigger_second_fraction"]
+            gmt_in_seconds[1:] = data["gmt_in_seconds"]
+
+            # N.B. For binary gain measurements (with external trigger),
+            # it was observed that all of the entries of
+            # triggers_second_fractions, and gmt_in_seconds are null at this point.
+
+            # Read waveforms
+            waveforms = np.memmap(
+                file,
+                dtype=metadata["samples_datatype"],
+                mode="r",
+                offset=metadata["curve_buffer_offset"],
+                # Shape of the returned array
+                # Running along second dimension
+                # gives different waveforms
+                shape=(metadata["samples_no"], metadata["FastFrame Count"]),
+                order="F",
+            )
+
+        # While the numbers in gmt_in_seconds are O(9)
+        # The fractions of seconds are O(-1). Summing
+        # the fractions of the second to the GMT could
+        # result in losing the second fraction info. due
+        # to rounding error. It's better to shift the
+        # time origin to the first trigger, then add the
+        # seconds fractions.
+        seconds_from_first_trigger = gmt_in_seconds - gmt_in_seconds[0]
+        timestamp = seconds_from_first_trigger + triggers_second_fractions
+
+        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
+
+        # Filter out the oscilloscope interpolation samples
+        waveforms = waveforms[
+            metadata["pre-values_no"] : metadata["samples_no"]
+            - metadata["post-values_no"],
+            :,
+        ]
+
+        # 2D array of waveforms, in vertical units
+        waveforms = (waveforms * metadata["vscale"]) + metadata["voffset"]
+        return timestamp, waveforms
 
     @staticmethod
     def swap(x, y):
