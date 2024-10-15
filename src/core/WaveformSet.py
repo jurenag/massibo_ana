@@ -802,7 +802,7 @@ class WaveformSet(OneTypeRTL):
         cls,
         input_filepath,
         time_resolution,
-        points_per_wvf=None,
+        points_per_wvf,
         wvfs_to_read=None,
         timestamp_filepath=None,
         delta_t_wf=None,
@@ -824,15 +824,11 @@ class WaveformSet(OneTypeRTL):
         the documentation of such parameters for more information.
         - time_resolution (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
+        - points_per_wvf (int): The expected number of points per 
+        waveform in the input filepath. It must be a positive integer.
 
         This method also takes the following optional keyword arguments:
 
-        - points_per_wvf (int): If points_per_wvf is not None, then it is
-        considered to be the expected number of points per waveform in the
-        input filepath. In this case, the argument given to separator is
-        ignored. Also, in this case, every entry within input_filepath
-        must be broadcastable to float. No other strings are allowed as
-        entries in the input file.
         - wvfs_to_read (int): This parameter only makes a difference if
         points_per_wvf is not None and timestamp_filepath is None. For this
         particular case, providing this argument speeds up the reading process.
@@ -870,11 +866,9 @@ class WaveformSet(OneTypeRTL):
         object in the WaveformSet. For more information on which keys should you
         use when building the json file, see the Waveform class documentation.
 
-        At least one of [points_per_wvf, separator] must be different from None.
-        In any other case, there's no information enough to read the waveforms
-        from the input file. Also, at least one of [timestamp_filepath, delta_t_wf]
-        must be different from None. In other case, there's no enough information
-        to write the keys of the goal dictionary.
+        At least one of [timestamp_filepath, delta_t_wf] must be different from 
+        None. In other case, there's not enough information to write the keys of 
+        the goal dictionary.
 
         It is strongly advised to check that input files given to this function
         comply with the specified format before running this class method.
@@ -893,12 +887,26 @@ class WaveformSet(OneTypeRTL):
                 "WaveformSet.from_files", 90001
             ),
         )
+        htype.check_type(
+            points_per_wvf,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.from_files", 90002
+            ),
+        )
+        if points_per_wvf < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.from_files", 90003
+                )
+            )
         if set_name is not None:
             htype.check_type(
                 set_name,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90002
+                    "WaveformSet.from_files", 90004
                 ),
             )
         if ref_datetime is not None:
@@ -906,7 +914,7 @@ class WaveformSet(OneTypeRTL):
                 ref_datetime,
                 dt.datetime,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90003
+                    "WaveformSet.from_files", 90005
                 ),
             )
             ref_datetime_ = ref_datetime
@@ -922,7 +930,7 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90004
+                    "WaveformSet.from_files", 90006
                 ),
             )
             # Offset creation datetime
@@ -937,7 +945,7 @@ class WaveformSet(OneTypeRTL):
                 wvf_extra_info,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90005
+                    "WaveformSet.from_files", 90007
                 ),
             )
             with open(wvf_extra_info, "r") as file:
