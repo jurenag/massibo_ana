@@ -113,7 +113,7 @@ class GainMeas(SiPMMeas):
         - LED_high_width_ns (positive float): Width of the high level of the pulsed signal that feeds
         the LED, in nanoseconds. It is loaded into the object-attribute self.__LED_high_width_ns.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
-        are points_per_wvf (int), wvfs_to_read (int), separator (string), timestamp_filepath (string),
+        are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
         wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
@@ -1018,8 +1018,8 @@ class GainMeas(SiPMMeas):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "separator", "timestamp_filepath",
-        "delta_t_wf", "set_name", "creation_dt_offset_min" and
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
+        "set_name", "creation_dt_offset_min" and
         "wvf_extra_info".
 
         Here, we do not expect a date because the date information
@@ -1090,7 +1090,6 @@ class GainMeas(SiPMMeas):
             "time_resolution": float,
             "points_per_wvf": int,
             "wvfs_to_read": int,
-            "separator": str,
             "timestamp_filepath": str,
             "delta_t_wf": float,
             "set_name": str,
