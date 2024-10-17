@@ -40,7 +40,6 @@ class DarkNoiseMeas(SiPMMeas):
         overvoltage_V=None,
         PDE=None,
         status=None,
-        acquisition_time_min=None,
         threshold_mV=None,
         **kwargs,
     ):
@@ -102,7 +101,6 @@ class DarkNoiseMeas(SiPMMeas):
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
-        - acquisition_time_min (semipositive float): Time duration of the dark noise measurement.
         - threshold_mV (float): Trigger threshold which was used for acquiring the waveforms.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
@@ -118,22 +116,6 @@ class DarkNoiseMeas(SiPMMeas):
         not available. Thus, when requesting any attribute of this class via a getter, one should be
         prepared to handle a None value and interpret it as the unavailability of such data.
         """
-
-        self.__acquisition_time_min = None
-        if acquisition_time_min is not None:
-            htype.check_type(
-                acquisition_time_min,
-                float,
-                np.float64,
-                exception_message=htype.generate_exception_message(
-                    "DarkNoiseMeas.__init__", 58815
-                ),
-            )
-            if acquisition_time_min < 0.0:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("DarkNoiseMeas.__init__", 77855)
-                )
-            self.__acquisition_time_min = acquisition_time_min
 
         self.__threshold_mV = None
         if threshold_mV is not None:
@@ -211,10 +193,6 @@ class DarkNoiseMeas(SiPMMeas):
             status=status,
             **kwargs,
         )
-
-    @property
-    def AcquisitionTime_min(self):
-        return self.__acquisition_time_min
 
     @property
     def Threshold_mV(self):
@@ -1056,8 +1034,7 @@ class DarkNoiseMeas(SiPMMeas):
         "electronic_board_location", "electronic_board_socket",
         "sipm_location", "sampling_ns", "cover_type",
         "operation_voltage_V", "overvoltage_V", "PDE",
-        "status", "acquisition_time_min", "threshold_mV" and
-        "wvfset_json_filepath".
+        "status", "threshold_mV" and "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it's is not meant to be
         read from darknoisemeas_config_json. The value for
@@ -1129,7 +1106,6 @@ class DarkNoiseMeas(SiPMMeas):
             "overvoltage_V": float,
             "PDE": float,
             "status": str,
-            "acquisition_time_min": float,
             "threshold_mV": float,
             "wvfset_json_filepath": str,
         }
@@ -1491,8 +1467,8 @@ class DarkNoiseMeas(SiPMMeas):
         - "N_events": Contains self.NEvents
         - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
+        - "acquisition_time_min": Contains self.AcquisitionTime_min,
 
-        - "acquisition_time_min": Contains self.__acquisition_time_min,
         - "threshold_mV": Contains self.__threshold_mV,
         - "timedelay": Contains self.__timedelay,
         - "amplitude": Contains self.__amplitude,
@@ -1618,7 +1594,7 @@ class DarkNoiseMeas(SiPMMeas):
             "N_events": self.NEvents,
             "signal_unit": self.SignalUnit,
             "status": self.Status,
-            "acquisition_time_min": self.__acquisition_time_min,
+            "acquisition_time_min": self.AcquisitionTime_min,
             "threshold_mV": self.__threshold_mV,
             # Object of type numpy.ndarray is not
             # JSON serializable, but lists are

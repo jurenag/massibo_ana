@@ -1218,6 +1218,7 @@ class GainMeas(SiPMMeas):
         - "N_events": Contains self.NEvents
         - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
+        - "acquisition_time_min": Contains self.AcquisitionTime_min,
 
         - "LED_voltage_V": Contains self.__LED_voltage_V,
         - "LED_frequency_kHz": Contains self.__LED_frequency_kHz,
@@ -1347,6 +1348,7 @@ class GainMeas(SiPMMeas):
             "N_events": self.NEvents,
             "signal_unit": self.SignalUnit,
             "status": self.Status,
+            "acquisition_time_min": self.AcquisitionTime_min,
             "LED_voltage_V": self.__LED_voltage_V,
             "LED_frequency_kHz": self.__LED_frequency_kHz,
             "LED_pulse_shape": self.__LED_pulse_shape,

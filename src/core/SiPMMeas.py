@@ -442,9 +442,31 @@ class SiPMMeas(ABC):
             )
             self.__status = status
 
-        self.__waveforms = WaveformSet.from_files(
+        # This attribute is meant to be the time duration of the
+        # measurement, in minutes. It is not assigned via an input
+        # parameter, but computed out of the WaveformSet core data
+        # (the waveforms time stamp) which is processed by the 
+        # WaveformSet.from_files class method.
+        self.__acquisition_time_min = None
+
+        self.__waveforms, self.__acquisition_time_min = WaveformSet.from_files(
             *args, ref_datetime=self.__date, **kwargs
         )
+
+        htype.check_type(
+            self.__acquisition_time_min,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.__init__", 58815
+            ),
+        )
+
+        if self.__acquisition_time_min < 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("SiPMMeas.__init__", 77855)
+            )
+
         # The WaveformSet date is set to match the SiPMMeas date
         # Up to this point, self.__date is either None or a datetime
 
@@ -590,6 +612,10 @@ class SiPMMeas(ABC):
     @property
     def Status(self):
         return self.__status
+    
+    @property
+    def AcquisitionTime_min(self):
+        return self.__acquisition_time_min
 
     @property
     def Waveforms(self):
@@ -1498,6 +1524,7 @@ class SiPMMeas(ABC):
         - "N_events": Contains self.__N_events
         - "signal_unit": Contains self.__signal_unit
         - "status": Contains self.__status
+        - "acquisition_time_min": Contains self.__acquisition_time_min
 
         The summary json file is saved within the given folder, up to folderpath.
         Its name matches the following formatted string:
@@ -1613,6 +1640,7 @@ class SiPMMeas(ABC):
             "N_events": self.__N_events,
             "signal_unit": self.__signal_unit,
             "status": self.__status,
+            "acquisition_time_min": self.__acquisition_time_min
         }
 
         output.update(additional_entries)
