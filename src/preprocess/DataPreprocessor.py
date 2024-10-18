@@ -3012,7 +3012,7 @@ class DataPreprocessor:
     def check_structure_of_input_folder(
         input_folderpath,
         subfolders_no=7,
-        json_files_no_at_2nd_level=2,
+        json_files_no_at_2nd_level=1,
         json_files_no_at_3rd_level=1,
         wfm_files_no_at_2nd_and_3rd_level=18,
     ):
@@ -3159,7 +3159,7 @@ class DataPreprocessor:
     @staticmethod
     def __check_well_formedness_of_subfolder(
         input_folderpath,
-        json_files_no_at_1st_level=2,
+        json_files_no_at_1st_level=1,
         json_files_no_at_2nd_level=1,
         wfm_files_no_at_1st_and_2nd_level=18,
     ):
