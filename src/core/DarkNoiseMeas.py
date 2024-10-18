@@ -166,6 +166,9 @@ class DarkNoiseMeas(SiPMMeas):
         self.__half_a_pe = None
         self.__one_and_a_half_pe = None
 
+        # N.B.: acquisition_time_min does not appear in
+        # this list because it comes from the WaveformSet
+        # core data. It is computed by WaveformSet.from_files().
         super().__init__(
             *args,
             delivery_no=delivery_no,
