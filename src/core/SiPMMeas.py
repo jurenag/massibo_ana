@@ -441,16 +441,48 @@ class SiPMMeas(ABC):
                 ),
             )
             self.__status = status
-
-        # This attribute is meant to be the time duration of the
-        # measurement, in minutes. It is not assigned via an input
-        # parameter, but computed out of the WaveformSet core data
-        # (the waveforms time stamp) which is processed by the 
-        # WaveformSet.from_files class method.
+        
+        # points_per_wvf must be available
+        points_per_wvf = SiPMMeas.get_value_from_dict(
+            kwargs, "points_per_wvf", none_fallback=False)
+        
+        timestamp_filepath = SiPMMeas.get_value_from_dict(
+            kwargs, "timestamp_filepath", none_fallback=True)
+        
+        delta_t_wf = SiPMMeas.get_value_from_dict(
+            kwargs, "delta_t_wf", none_fallback=True)
+        
+        creation_dt_offset_min = SiPMMeas.get_value_from_dict(
+            kwargs, "creation_dt_offset_min", none_fallback=True)
+        
+        wvf_extra_info = SiPMMeas.get_value_from_dict(
+            kwargs, "wvf_extra_info", none_fallback=True)
+            
+        # N.B.: This attribute is meant to be the time duration 
+        # of the measurement, in minutes. It is not assigned via 
+        # an input parameter, but computed out of the WaveformSet 
+        # core data (the waveforms time stamp) which is processed 
+        # by the WaveformSet.from_files class method.
         self.__acquisition_time_min = None
-
+        
+        # N.B.: WaveformSet.from_files() takes a couple of keyword
+        # arguments (headers_end_identifier and data_delimiter)
+        # whose default values are "TIME," and ",", respectively.
+        # These work for the current data format and I do not 
+        # expect the data format to change. If it does, it will 
+        # be convenient to root those parameters here and up to 
+        # the full call chain, i.e. 
+        # GainMeas/DarkNoiseMeas.from_json_file() -> ...
+        # GainMeas/DarkNoiseMeas.__init__() -> ...
+        # SiPMMeas.__init__() -> WaveformSet.from_files().
         self.__waveforms, self.__acquisition_time_min = WaveformSet.from_files(
-            *args, ref_datetime=self.__date, **kwargs
+            *args,
+            points_per_wvf,
+            timestamp_filepath=timestamp_filepath,
+            delta_t_wf=delta_t_wf,
+            ref_datetime=self.__date,
+            creation_dt_offset_min=creation_dt_offset_min,
+            wvf_extra_info=wvf_extra_info
         )
 
         htype.check_type(
