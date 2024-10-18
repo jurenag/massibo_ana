@@ -1654,3 +1654,47 @@ class SiPMMeas(ABC):
             )
 
         return
+
+    @staticmethod
+    def get_value_from_dict(dictionary, key, none_fallback=False):
+        """This static method gets the following arguments:
+
+        - dictionary (dict)
+        - key (object)
+        - none_fallback (bool): This parameter only makes a 
+        difference if key does not match any of the keys in
+        the given dictionary. If that's the case, and if
+        none_fallback is True, then this method returns None.
+        If none_fallback is False, then this method raises a
+        KeyError.
+
+        This method returns dictionary[key] if the given key
+        exists in the given dictionary. If it does not, the
+        behaviour depends on the value of none_fallback."""
+
+        htype.check_type(
+            dictionary,
+            dict,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.get_value_from_dict", 57329
+            ),
+        )
+
+        htype.check_type(
+            none_fallback,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.get_value_from_dict", 46243
+            ),
+        )
+
+        try:
+            return dictionary[key]
+        except KeyError:
+            if none_fallback:
+                return None
+            else:
+                raise KeyError(
+                    f"In function SiPMMeas.get_value_from_dict(): "
+                    "The key {key} does not exist in the given dictionary."
+                )
