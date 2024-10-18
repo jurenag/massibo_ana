@@ -803,8 +803,9 @@ class WaveformSet(OneTypeRTL):
         input_filepath,
         time_resolution,
         points_per_wvf,
-        wvfs_to_read=None,
         timestamp_filepath=None,
+        headers_end_identifier="TIME,",
+        data_delimiter=",",
         delta_t_wf=None,
         set_name=None,
         ref_datetime=None,
@@ -812,97 +813,117 @@ class WaveformSet(OneTypeRTL):
         wvf_extra_info=None,
     ):
         """This class method is meant to be an alternative initializer.
-        It creates a WaveformSet out of a plain-text file which stores
-        waveforms. Optionally, this initializer could make use of another
-        file which stores the timestamp of the waveforms. This class
+        It creates a WaveformSet out of an ASCII or binary (in the 
+        Tektronix WFM format) input file. Optionally, in the case of 
+        an ASCII input file, this initializer could make use of another 
+        file which stores the timestamp of the waveforms. This class 
         method gets the following mandatory positional arguments:
 
-        -  input_filepath (string): File from which to read the waveforms.
+        - input_filepath (string): File from which to read the waveforms.
+        It is given to the WaveformSet.read_wvfs() method. Its extension
+        must match either '.csv', '.txt', '.dat' or '.wfm'. For more
+        information, check the WaveformSet.read_wvfs() method documentation.
         - time_resolution (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
+        It must be a positive float.
         - points_per_wvf (int): The expected number of points per 
         waveform in the input filepath. It must be a positive integer.
+        It is given to the 'points_per_wvf' positional argument of the
+        WaveformSet.read_wvfs() method.
 
         This method also takes the following optional keyword arguments:
 
-        - wvfs_to_read (int): This parameter only makes a difference if
-        timestamp_filepath is None. For this particular case, providing 
-        this argument speeds up the reading process. It is the expected 
-        number of waveforms within the input filepath. Assume input_filepath 
-        hosts N waveforms. Then, if wvfs_to_read<N, only the first wvfs_to_read 
-        waveforms of input_filepath are read. If wvfs_to_read>=N, all of the 
-        waveforms within input_filepath are read. If it is not provided, 
-        this number is inferred from the input file.
-        - timestamp_filepath (string): File path to the file which hosts a
-        a time stamp of the waveforms which are hosted in input_filepath. The
-        i-th entry of this file is considered to be the initial time of
-        ocurrence of the i-th waveform measured with respect to the initial
-        time of ocurrence of the (i-1)-th waveform. If timestamp_filepath
-        is not None, it is assumed that all of the entries in the timestamp
-        are broadcastable to an strictly positive float.
-        - delta_t_wf (float): This parameter makes a difference only if timestamp
-        filepath is not available. In this case, this is considered to be the
-        time step in between two consecutive waveforms. This is helpful for
-        reading waveform sets which were measured using a trigger on a periodic
-        external signal. Then, delta_t_wf can be set to the period of such external
-        signal without needing to provide a complete text file with a time stamp.
+        - timestamp_filepath (string): It is given to the 'timestamp_filepath'
+        parameter of WaveformSet.read_wvfs(). This parameter only makes a 
+        difference if the input file is ASCII. It is the file path to the 
+        file which hosts an ASCII time stamp (its extension must match either 
+        '.txt', '.csv' or '.dat') of the waveforms which are hosted in 
+        the file whose path is given by input_filepath. The i-th entry of 
+        this file is considered to be the initial time of ocurrence of the 
+        i-th waveform measured with respect to the initial time of ocurrence 
+        of the (i-1)-th waveform. It is assumed that all of the entries in 
+        the timestamp are broadcastable to an strictly positive float.
+        - headers_end_identifier (string): This parameter is given to the 
+        'headers_end_identifier' parameter of the WaveformSet.read_wvfs()
+        method. It is a string which is used to find the end of the headers
+        in the input file, in case an ASCII file is provided. For more 
+        information, check the documentation of the 'headers_end_identifier'
+        parameter of the WaveformSet.read_wvfs().
+        - data_delimiter (string): This parameter is given to the 
+        'data_delimiter' parameter of the WaveformSet.read_wvfs() method.
+        For more information, check such parameter documentation in the 
+        WaveformSet.read_wvfs() docstring.
+        - delta_t_wf (float): It is given to the delta_t_wf parameter of
+        WaveformSet.read_wvfs(). This parameter makes a difference only 
+        if the input file is ASCII and the timestamp filepath is not available. 
+        In this case, this is considered to be the time increment in 
+        between the triggers of two consecutive waveforms. This is helpful 
+        for reading waveform sets which were measured using a trigger on 
+        a periodic external signal. Then, delta_t_wf can be set to the period 
+        of such external signal without needing to provide a complete text 
+        file with a time stamp. It must be a positive float.
         - set_name (string): It is passed to cls.__init__ as set_name.
         - ref_datetime (datetime): It is passed to cls.__init__ as
-        ref_datetime. This parameter is thus interpreted as the reference
-        time from which the waveforms initial time are measured. If it is
-        not provided, it is set to the creation datetime of the file whose
-        path is input_filepath.
-        - creation_dt_offset_min (float): This parameter only makes a
-        difference if ref_datetime is None. In such case, the ref_datetime
-        of the created WaveformSet is the creation datetime of the input file
-        PLUS the provided creation_df_offset. creation_df_offset is assumed
-        to be a quantity in minutes.
-        - wvf_extra_info (string): Path to a json file. This file is read to a
-        dictionary, which is then passed to the __signs attribute of every Waveform
-        object in the WaveformSet. For more information on which keys should you
-        use when building the json file, see the Waveform class documentation.
+        ref_datetime. This parameter is interpreted as the reference
+        time from which the waveforms initial time are measured. If it 
+        is not provided, it is set to the creation datetime of the file 
+        whose path is input_filepath.
+        - creation_dt_offset_min (float): It is assumed to be a quantity
+        in minutes. If ref_datetime is None (resp. not None), then the 
+        ref_datetime of the created WaveformSet is the creation datetime 
+        of the input file (resp. the given reference datetime) plus the 
+        provided creation_df_offset.
+        - wvf_extra_info (string): Path to a json file. This file is read to 
+        a dictionary, which is then passed to the __signs attribute of every 
+        Waveform object in the WaveformSet. For more information on which keys 
+        should you use when building the json file, see the Waveform class 
+        documentation.
 
-        At least one of [timestamp_filepath, delta_t_wf] must be different from 
-        None. In other case, there's not enough information to write the keys of 
-        the goal dictionary.
-
-        It is strongly advised to check that input files given to this function
-        comply with the specified format before running this class method.
-
-        This class method returns a WaveformSet Each entry of the dictionary
-        represents a waveform. The key is the t0 of the waveform, measured
-        with respect to the initial time of the FIRST waveform, while the
-        value is a list of floats which are the signal-datapoints of the
-        waveform.
+        For the case of an ASCII input file, at least one of [timestamp_filepath, 
+        delta_t_wf] must be different from None. In other case, there's not 
+        enough information to write the keys of the goal dictionary.
+        This class method returns a WaveformSet and the acquisition time of
+        such waveform set, in minutes. To do so, it assumes that the acquisition
+        time gotten from WaveformSet.read_wvfs() is expressed in seconds.
         """
 
+        # Although this parameter is later passed to the
+        # read_wvfs() method, it is better checked here
+        # because it will be used by os.path.getctime()
+        # if ref_datetime is None.
         htype.check_type(
             input_filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.from_files", 90001
+                "WaveformSet.from_files", 1
             ),
         )
-        htype.check_type(
-            points_per_wvf,
-            int,
-            np.int64,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.from_files", 90002
-            ),
-        )
-        if points_per_wvf < 1:
-            raise cuex.InvalidParameterDefinition(
+        if not os.path.isfile(input_filepath):
+            raise FileNotFoundError(
                 htype.generate_exception_message(
-                    "WaveformSet.from_files", 90003
+                    "WaveformSet.from_files",
+                    2,
+                    extra_info=f"Path {input_filepath} does not exist or is not a file.",
                 )
+            )
+        htype.check_type(
+            time_resolution,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.from_files", 3
+            ),
+        )
+        if time_resolution <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.from_files", 4)
             )
         if set_name is not None:
             htype.check_type(
                 set_name,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90004
+                    "WaveformSet.from_files", 5
                 ),
             )
         if ref_datetime is not None:
@@ -910,7 +931,7 @@ class WaveformSet(OneTypeRTL):
                 ref_datetime,
                 dt.datetime,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90005
+                    "WaveformSet.from_files", 6
                 ),
             )
             ref_datetime_ = ref_datetime
@@ -926,7 +947,7 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90006
+                    "WaveformSet.from_files", 7
                 ),
             )
             # Offset creation datetime
@@ -941,7 +962,7 @@ class WaveformSet(OneTypeRTL):
                 wvf_extra_info,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90007
+                    "WaveformSet.from_files", 8
                 ),
             )
             with open(wvf_extra_info, "r") as file:
@@ -949,218 +970,391 @@ class WaveformSet(OneTypeRTL):
         else:
             extra_info_ = None
 
-        # The rest of the parameters are type-checked and handled by WaveformSet.read_wvfs
-        waveforms_dict = WaveformSet.read_wvfs(
+        timestamps, waveforms, additional_dict = WaveformSet.read_wvfs(
             input_filepath,
-            points_per_wvf=points_per_wvf,
-            wvfs_to_read=wvfs_to_read,
+            points_per_wvf,
             timestamp_filepath=timestamp_filepath,
+            headers_end_identifier=headers_end_identifier,
+            data_delimiter=data_delimiter,
             delta_t_wf=delta_t_wf,
         )
 
         waveforms_pack = []
-        for key in waveforms_dict.keys():
-            signal_holder = np.array(waveforms_dict[key])
+
+        for i in range(len(timestamps)):
+            signal_holder = waveforms[i * points_per_wvf:(i + 1) * points_per_wvf]
             waveform_holder = Waveform(
-                key, signal_holder, t_step=time_resolution, signs=extra_info_
+                timestamps[i],
+                signal_holder,
+                t_step=time_resolution,
+                signs=extra_info_,
             )
             waveforms_pack.append(waveform_holder)
-        return cls(*waveforms_pack, set_name=set_name, ref_datetime=ref_datetime_)
+
+        # Assuming that acquisition_time is expressed in seconds
+        return cls(
+            *waveforms_pack, 
+            set_name=set_name, 
+            ref_datetime=ref_datetime_), additional_dict["acquisition_time"] / 60.
 
     @staticmethod
-    def process_core_data(
+    def read_wvfs(
+        input_filepath,
+        points_per_wvf,
+        timestamp_filepath=None,
+        headers_end_identifier="TIME,",
+        data_delimiter=",",
+        delta_t_wf=None,
+    ):
+        """This method takes the following mandatory positional argument:
+
+        -  input_filepath (string): File from which to read the waveforms.
+        If its extension matches either '.txt', '.csv' or '.dat', it will 
+        be interpreted as an ASCII file. If its extension matches '.wfm',
+        it will be interpreted as a binary file in the Tektronix WFM format.
+        If any other extension is found, an exception is raised. 
+        - points_per_wvf (int): The expected number of points per 
+        waveform in the input filepath. It must be a positive integer.
+
+        This method also takes the following optional keyword arguments:
+
+        - timestamp_filepath (string): This parameter only makes a difference
+        if the input file is ASCII. File path to the file which hosts a
+        an ASCII time stamp (its extension must match either '.txt', '.csv' 
+        or '.dat') of the waveforms which are hosted in input_filepath. 
+        The i-th entry of this file is considered to be the initial time of
+        ocurrence of the i-th waveform measured with respect to the initial
+        time of ocurrence of the (i-1)-th waveform. It is assumed that all 
+        of the entries in the timestamp are broadcastable to an strictly 
+        positive float. For more information on the expected format for this
+        file, check the WaveformSet._extract_core_data() method documentation
+        for the case of file_type_code equal to 1.
+        - headers_end_identifier (string): This parameter only makes a
+        difference if the input file is ASCII. In such case, this parameter 
+        is given to the 'identifier' parameter of the 
+        DataPreprocessor.find_skiprows() method. This method is used to
+        find the line in which the headers end in the input file, i.e. the
+        number of rows which should be skipped by the 
+        WaveformSet._extract_core_data() method. Additionally, if the
+        timestamp_filepath parameter is defined, then headers_end_identifier 
+        is also used by DataPreprocessor.find_skiprows() to find a suitable 
+        skip-rows value for the time stamp file.
+        - data_delimiter (string): This parameter only makes a
+        difference if the input file is ASCII. This parameter is given to 
+        the 'data_delimiter' parameter of the WaveformSet._extract_core_data()
+        method for the case of ASCII input files (waveforms input file and
+        time stamp file, if applicable). In turn, such method gives it to
+        to numpy.loadtxt() as delimiter. It is used to separate entries of 
+        the different columns of the input files.
+        - delta_t_wf (float): This parameter makes a difference only if the
+        input file is ASCII and the timestamp filepath is not available. In 
+        this case, this is considered to be the time increment in between 
+        the triggers of two consecutive waveforms. This is helpful for 
+        reading waveform sets which were measured using a trigger on a 
+        periodic external signal. Then, delta_t_wf can be set to the period 
+        of such external signal without needing to provide one time stamp 
+        per waveform. It must be a positive float.
+
+        For the case of an ASCII input file, at least one of [timestamp_filepath, 
+        delta_t_wf] must be different from None. In other case, there's not 
+        enough information to write the keys of the goal dictionary.
+        This class method returns a WaveformSet.
+
+        This function returns three parameters, in the following order:
+
+        - An unidimensional numpy array with the timestamps of the waveforms,
+        where the i-th entry is the time increment of the i-th waveform trigger
+        with respect to the first waveform trigger.
+        - An unidimensional numpy array with the concatenation of the
+        waveforms
+        - A dictionary which contains two entries:
+            - 'average_delta_t_wf': The average of the time differences 
+            between consecutive triggers in the waveforms dataset.
+            - 'acquisition_time': The time difference between the last 
+            trigger and the first trigger of the waveforms dataset.
+        """
+
+        # input_filepath is checked in the WaveformSet.from_files() method
+
+        _, extension = os.path.splitext(input_filepath)
+
+        if extension not in (".txt", ".csv", ".dat", ".wfm"):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.read_wvfs", 1)
+            )
+
+        fIsBinary = False
+        if extension == ".wfm":
+            fIsBinary = True
+
+        htype.check_type(
+            points_per_wvf,
+            int,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.read_wvfs", 2
+            ),
+        )
+        if points_per_wvf < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.read_wvfs", 3)
+            )
+
+        fUseTStamp = False
+        if not fIsBinary:
+            if timestamp_filepath is not None:
+                htype.check_type(
+                    timestamp_filepath,
+                    str,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 4
+                    ),
+                )
+                if not os.path.isfile(timestamp_filepath):
+                    raise FileNotFoundError(
+                        htype.generate_exception_message(
+                            "WaveformSet.read_wvfs",
+                            5,
+                            extra_info=f"Path {timestamp_filepath} does not exist or is not a file.",
+                        )
+                    )
+
+                _, ts_extension = os.path.splitext(timestamp_filepath)
+
+                if ts_extension not in (".txt", ".csv", ".dat"):
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message("WaveformSet.read_wvfs", 6)
+                    )
+
+                fUseTStamp = True
+
+            if not fUseTStamp:  # In this case, delta_t_wf must be available
+                if delta_t_wf is None:
+                    raise cuex.InsufficientParameters(
+                        htype.generate_exception_message("WaveformSet.read_wvfs", 7)
+                    )
+                htype.check_type(
+                    delta_t_wf,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 8
+                    ),
+                )
+                if delta_t_wf <= 0.0:
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message("WaveformSet.read_wvfs", 9)
+                    )
+
+        # These parameters are only used in the ASCII case
+        if not fIsBinary:   
+
+            htype.check_type(
+                headers_end_identifier,
+                str,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.read_wvfs", 10
+                ),
+            )
+            htype.check_type(
+                data_delimiter,
+                str,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.read_wvfs", 11
+                ),
+            )
+
+        if not fIsBinary:
+
+            headers_endline = DataPreprocessor.find_skiprows(
+                input_filepath, 
+                headers_end_identifier,
+            )
+
+            waveforms = WaveformSet._extract_core_data(
+                input_filepath,
+                0,
+                skiprows=headers_endline,
+                data_delimiter=data_delimiter,
+            )
+
+            if len(waveforms) % points_per_wvf != 0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 
+                        12,
+                        extra_info=f"The number of data-points in the concatenation "
+                        f"of waveforms ({len(waveforms)}) must be a multiple of "
+                        f"points_per_wvf ({points_per_wvf}).",
+                    )
+                )
+            
+            waveforms_no = int(len(waveforms) // points_per_wvf)
+
+            if fUseTStamp:
+
+                headers_endline = DataPreprocessor.find_skiprows(
+                    timestamp_filepath,
+                    headers_end_identifier,
+                )
+
+                timestamps, additional_dict = \
+                    WaveformSet._extract_core_data(
+                        timestamp_filepath,
+                        1,
+                        skiprows=headers_endline,
+                        data_delimiter=data_delimiter,
+                    )
+
+                # In WaveformSet._extract_core_data(), it is
+                # assumed that the i-th entry of the time stamp
+                # is the time increment of the i-th waveform trigger
+                # with respect to the (i-1)-th waveform trigger.
+                # However, what WaveformSet.read_wvfs() should
+                # return is the time increment of the i-th waveform
+                # trigger with respect to the first waveform trigger.
+                timestamps = np.cumsum(timestamps)
+
+            else:
+                timestamps = np.arange(
+                    0., 
+                    waveforms_no * delta_t_wf,
+                    delta_t_wf,
+                    )
+                
+                additional_dict = {
+                    "average_delta_t_wf": delta_t_wf,
+                    "acquisition_time": waveforms_no * delta_t_wf,
+                }
+        else:
+
+            parameters, supplementary_extraction = (
+                DataPreprocessor._extract_tek_wfm_metadata(input_filepath)
+            )
+            tek_wfm_metadata = parameters | supplementary_extraction
+
+            timestamps, waveforms, additional_dict = \
+                WaveformSet._extract_core_data(
+                    input_filepath,
+                    2,
+                    tek_wfm_metadata=tek_wfm_metadata,
+                )
+            
+            timestamps = np.cumsum(timestamps)
+
+        return timestamps, waveforms, additional_dict
+
+    @staticmethod
+    def _extract_core_data(
         filepath,
         file_type_code,
         skiprows=0,
         data_delimiter=",",
-        ndecimals=18,
         tek_wfm_metadata=None,
     ):
-        """This static method gets the following mandatory positional argument:
+        """This static method is a helper method which should only be called 
+        by the WaveformSet.read_wvfs() method. It gets the following mandatory 
+        positional argument:
 
-        - filepath (string): Path to the file whose data will be processed.
+        - filepath (string): Path to the file whose data will be extracted.
 
-        - file_type_code (scalar integer): It must be either 0, 1, 2 or 3.
+        - file_type_code (scalar integer): It must be either 0, 1 or 2.
         This integer indicates the type of file which should be processed.
-        0 matches an ASCII waveform dataset and 1 matches an ASCII timestamp.
-        2 matches a binary (Tektronix WFM file format) file whose timestamp
-        should not be extracted, while 3 matches a binary file whose
-        timestamp should be extracted.
+        0 matches an ASCII waveform dataset, 1 matches an ASCII timestamp
+        and 2 matches a binary (Tektronix WFM file format).
 
         This function also gets the following optional keyword arguments:
 
         - skiprows (integer scalar): This parameter is only used for the
         case of ASCII input files, i.e. either file_type_code is 0 or 1.
         It indicates the number of rows to skip in the input file in order
-        to access the core data.
+        to access the core data. It must be a semi-positive integer.
 
         - data_delimiter (string): This parameter is only used for the case
         of ASCII input files, i.e. either file_type_code is 0 or 1. In such
         case, it is given to numpy.loadtxt() as delimiter, which in turn,
         uses it to separate entries of the different columns of the input file.
 
-        - ndecimals (int): Number of decimals to use to save the real values
-        to the processed file(s). Scientific notation is assumed.
-
         - tek_wfm_metadata (None or dictionary): This parameter is only used
-        for the case of binary input files, i.e. either file_type_code is 2
-        or 3. In such case, it must be defined. It is a dictionary containing
-        the metadata of the provided input file. It must be the union of the
-        two dictionaries returned by DataPreprocessor._extract_tek_wfm_metadata().
-        For more information on the keys which these dictionaries should contain,
-        check such method documentation.
+        for the case of binary input files, i.e. file_type_code is 2. In such 
+        case, it must be defined. It is a dictionary containing the metadata 
+        of the provided input file. It must be the union of the two dictionaries 
+        returned by DataPreprocessor._extract_tek_wfm_metadata(). For more 
+        information on the keys which these dictionaries should contain, check 
+        such method documentation.
 
-        This static method returns a dictionary. To do so, it does the following:
-            - Backs up the input file to a filepath whose file name is crafted
-            by pre-appending the 'raw_' string to the input file name.
-            - Then, if file_type_code is 0, 1 or 2,
-                - it creates one ASCII file in a unified format which comprises
-                just one column of float values, which is the result of
-                removing the headers and the first column from the input file,
-                and whose filename is crafted out of the original filename by
-                pre-appending the 'processed_' string. Such file contains the
-                formatted waveform dataset information (file_type_code==0, 2)
-                or the formatted timestamp information (file_type_code==1) and
-                is given a file name which is crafted by pre-appending the
-                'processed_' string to the input file name.
-            - Else, if file_type_code is 3, then
-                - it creates two ASCII files following the unified format
-                specified before. The first (resp. second) one contains the
-                waveform dataset (resp. the timestamp). The filename of the
-                first (resp. second) is crafted out of the original filename
-                by pre-appending the 'processed_' (resp. 'processed_ts_')
-                string. For both generated ASCII files, the data cleaning goes
-                as in the previous case.
-            - Then, if file_type_code is 0, 1 or 2, this method
-                - adds the raw-and-processed filepaths to the returned
-                dictionary under the keys 'raw_filepath' and 'processed_filepath',
-                respectively.
-            - Else, if file_type_code is 3, then
-                - adds the raw filepath, the processed-waveforms filepath
-                and the processed-timestamp filepath to the returned dictionary
-                under the keys 'raw_filepath', 'processed_filepath' and
-                'processed_ts_filepath'.
-            - To end with, if file_type_code is 1 or 3, then two additional
-            quantities are computed and saved to the returned dictionary. The
-            first one is saved under the key 'average_delta_t_wf' and is the
-            average of the time differences between consecutive triggers in the
-            waveforms dataset. The second one is saved under the key
-            'acquisition_time' and is the acquisition time of the waveform
-            dataset which is stored in the provided input file. By acquisition
-            time we refer to the time difference between the last trigger and
-            the first trigger of the waveforms dataset stored in the provided
-            filepath. It is assumed that the i-th entry of the time stamp is
-            time increment of the i-th waveform trigger with respect to the
-            (i-1)-th waveform trigger. Therefore, the acquisition time is
-            computed as the sum of all of the entries of the time stamp."""
+        If file_type_code is 0, then this method returns an unidimensional
+        numpy array which contains the waveform dataset. I.e. this array is
+        the result of concatenating all of the waveforms in the input file.
+        If file_type_code is 1, then this method returns a unidimensional 
+        numpy array which contains the time stamp of the waveforms. If 
+        file_type_code is 2, then this method returns two unidimensional 
+        numpy arrays. The first one contains the time stamp of the waveforms. 
+        The second one contains the concatenation of the waveforms. If 
+        file_type_code is 1 or 2, then this method returns an additional 
+        dictionary which contains two entries. The first one is saved under 
+        the key 'average_delta_t_wf' and is the average of the time differences 
+        between consecutive triggers in the waveforms dataset. The second one 
+        is saved under the key 'acquisition_time' and is the acquisition time 
+        of the waveform dataset which is stored in the provided input file. 
+        By acquisition time we refer to the time difference between the last 
+        trigger and the first trigger of the waveforms dataset stored in the 
+        provided filepath. It is assumed that the i-th entry of the time 
+        stamp is time increment of the i-th waveform trigger with respect to 
+        the (i-1)-th waveform trigger. Therefore, the acquisition time is 
+        computed as the sum of all of the entries of the time stamp."""
 
-        htype.check_type(
-            filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 46221
-            ),
-        )
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data",
-                    49000,
-                    extra_info=f"Path {filepath} does not exist or is not a file.",
-                )
-            )
-        else:
-            _, extension = os.path.splitext(filepath)
+        # filepath and data_delimiter are checked in the WaveformSet.read_wvfs() method
 
         htype.check_type(
             file_type_code,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 79829
+                "WaveformSet._extract_core_data", 1
             ),
         )
-        if file_type_code < 0 or file_type_code > 3:
+        if file_type_code < 0 or file_type_code > 2:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 66937
-                )
-            )
-        elif file_type_code < 2 and extension not in (".csv", ".txt", ".dat"):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data",
-                    12823,
-                    extra_info=f"Not allowed extension for an ASCII input file.",
-                )
-            )
-        elif file_type_code > 1 and extension != ".wfm":
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data",
-                    47001,
-                    extra_info=f"Binary input files must be WFM files.",
+                    "WaveformSet._extract_core_data", 2
                 )
             )
         htype.check_type(
             skiprows,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 96245
+                "WaveformSet._extract_core_data", 3
             ),
         )
-        htype.check_type(
-            data_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 68852
-            ),
-        )
-        htype.check_type(
-            ndecimals,
-            int,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 72220
-            ),
-        )
+        if skiprows < 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet._extract_core_data", 4
+                )
+            )
         if file_type_code > 1:
             htype.check_type(
                 tek_wfm_metadata,
                 dict,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 72345
+                    "WaveformSet._extract_core_data", 5
                 ),
             )
-        result = {}
-        raw_filepath, processed_filepath = (
-            DataPreprocessor.get_raw_and_processed_filepaths(
-                filepath,
-                raw_prelabel="raw_",
-                processed_prelabel="processed_",
-                raw_folderpath=backup_folderpath,
-                processed_folderpath=destination_folderpath,
-            )
-        )
-        result["raw_filepath"], result["processed_filepath"] = (
-            raw_filepath,
-            processed_filepath,
-        )
-        if file_type_code == 3:
-            _, processed_ts_filepath = DataPreprocessor.get_raw_and_processed_filepaths(
-                filepath,
-                raw_prelabel="raw_",
-                processed_prelabel="processed_ts_",
-                raw_folderpath=backup_folderpath,
-                processed_folderpath=destination_folderpath,
-            )
-            result["processed_ts_filepath"] = processed_ts_filepath
+
+        result = None
+        additional_dict = {}
 
         if file_type_code < 2:  # ASCII input
-            data = np.loadtxt(filepath, delimiter=data_delimiter, skiprows=skiprows)
+
+            data = np.loadtxt(
+                filepath, 
+                delimiter=data_delimiter, 
+                skiprows=skiprows)
+
             if np.ndim(data) < 2 or np.shape(data)[1] < 2:
                 raise cuex.NoAvailableData(
                     htype.generate_exception_message(
-                        "DataPreprocessor.process_core_data",
-                        41984,
+                        "WaveformSet._extract_core_data",
+                        6,
                         extra_info="Input ASCII data must have at least two columns.",
                     )
                 )
@@ -1169,50 +1363,46 @@ class WaveformSet(OneTypeRTL):
             # preserve the second column
             data = data[:, 1]
 
-            np.savetxt(processed_filepath, data, fmt=f"%.{ndecimals}e", delimiter=",")
+            if file_type_code == 0:
+                result = (data,)
 
-            if file_type_code == 1:
+            else:  # file_type_code == 1
                 # Assuming that the acquisition time of the
                 # last waveform is negligible with respect
                 # to the time difference between triggers
-                result["acquisition_time"] = np.sum(data)
-                result["average_delta_t_wf"] = result["acquisition_time"] / (
+                additional_dict["acquisition_time"] = np.sum(data)
+                additional_dict["average_delta_t_wf"] = additional_dict["acquisition_time"] / (
                     data.shape[0] - 1
                 )
 
+                result = (data, additional_dict)
+
         else:  # Binary input
-            timestamp, waveforms = DataPreprocessor.extract_tek_wfm_coredata(
+
+            timestamp, waveforms = WaveformSet.extract_tek_wfm_coredata(
                 filepath, tek_wfm_metadata
             )
 
+            # Concatenate waveforms in a 1D-array
             waveforms = waveforms.flatten(
                 order="F"
-            )  # Concatenate waveforms in a 1D-array
-            np.savetxt(
-                processed_filepath, waveforms, fmt=f"%.{ndecimals}e", delimiter=","
             )
 
-            if file_type_code == 3:
-                # Assuming that the acquisition time of the
-                # last waveform is negligible with respect
-                # to the time difference between triggers
-                result["acquisition_time"] = np.sum(timestamp)
+            # Assuming that the acquisition time of the
+            # last waveform is negligible with respect
+            # to the time difference between triggers
+            additional_dict["acquisition_time"] = np.sum(timestamp)
 
-                # The time stamp, as returned by
-                # DataPreprocessor.extract_tek_wfm_coredata(),
-                # contains as many entries as waveforms in
-                # in the FastFrame set. The first one is null.
-                result["average_delta_t_wf"] = result["acquisition_time"] / (
-                    timestamp.shape[0] - 1
-                )
-                np.savetxt(
-                    processed_ts_filepath,
-                    timestamp,
-                    fmt=f"%.{ndecimals}e",
-                    delimiter=",",
-                )
+            # The time stamp, as returned by
+            # WaveformSet.extract_tek_wfm_coredata(),
+            # contains as many entries as waveforms in
+            # in the FastFrame set. The first one is null.
+            additional_dict["average_delta_t_wf"] = additional_dict["acquisition_time"] / (
+                timestamp.shape[0] - 1
+            )
 
-        shutil.move(filepath, raw_filepath)  # Backup
+            result = (timestamp, waveforms, additional_dict)
+
         return result
 
     @staticmethod
@@ -2588,4 +2778,3 @@ class WaveformSet(OneTypeRTL):
                 )
             )
         return result
-    
