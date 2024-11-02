@@ -376,19 +376,19 @@ class DataPreprocessor:
         - sipms_per_strip (positive integer): The number of SiPMs per strip. If
         it is not None, the electronic_board_socket and sipm_location fields will
         be inferred. To do so, for each type of measurement (namely ascii gain,
-        ascii dark noise, binary gain and binary dark noise), the candidates
-        are sorted according to its keys (p.e. for ascii gain measurements,
-        they are sorted according to the keys of self.__ascii_gain_candidates)
-        associating an iterator value i>=0 to each candidate, so that the
-        electronic_board_socket value is inferred as (i//sipms_per_strip)+1 and
-        the sipm_location value is inferred as (i%sipms_per_strip)+1.
+        ascii dark noise, binary gain and binary dark noise), each candidate is
+        assigned an electronic_board_socket (resp. sipm_location) value which is
+        computed as (i//sipms_per_strip)+1 (resp. (i%sipms_per_strip)+1), where i
+        is the key of such candidate within the corresponding dictionary, i.e.
+        self.__ascii_gain_candidates for ASCII gain measurements, 
+        self.__bin_gain_candidates for binary gain measurements and so on.
         - strips_ids (list of integers): Its value only makes a difference if
         sipms_per_strip is defined. In such case (and if it is defined), then for
-        each type of measurement, strips_ids[i] is assumed to be the strip_ID
-        field for the k-th measurement candidate, where k takes values from
-        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1. To this end, it is required
-        that the number of candidates for whichever type of measurement is a
-        multiple of sipms_per_strip.
+        each type of measurement, every measurement whose key takes a value from
+        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1, is assumed to belong
+        to the strip with ID strips_ids[i], i.e. the strip_ID field for such
+        measurement will be set to strips_ids[i]. To this end, it is required
+        that no measurement key is greater or equal to len(strips_ids)*sipms_per_strip.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -517,36 +517,32 @@ class DataPreprocessor:
                             "DataPreprocessor.generate_meas_config_files", 61191
                         ),
                     )
-                p1 = len(self.ASCIIGainCandidates) % sipms_per_strip != 0
-                p2 = len(self.ASCIIDarkNoiseCandidates) % sipms_per_strip != 0
-                p3 = len(self.BinaryGainCandidates) % sipms_per_strip != 0
-                p4 = len(self.BinaryDarkNoiseCandidates) % sipms_per_strip != 0
+
+                p1 = False
+                if len(self.ASCIIGainCandidates) > 0:
+                    p1 = max(list(self.ASCIIGainCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+
+                p2 = False
+                if len(self.ASCIIDarkNoiseCandidates) > 0:
+                    p2 = max(list(self.ASCIIDarkNoiseCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+
+                p3 = False
+                if len(self.BinaryGainCandidates) > 0:    
+                    p3 = max(list(self.BinaryGainCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+
+                p4 = False
+                if len(self.BinaryDarkNoiseCandidates) > 0:
+                    p4 = max(list(self.BinaryDarkNoiseCandidates.keys())) >= len(strips_ids) * sipms_per_strip
 
                 if p1 or p2 or p3 or p4:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
                             "DataPreprocessor.generate_meas_config_files",
                             39450,
-                            extra_info=f"The number of candidates for at least one type of measurement is not a multiple of {sipms_per_strip}. The provided strip IDs cannot be automatically assigned to the candidates.",
+                            extra_info=f"The number of candidates for at least one type of measurement is bigger or equal to len(strips_ids) * sipms_per_strip (={len(strips_ids) * sipms_per_strip}). The provided strip IDs cannot be automatically assigned to the candidates.",
                         )
                     )
-                max_candidates = max(
-                    len(self.ASCIIGainCandidates),
-                    len(self.ASCIIDarkNoiseCandidates),
-                    len(self.BinaryGainCandidates),
-                    len(self.BinaryDarkNoiseCandidates),
-                )
-
-                if len(strips_ids) < (
-                    max_candidates / sipms_per_strip
-                ):  # max_candidates is a multiple of sipms_per_strip
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "DataPreprocessor.generate_meas_config_files",
-                            55152,
-                            extra_info=f"For at least one type of measurement, the number of provided strip IDs is not enough for all of the given candidates. The provided strip IDs cannot be automatically assigned to the candidates.",
-                        )
-                    )
+                
                 fAssignStripID = True
 
         htype.check_type(
@@ -654,14 +650,14 @@ class DataPreprocessor:
             if not fAssignStripID:
                 if not DataPreprocessor.yes_no_translator(
                     input(
-                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the filepaths ordering and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
+                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
                     )
                 ):
                     return
             else:
                 if not DataPreprocessor.yes_no_translator(
                     input(
-                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the filepaths ordering and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
+                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
                     )
                 ):
                     return
@@ -846,13 +842,13 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_gainmeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_gainmeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
 
             aux_gainmeas_dict.update(
@@ -966,13 +962,13 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_darknoisemeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_darknoisemeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
 
             aux_darknoisemeas_dict.update(
@@ -1103,13 +1099,13 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_gainmeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_gainmeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
 
             aux_gainmeas_dict.update(
@@ -1212,13 +1208,13 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_darknoisemeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_darknoisemeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
 
             aux_darknoisemeas_dict.update(
