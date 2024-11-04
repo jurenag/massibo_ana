@@ -29,7 +29,6 @@ class DarkNoiseMeas(SiPMMeas):
         setup_ID=None,
         system_characteristics=None,
         thermal_cycle=None,
-        elapsed_cryo_time_min=None,
         electronic_board_number=None,
         electronic_board_location=None,
         electronic_board_socket=None,
@@ -78,8 +77,6 @@ class DarkNoiseMeas(SiPMMeas):
         - system_characteristics (string): Any extra information on the setup for this measurement.
         - thermal_cycle (semipositive integer): ¿How many thermal cycles have this SiPM undergone
         by the end of this measurement?
-        - elapsed_cryo_time_min (semipositive float): Elapsed time, in minutes, in cryogenic
-        conditions for this SiPM (in the current cryogenic bath) when this measurement started.
         - electronic_board_number (semipositive integer): Number which identifies the electronic
         board where the flex board was mounted on.
         - electronic_board_location (string): String which identifies the location of the used
@@ -183,7 +180,6 @@ class DarkNoiseMeas(SiPMMeas):
             setup_ID=setup_ID,
             system_characteristics=system_characteristics,
             thermal_cycle=thermal_cycle,
-            elapsed_cryo_time_min=elapsed_cryo_time_min,
             electronic_board_number=electronic_board_number,
             electronic_board_location=electronic_board_location,
             electronic_board_socket=electronic_board_socket,
@@ -1033,11 +1029,10 @@ class DarkNoiseMeas(SiPMMeas):
         "delivery_no", "set_no", "tray_no", "meas_no",
         "strip_ID", "meas_ID", "date", "location", "operator",
         "setup_ID", "system_characteristics", "thermal_cycle",
-        "elapsed_cryo_time_min", "electronic_board_number",
-        "electronic_board_location", "electronic_board_socket",
-        "sipm_location", "sampling_ns", "cover_type",
-        "operation_voltage_V", "overvoltage_V", "PDE",
-        "status", "threshold_mV" and "wvfset_json_filepath".
+        "electronic_board_number", "electronic_board_location", 
+        "electronic_board_socket", "sipm_location", "sampling_ns", 
+        "cover_type", "operation_voltage_V", "overvoltage_V", 
+        "PDE", "status", "threshold_mV" and "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it's is not meant to be
         read from darknoisemeas_config_json. The value for
@@ -1098,7 +1093,6 @@ class DarkNoiseMeas(SiPMMeas):
             "setup_ID": str,
             "system_characteristics": str,
             "thermal_cycle": int,
-            "elapsed_cryo_time_min": float,
             "electronic_board_number": int,
             "electronic_board_location": str,
             "electronic_board_socket": int,
@@ -1456,7 +1450,6 @@ class DarkNoiseMeas(SiPMMeas):
         - "setup_ID": Contains self.SetupID
         - "system_characteristics": Contains self.SystemCharacteristics
         - "thermal_cycle": Contains self.ThermalCycle
-        - "elapsed_cryo_time_min": Contains self.ElapsedCryoTimeMin
         - "electronic_board_number": Contains self.ElectronicBoardNumber
         - "electronic_board_location": Contains self.ElectronicBoardLocation
         - "electronic_board_socket": Contains self.ElectronicBoardSocket
@@ -1583,7 +1576,6 @@ class DarkNoiseMeas(SiPMMeas):
             "setup_ID": self.SetupID,
             "system_characteristics": self.SystemCharacteristics,
             "thermal_cycle": self.ThermalCycle,
-            "elapsed_cryo_time_min": self.ElapsedCryoTimeMin,
             "electronic_board_number": self.ElectronicBoardNumber,
             "electronic_board_location": self.ElectronicBoardLocation,
             "electronic_board_socket": self.ElectronicBoardSocket,
