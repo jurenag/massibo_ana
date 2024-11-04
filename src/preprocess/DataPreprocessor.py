@@ -3185,7 +3185,7 @@ class DataPreprocessor:
         input_folderpath,
         json_files_no_at_1st_level=1,
         json_files_no_at_2nd_level=1,
-        wfm_files_no_at_1st_and_2nd_level=18,
+        non_json_files_no_at_1st_and_2nd_level=18,
     ):
         """This static method is a helper method which should only be
         called by the method check_structure_of_input_folder().
@@ -3203,38 +3203,55 @@ class DataPreprocessor:
         the number of json files at every second level. I.e. any folder
         within the given input folder must contain exactly this number
         of json files.
-        - wfm_files_no_at_1st_and_2nd_level (positive integer): It must
-        match the number of wfm files at the first level and every second
-        level. I.e. the given folder and any folder within it, must
-        contain exactly this number of wfm files.
+        - non_json_files_no_at_1st_and_2nd_level (positive integer): It
+        must match the number of non-json files at the first level and
+        every second level. I.e. the given folder and any folder within
+        it, must contain exactly this number of non-json files.
 
         This function gets the path to a folder, and checks that the
         file structure within that folder follows the expected pattern.
-        This function returns a list of strings, each of which is an
-        incidence, i.e. a description of a deviation from the expected
-        file structure. If the file structure is well-formed, then
-        the returned list is empty."""
+        This function returns two objects. The first one is a list of 
+        strings, each of which is a warning, i.e. a description of 
+        a deviation from the expected file structure. If the file 
+        structure is well-formed, then this returned list is empty.
+        The second returned object is also a list of strings. In this
+        case, each string is a path to a folder where the number of
+        json files does match the expected number. These folders are
+        considered to be analysable."""
 
-        incidences_report = []
+        warnings = []
+        analysable_folderpaths = []
 
         aux_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-            input_folderpath, "json", ignore_hidden_files=True, return_filenames=False
+            input_folderpath, 
+            "json",
+            count_matches=True,
+            ignore_hidden_files=True, 
+            return_filenames=False
         )
         if aux_json_files_no != json_files_no_at_1st_level:
-            incidences_report.append(
+            warnings.append(
                 f"Expected {json_files_no_at_1st_level} json file(s) in {input_folderpath}, but {aux_json_files_no} were found."
             )
+        else:
+            analysable_folderpaths.append(input_folderpath)
 
-        aux_wfm_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-            input_folderpath, "wfm", ignore_hidden_files=True, return_filenames=False
+        aux_non_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
+            input_folderpath, 
+            "json", 
+            count_matches=False,
+            ignore_hidden_files=True, 
+            return_filenames=False
         )
-        if aux_wfm_files_no != wfm_files_no_at_1st_and_2nd_level:
-            incidences_report.append(
-                f"Expected {wfm_files_no_at_1st_and_2nd_level} wfm file(s) in {input_folderpath}, but {aux_wfm_files_no} were found."
+        if aux_non_json_files_no != non_json_files_no_at_1st_and_2nd_level:
+            warnings.append(
+                f"Expected {non_json_files_no_at_1st_and_2nd_level} non-json file(s) in {input_folderpath}, but {aux_non_json_files_no} were found."
             )
 
         _, folders_names = DataPreprocessor.count_folders(
-            input_folderpath, ignore_hidden_folders=True, return_foldernames=True
+            input_folderpath, 
+            ignore_hidden_folders=True, 
+            return_foldernames=True
         )
         folders_names.sort()
 
@@ -3243,22 +3260,32 @@ class DataPreprocessor:
             subfolder_path = os.path.join(input_folderpath, folder_name)
 
             aux_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-                subfolder_path, "json", ignore_hidden_files=True, return_filenames=False
+                subfolder_path, 
+                "json", 
+                count_matches=True,
+                ignore_hidden_files=True, 
+                return_filenames=False
             )
             if aux_json_files_no != json_files_no_at_2nd_level:
-                incidences_report.append(
+                warnings.append(
                     f"Expected {json_files_no_at_2nd_level} json file(s) in {subfolder_path}, but {aux_json_files_no} were found."
                 )
+            else:
+                analysable_folderpaths.append(subfolder_path)
 
-            aux_wfm_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-                subfolder_path, "wfm", ignore_hidden_files=True, return_filenames=False
+            aux_non_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
+                subfolder_path, 
+                "json",
+                count_matches=False,
+                ignore_hidden_files=True, 
+                return_filenames=False
             )
-            if aux_wfm_files_no != wfm_files_no_at_1st_and_2nd_level:
-                incidences_report.append(
-                    f"Expected {wfm_files_no_at_1st_and_2nd_level} wfm file(s) in {subfolder_path}, but {aux_wfm_files_no} were found."
+            if aux_non_json_files_no != non_json_files_no_at_1st_and_2nd_level:
+                warnings.append(
+                    f"Expected {non_json_files_no_at_1st_and_2nd_level} non-json file(s) in {subfolder_path}, but {aux_non_json_files_no} were found."
                 )
 
-        return incidences_report
+        return warnings, analysable_folderpaths
     
     @staticmethod
     def hosts_gain_data(folderpath):
