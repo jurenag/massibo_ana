@@ -2745,8 +2745,12 @@ class DataPreprocessor:
         catalog, the key-value pair is added to the output dictionary, and the key
         is removed from the catalog. If the key is not present in the loaded dictionary,
         or it is present but its type is not suitable according to catalog, then the key
-        remains in the catalog and nothing is added to the output dictionary. This
-        function returns the output dictionary and the remaining catalog, in such order.
+        remains in the catalog and nothing is added to the output dictionary. There is
+        one exception to these rules: if the key is present in the loaded dictionary but
+        its value is of type int (resp. float) when the expected type is float (resp. int),
+        then the value is casted to the expected type and added to the output dictionary.
+        This function returns the output dictionary and the remaining catalog, in such
+        order.
         """
 
         htype.check_type(
@@ -2822,34 +2826,54 @@ class DataPreprocessor:
             # found in the input dictionary
             if key in input_dictionary.keys():
 
-                try:
-                    htype.check_type(
-                        input_dictionary[key],
-                        catalog[key],
-                        exception_message=htype.generate_exception_message(
-                            "DataPreprocessor.try_grabbing_from_json", 35881
-                        ),
-                    )
-                # Although the key was found, its
-                # value does not have a suitable type
-                # cuex.TypeException is the exception raised
-                # by htype.check_type if types do not match.
-                except cuex.TypeException:
+                c1 = catalog[key] == int and type(input_dictionary[key]) == float
+                c2 = catalog[key] == float and type(input_dictionary[key]) == int
+
+                # Implement the int<-->float exception
+                if c1 or c2:
+
+                    # Cast the value to the expected type
+                    output_dictionary[key] = catalog[key](input_dictionary[key])
+                    del remaining_catalog[key]
+
                     if verbose:
                         print(
                             htype.generate_exception_message(
                                 "DataPreprocessor.try_grabbing_from_json",
-                                58548,
-                                extra_info=f"A candidate for key '{key}' was found but its type does not match the required one. The candidate has been ignored.",
+                                42481,
+                                extra_info=f"A candidate for key '{key}' was found with type ({type(input_dictionary[key])}). The candidate has been casted to the expected type ({catalog[key]}).",
                             )
                         )
-                    continue
 
-                # The found candidate has a suitable type
-                # Actually add it to the output dictionary
                 else:
-                    output_dictionary[key] = input_dictionary[key]
-                    del remaining_catalog[key]
+                    try:
+                        htype.check_type(
+                            input_dictionary[key],
+                            catalog[key],
+                            exception_message=htype.generate_exception_message(
+                                "DataPreprocessor.try_grabbing_from_json", 35881
+                            ),
+                        )
+                    # Although the key was found, its
+                    # value does not have a suitable type
+                    # cuex.TypeException is the exception raised
+                    # by htype.check_type if types do not match.
+                    except cuex.TypeException:
+                        if verbose:
+                            print(
+                                htype.generate_exception_message(
+                                    "DataPreprocessor.try_grabbing_from_json",
+                                    58548,
+                                    extra_info=f"A candidate for key '{key}' was found but its type does not match the required one. The candidate has been ignored.",
+                                )
+                            )
+                        continue
+
+                    # The found candidate has a suitable type
+                    # Actually add it to the output dictionary
+                    else:
+                        output_dictionary[key] = input_dictionary[key]
+                        del remaining_catalog[key]
 
         return output_dictionary, remaining_catalog
 
