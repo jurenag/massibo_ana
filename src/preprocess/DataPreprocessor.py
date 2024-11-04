@@ -3259,7 +3259,71 @@ class DataPreprocessor:
                 )
 
         return incidences_report
+    
+    @staticmethod
+    def hosts_gain_data(folderpath):
+        """This static method gets the following mandatory positional 
+        argument:
 
+        - folderpath (string): Path to a folder which contains the data
+        to be processed.
+
+        This method returns a boolean, which is True (resp. False) if 
+        this function inferred that the given folder contains gain 
+        (resp. darknoise) data. This inference is done based on the
+        first json file found. If the name of such json file contains
+        the 'gain' substring, then this function returns True. If such
+        json file does not contain the 'gain' substring, and it
+        contains the 'darknoise' substring, then this function returns
+        False. If no json file at all was found, or if it was found
+        but it does not contain neither the 'gain' nor the 'darknoise' 
+        substrings in its name, then an exception is raised."""
+
+        htype.check_type(
+            folderpath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.hosts_gain_data", 24194
+            ),
+        )
+        if not os.path.isdir(folderpath):
+
+            raise Exception(
+                htype.generate_exception_message(
+                    "DataPreprocessor.hosts_gain_data", 20859
+                )
+            )
+        
+        aux, filenames = DataPreprocessor.count_files_by_extension_in_folder(
+            folderpath, 
+            "json",
+            count_matches=True,
+            ignore_hidden_files=True, 
+            return_filenames=True
+        )
+        
+        if aux == 0:
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.hosts_gain_data", 
+                    57289,
+                    extra_info=f"Not a single JSON file was found in {folderpath}"
+                )
+            )
+        else:
+            if 'gain' in filenames[0]:
+                return True
+            elif 'darknoise' in filenames[0]:
+                return False
+            else:
+                raise Exception(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.hosts_gain_data", 
+                        45231,
+                        extra_info=f"The inspected json file ({filenames[0]}) should contain either the 'gain' or the 'darknoise' substring."
+                    )
+                )
+            
     @staticmethod
     def grab_strip_IDs(json_filepath, max_strip_id_no):
         """This static method gets the following positional arguments:
