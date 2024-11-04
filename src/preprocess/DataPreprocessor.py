@@ -142,12 +142,9 @@ class DataPreprocessor:
 
         self.__timestamp_candidates = {}
 
-        self.__num_files = 0  # Number of files in the provided folderpath
-
         for filename in os.listdir(self.__input_folderpath):
             filepath = os.path.join(self.__input_folderpath, filename)
             if os.path.isfile(filepath):
-                self.__num_files += 1
                 if (
                     self.__gain_base in filename
                     and self.__darknoise_base not in filename
@@ -278,10 +275,6 @@ class DataPreprocessor:
     @property
     def BinaryDarkNoiseCandidates(self):
         return self.__bin_darknoise_candidates
-
-    @property
-    def NumFiles(self):
-        return self.__num_files
 
     @staticmethod
     def check_well_formedness_of_input_folderpath(
