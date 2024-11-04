@@ -3038,7 +3038,7 @@ class DataPreprocessor:
         subfolders_no=7,
         json_files_no_at_2nd_level=1,
         json_files_no_at_3rd_level=1,
-        wfm_files_no_at_2nd_and_3rd_level=18,
+        non_json_files_no_at_2nd_and_3rd_level=18,
     ):
         """This function gets the following positional argument:
 
@@ -3060,18 +3060,22 @@ class DataPreprocessor:
         the number of json files at every third level. I.e. any folder
         within any folder within the given input folder must contain
         exactly this number of json files.
-        - wfm_files_no_at_2nd_and_3rd_level (positive integer): It must
-        match the number of wfm files at every second or third level.
-        I.e. any folder within the given input folder, or any folder
-        within any folder within the given input folder, must contain
-        exactly this number of wfm files.
+        - non_json_files_no_at_2nd_and_3rd_level (positive integer): It 
+        must match the number of non-json files at every second or 
+        third level. I.e. any folder within the given input folder, 
+        or any folder within any folder within the given input folder, 
+        must contain exactly this number of non-json files.
 
         This function gets the path to a folder, and checks that the
         file structure within that folder follows the expected pattern.
-        This function returns a list of strings, each of which is an
-        incidence, i.e. a description of a deviation from the expected
-        file structure. If the file structure is well-formed, then
-        the returned list is empty."""
+        This function returns two objects. The first one is a list of 
+        strings, each of which is a warning, i.e. a description of 
+        a deviation from the expected file structure. If the file 
+        structure is well-formed, then this returned list is empty.
+        The second returned object is also a list of strings. In this
+        case, each string is a path to a folder where the number of
+        json files does match the expected number. These folders are
+        considered to be analysable."""
 
         htype.check_type(
             input_folderpath,
@@ -3127,19 +3131,21 @@ class DataPreprocessor:
                 )
             )
         htype.check_type(
-            wfm_files_no_at_2nd_and_3rd_level,
+            non_json_files_no_at_2nd_and_3rd_level,
             int,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.check_structure_of_input_folder", 45829
             ),
         )
-        if wfm_files_no_at_2nd_and_3rd_level < 1:
+        if non_json_files_no_at_2nd_and_3rd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "DataPreprocessor.check_structure_of_input_folder", 58821
                 )
             )
-        incidences_report = []
+        
+        warnings = []
+        analysable_folderpaths = []
 
         folders_no, folders_names = DataPreprocessor.count_folders(
             input_folderpath, ignore_hidden_folders=True, return_foldernames=True
@@ -3147,7 +3153,7 @@ class DataPreprocessor:
         folders_names.sort()
 
         if folders_no != subfolders_no:
-            incidences_report.append(
+            warnings.append(
                 f"Expected {subfolders_no} sub-folder(s) in {input_folderpath}, but {folders_no} were found."
             )
 
@@ -3167,18 +3173,21 @@ class DataPreprocessor:
         # one of the expected sub-strings
         # (str(i), for some i=1,...,subfolders_no)
         if len(folders_names_copy) != 0:
-            incidences_report.append(
+            warnings.append(
                 f"The following sub-folder(s) of the given root folder are not integer-labelled: {folders_names_copy}"
             )
 
         for folder_name in folders_names:
-            incidences_report += DataPreprocessor.__check_well_formedness_of_subfolder(
+            aux_warnings, aux_analysable_folderpaths = DataPreprocessor.__check_well_formedness_of_subfolder(
                 os.path.join(input_folderpath, folder_name),
                 json_files_no_at_1st_level=json_files_no_at_2nd_level,
                 json_files_no_at_2nd_level=json_files_no_at_3rd_level,
-                wfm_files_no_at_1st_and_2nd_level=wfm_files_no_at_2nd_and_3rd_level,
+                non_json_files_no_at_1st_and_2nd_level=non_json_files_no_at_2nd_and_3rd_level,
             )
-        return incidences_report
+            warnings += aux_warnings
+            analysable_folderpaths += aux_analysable_folderpaths
+        
+        return warnings, analysable_folderpaths
 
     @staticmethod
     def __check_well_formedness_of_subfolder(
