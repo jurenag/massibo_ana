@@ -3224,3 +3224,92 @@ class DataPreprocessor:
                 )
 
         return incidences_report
+
+    @staticmethod
+    def grab_strip_IDs(json_filepath, max_strip_id_no):
+        """This static method gets the following positional arguments:
+        
+        - json_filepath (string): Path to a json file. It must exist
+        and it must end with the '.json' substring.
+        - max_strip_id_no (integer): The maximum number of strip IDs
+        to read from the json file
+
+        This method loads the contents of the given JSON file to
+        a dictionary. Then, it looks for the value whose key matches
+        'socket_1_strip_ID'. If such key is not found, then an
+        exception is raised. If it is found, but the value cannot
+        be casted to an integer, an exception is also raised.
+        In any other case, the value is casted to an integer and
+        appended to an empty list. Then, this method keeps on 
+        looking (and appending the values) for the keys 
+        f"socket_{i}_strip_ID", with increasing i, until a key is 
+        not found or the maximum number of strip IDs to read is 
+        reached. If the value for any of the keys f"socket_{i}_strip_ID" 
+        cannot be casted to an integer, an exception is raised.
+        The return type is a list of integers.
+        """
+
+        htype.check_type(
+            json_filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.grab_strip_IDs", 40893
+            ),
+        )
+        if not os.path.isfile(json_filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.grab_strip_IDs", 47742
+                )
+            )
+        if not json_filepath.endswith(".json"):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.grab_strip_IDs", 98490
+                )
+            )
+        htype.check_type(
+            max_strip_id_no,
+            int,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.grab_strip_IDs", 13296
+            ),
+        )
+        if max_strip_id_no < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.grab_strip_IDs", 33351
+                )
+            )
+        
+        with open(json_filepath, 'r') as file:
+            data = json.load(file)
+
+        try:
+            aux = data[f"socket_1_strip_ID"]
+        except KeyError:
+            raise Exception(f"Not even one strip ID was found in {json_filepath}")
+                
+        try:
+            strips_ids = [int(aux)]
+        except ValueError:
+            raise Exception(f"The value for 'socket_1_strip_ID' in {json_filepath} cannot be casted to an integer.")
+        
+        current_strip_id = 2
+        while current_strip_id <= max_strip_id_no:
+            try:
+                aux = data[f"socket_{current_strip_id}_strip_ID"]
+            except KeyError:    
+                # Stop reading. If f"socket_{i}_strip_ID" is not available
+                # it does not make sense to look for f"socket_{i+1}_strip_ID"
+                break
+            
+            try:
+                aux = int(aux)
+            except ValueError:
+                raise Exception(f"The key 'socket_{current_strip_id}_strip_ID' was found in {json_filepath}, but its value cannot be casted to an integer.")
+            
+            strips_ids.append(aux)
+            current_strip_id += 1
+
+        return strips_ids
