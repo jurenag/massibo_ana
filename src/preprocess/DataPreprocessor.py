@@ -2920,29 +2920,43 @@ class DataPreprocessor:
         else:
             return len(aux)
 
+    @staticmethod
     def count_files_by_extension_in_folder(
-        input_folderpath, extension, ignore_hidden_files=True, return_filenames=False
+        input_folderpath, 
+        extension,
+        count_matches=True,
+        ignore_hidden_files=True, 
+        return_filenames=False
     ):
         """This function gets the following positional arguments:
 
         - input_folderpath (string): Path to an existing folder.
-        - extension (string): Extension of the files whose names
-        will be counted. I.e. the file names, say x, that will
-        contribute to the count are those for which
-        x.endswith('.'+extension) evaluates to True.
+        - extension (string): Extension of the files which will
+        contribute to the count, or which will be excluded from 
+        it, depending on the value given to the 'count_matches' 
+        parameter. 
+        - count_matches (bool): Whether to count the files whose
+        extension matches the given one. If False, then the
+        files which contribute to the count are those whose 
+        extension does not match the given one. I.e. if 
+        count_matches is True (resp. False), the file names, 
+        say x, that will contribute to the count are those for 
+        which x.endswith('.'+extension) evaluates to True 
+        (resp. False).
 
         This function gets the following keyword arguments:
 
         - ignore_hidden_files (boolean): Whether to ignore hidden
         files, i.e. files whose name starts with a dot ('.').
         - return_filenames (boolean): Whether to return the names
-        of the files whose extension matches the given one, in
-        addition to the number of files.
+        of the files which contributed to the count, in addition 
+        to the number of files.
 
         This function gets the path to a folder, and returns the
-        number of files whose extension matches the given one. If
-        return_filenames is True, then this function also returns
-        the names of such files, i.e. a list of strings."""
+        number of files whose extension matches, or not, the given 
+        one, up to the count_matches parameter. If return_filenames 
+        is True, then this function also returns the names of such 
+        files, i.e. a list of strings."""
 
         htype.check_type(
             input_folderpath,
@@ -2965,6 +2979,13 @@ class DataPreprocessor:
             ),
         )
         htype.check_type(
+            count_matches,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.count_files_by_extension_in_folder", 46527
+            ),
+        )
+        htype.check_type(
             ignore_hidden_files,
             bool,
             exception_message=htype.generate_exception_message(
@@ -2978,18 +2999,32 @@ class DataPreprocessor:
                 "DataPreprocessor.count_files_by_extension_in_folder", 13523
             ),
         )
+
         if ignore_hidden_files:
-            aux = [
+            candidates = [
                 filename
                 for filename in os.listdir(input_folderpath)
-                if filename.endswith("." + extension) and not filename.startswith(".")
+                if not filename.startswith(".") and 
+                os.path.isfile(os.path.join(input_folderpath, filename))
+            ]
+        else:
+            candidates = [
+                filename
+                for filename in os.listdir(input_folderpath)
+                if os.path.isfile(os.path.join(input_folderpath, filename))
             ]
 
+        if count_matches:
+            aux = [
+                filename
+                for filename in candidates
+                if filename.endswith("." + extension)
+            ]
         else:
             aux = [
                 filename
-                for filename in os.listdir(input_folderpath)
-                if filename.endswith("." + extension)
+                for filename in candidates
+                if not filename.endswith("." + extension)
             ]
 
         if return_filenames:
