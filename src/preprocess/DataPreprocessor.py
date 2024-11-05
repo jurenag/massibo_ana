@@ -339,6 +339,7 @@ class DataPreprocessor:
         path_to_json_default_values=None,
         sipms_per_strip=None,
         strips_ids=None,
+        ask_for_inference_confirmation=True,
         verbose=True,
     ):
         """This method gets the following mandatory positional arguments:
@@ -382,6 +383,12 @@ class DataPreprocessor:
         to the strip with ID strips_ids[i], i.e. the strip_ID field for such
         measurement will be set to strips_ids[i]. To this end, it is required
         that no measurement key is greater or equal to len(strips_ids)*sipms_per_strip.
+        - ask_for_inference_confirmation (boolean): This parameter only makes
+        a difference if sipms_per_strip is not None. In that case, then this
+        parameter determines whether the user is asked for confirmation before
+        the fields 'electronic_board_socket' and 'sipm_location' are inferred.
+        This is also applied to the 'strip_ID' field if the strips_ids parameter
+        is also defined.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -538,6 +545,13 @@ class DataPreprocessor:
                 fAssignStripID = True
 
         htype.check_type(
+            ask_for_inference_confirmation,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.generate_meas_config_files", 67213
+            ),
+        )
+        htype.check_type(
             verbose,
             bool,
             exception_message=htype.generate_exception_message(
@@ -639,19 +653,25 @@ class DataPreprocessor:
                 del queried_sipmmeas_fields["strip_ID"]
 
             if not fAssignStripID:
-                if not DataPreprocessor.yes_no_translator(
-                    input(
-                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
-                    )
-                ):
-                    return
+                if ask_for_inference_confirmation:
+                    if not DataPreprocessor.yes_no_translator(
+                        input(
+                            f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
+                        )
+                    ):
+                        return
+                else:
+                    print(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter.")
             else:
-                if not DataPreprocessor.yes_no_translator(
-                    input(
-                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
-                    )
-                ):
-                    return
+                if ask_for_inference_confirmation:
+                    if not DataPreprocessor.yes_no_translator(
+                        input(
+                            f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
+                        )
+                    ):
+                        return
+                else:
+                    print(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters.")
 
         read_sipmmeas_fields_from_file = {}
         if fReadDefaultsFromFile:
