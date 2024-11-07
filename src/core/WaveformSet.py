@@ -2581,15 +2581,24 @@ class WaveformSet(OneTypeRTL):
         the properties of the peaks spotted in the i-th waveform of this waveform
         set, as given by the second parameter returned by scipy.signal.find_peaks.
 
-        - kwargs: These keyword arguments are passed to scipy.signal.find_peaks.
+        - kwargs: Every keyword argument, except for the 'height' one (if defined),
+        are given to scipy.signal.find_peaks as they are. For the case of the
+        'height' keyword argument, if it is defined, then it is checked to be 
+        a scalar integer/float. In that case, for each waveform in this waveform
+        set, say wvf, the 'height' keyword argument of 
+        scipy.signal.find_peaks(wvf.Signal, **kwargs) is set to
+        wvf.Signs['first_peak_baseline'][0] + h, where h is the value of the
+        'height' keyword argument given to this method. This means that the
+        minimal height for a peak to be considered so is measured with respect
+        to the baseline of each waveform.
 
-        This method analyzes this waveform set: it uses scipy.signal.find_peaks to spot
-        the peaks in every waveform in the WaveformSet. For each waveform, wvf, the peaks
-        that have been spotted in it are added to the 'peaks_pos' and 'peaks_top' entries
-        of the wvf.Signs dictionary. When this method is called, the information contained
-        in wvf.Signs['peaks_pos'] and wvf.Signs['peaks_top'], for every wvf, is overriden.
-        The return value of this method may vary depending on the value given to the
-        return_peak_properties parameter."""
+        This method analyzes this waveform set: it uses scipy.signal.find_peaks to
+        spot the peaks in every waveform in the WaveformSet. For each waveform, wvf,
+        the peaks that have been spotted in it are added to the 'peaks_pos' and
+        'peaks_top' entries of the wvf.Signs dictionary. When this method is called,
+        the information contained in wvf.Signs['peaks_pos'] and wvf.Signs['peaks_top'],
+        for every wvf, is overriden. The return value of this method may vary depending
+        on the value given to the return_peak_properties parameter."""
 
         htype.check_type(
             return_peak_properties,
@@ -2598,6 +2607,23 @@ class WaveformSet(OneTypeRTL):
                 "WaveformSet.find_peaks", 250001
             ),
         )
+
+        fUseHeight = False
+        if "height" in kwargs:
+            htype.check_type(
+                kwargs["height"],
+                int,
+                float,
+                np.int64,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.find_peaks", 250002
+                ),
+            )
+            fUseHeight = True
+            height = kwargs["height"]
+            del kwargs["height"]
+
         if not return_peak_properties:
             for wvf in self:
 
@@ -2605,7 +2631,10 @@ class WaveformSet(OneTypeRTL):
                 wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
 
                 peaks_idx, _ = spsi.find_peaks(
-                    wvf.Signal, **kwargs
+                    wvf.Signal,
+                    height=None if not fUseHeight 
+                        else wvf.Signs["first_peak_baseline"][0] + height,
+                    **kwargs
                 )  # Peak finding algorithm
 
                 for idx in peaks_idx:
