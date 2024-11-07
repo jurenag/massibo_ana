@@ -442,11 +442,34 @@ class Waveform:
             )
         if plot_peaks:
             if "peaks_pos" in self.__signs.keys():
-                for x in self.__signs["peaks_pos"]:
-                    ax.axvline(x=x, linestyle=":", linewidth=0.5, color="black")
-            if "peaks_top" in self.__signs.keys():
-                for y in self.__signs["peaks_top"]:
-                    ax.axhline(y=y, linestyle=":", linewidth=0.5, color="black")
+
+                # If computing this amplitude at this level (plotting a single 
+                # waveform) becomes an efficiency issue at some point, we can change
+                # the way of computing the marker position for a less fancy one.
+                aux_amplitude = np.max(self.__signal)-np.min(self.__signal)
+
+                # Assuming that peaks_pos and peaks_top have the same length
+                for i in range(len(self.__signs["peaks_pos"])):
+
+                    ax.plot(
+                        self.__signs["peaks_pos"][i],
+                        self.__signs["peaks_top"][i] + (0.15 * aux_amplitude),
+                        marker='v',
+                        color='red',
+                        markersize=5
+                    )
+                    ax.axvline(
+                        x=self.__signs["peaks_pos"][i],
+                        linestyle=":",
+                        linewidth=0.5,
+                        color="black"
+                    )
+                    ax.axhline(
+                        y=self.__signs["peaks_top"][i],
+                        linestyle=":",
+                        linewidth=0.5,
+                        color="black"
+                    )
         for x in x0:
             ax.axvline(x=x, linestyle="-", linewidth=0.5, color="green")
         for y in y0:
