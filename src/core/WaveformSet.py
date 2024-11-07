@@ -283,7 +283,7 @@ class WaveformSet(OneTypeRTL):
         if fAmplitudeIsDefined:
             for i in range(len(self)):
                 ith_amplitude = (
-                    np.max(self[i].Signal) - self[i].Signs["first_peak_baseline"]
+                    np.max(self[i].Signal) - self[i].Signs["first_peak_baseline"][0]
                 )
                 if (
                     ith_amplitude >= amplitude_range[0]
