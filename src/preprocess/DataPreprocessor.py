@@ -410,7 +410,6 @@ class DataPreprocessor:
             - creation_dt_offset_min (float),
             - delivery_no (int),
             - set_no (int),
-            - tray_no (int),
             - meas_no (int),
             - strip_ID (int),
             - meas_ID (str),
@@ -614,7 +613,6 @@ class DataPreprocessor:
         queried_sipmmeas_fields = {
             "delivery_no": int,
             "set_no": int,
-            "tray_no": int,
             "meas_no": int,
             "strip_ID": int,
             "meas_ID": str,
