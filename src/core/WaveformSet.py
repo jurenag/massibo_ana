@@ -343,6 +343,8 @@ class WaveformSet(OneTypeRTL):
         wvf_linewidth=1.0,
         x0=[],
         y0=[],
+        fig_width = None,
+        fig_height = None
     ):
         """This method gets the following keyword arguments:
 
@@ -389,7 +391,14 @@ class WaveformSet(OneTypeRTL):
         - x0 (resp. y0) (list of floats): It is given to the x0 (resp. y0)
         keyword argument of Waveform.plot(). Each selected waveform is
         plotted along with a set of vertical (resp. horizontal) lines at
-        the positions given by the entries in this list."""
+        the positions given by the entries in this list.
+        - fig_width (resp. fig_height) (None or positive float): If both
+        parameters are defined at the same time, then they are given, as
+        (fig_width, fig_height), to the 'figsize' parameter of the 
+        matplotlib.pyplot.subplots() function for every produced canvas
+        regardless the mode (either 'grid' or 'superposition'). If only
+        one of them is defined, both are ignored.
+        """
 
         htype.check_type(
             plot_peaks,
@@ -571,12 +580,49 @@ class WaveformSet(OneTypeRTL):
                 ),
             )
 
+        fSetFigSize = False
+        if fig_width is not None:
+            htype.check_type(
+                fig_width,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.plot", 50027
+                ),
+            )
+            if fig_width <= 0.0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.plot", 50028)
+                )
+            
+            # Only check fig_height if fig_width is well-defined
+            if fig_height is not None:
+                htype.check_type(
+                    fig_height,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.plot", 50029
+                    ),
+                )
+                if fig_height <= 0.0:
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message(
+                            "WaveformSet.plot", 50030)
+                    )
+                fSetFigSize = True
+
         if mode != "superposition":  # Grid plot is default
             counter = 0
             how_many_canvases = int(math.ceil(len(wvfs_indices) / (nrows * ncols)))
             for i in range(how_many_canvases):
                 index_generator = WaveformSet.index_generator(nrows, ncols)
-                fig, axs = plt.subplots(nrows=nrows, ncols=ncols)
+                fig, axs = plt.subplots(
+                    nrows=nrows, 
+                    ncols=ncols,
+                    figsize=(fig_width, fig_height) if fSetFigSize else None
+                )
                 for j in range(nrows * ncols):
                     iterator = next(index_generator)
                     try:
@@ -610,7 +656,9 @@ class WaveformSet(OneTypeRTL):
                 input("Press any key to iterate to next canvas...")
                 plt.close()
         else:
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(
+                figsize=(fig_width, fig_height) if fSetFigSize else None
+            )
             for i in wvfs_indices:
                 self.Members[i].plot(
                     ax,
