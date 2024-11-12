@@ -19,7 +19,6 @@ class GainMeas(SiPMMeas):
         *args,
         delivery_no=None,
         set_no=None,
-        tray_no=None,
         meas_no=None,
         strip_ID=None,
         meas_ID=None,
@@ -65,11 +64,8 @@ class GainMeas(SiPMMeas):
         - set_no (semipositive integer): Integer which identifies the set where the measured
         SiPM was included. For DUNE's particular case, this number identifies the internal
         delivery which we receive from another DUNE institution.
-        - tray_no (semipositive integer): Integer which identifies the tray where the measured
-        SiPM was included. For DUNE's particular case, this number identifies the 20-strips box
-        where the measured SiPM was included.
         - meas_no (semipositive integer): Integer which identifies the measurement within the
-        tray where the measured SiPM was included.
+        set where the measured SiPM was included.
         - strip_ID (int): Integer which identifies the SiPM strip which hosts the measured SiPM.
         - meas_ID (string): String which identifies this measurement.
         - date (string): Date of the measurement. This string must follow the following format:
@@ -200,7 +196,6 @@ class GainMeas(SiPMMeas):
             *args,
             delivery_no=delivery_no,
             set_no=set_no,
-            tray_no=tray_no,
             meas_no=meas_no,
             strip_ID=strip_ID,
             meas_ID=meas_ID,
@@ -995,9 +990,9 @@ class GainMeas(SiPMMeas):
         say RKD1, which concerns the GainMeas attributes, has the
         following potential keys:
 
-        "delivery_no", "set_no", "tray_no", "meas_no",
-        "strip_ID", "meas_ID", "date", "location", "operator",
-        "setup_ID", "system_characteristics", "thermal_cycle",
+        "delivery_no", "set_no", "meas_no", "strip_ID", 
+        "meas_ID", "date", "location", "operator", "setup_ID",
+        "system_characteristics", "thermal_cycle",
         "electronic_board_number", "electronic_board_location", 
         "electronic_board_socket", "sipm_location", "sampling_ns", 
         "cover_type", "operation_voltage_V", "overvoltage_V", 
@@ -1054,7 +1049,6 @@ class GainMeas(SiPMMeas):
         pks1 = {
             "delivery_no": int,
             "set_no": int,
-            "tray_no": int,
             "meas_no": int,
             "strip_ID": int,
             "meas_ID": str,
@@ -1191,7 +1185,6 @@ class GainMeas(SiPMMeas):
 
         - "delivery_no": Contains self.__delivery_no
         - "set_no": Contains self.__set_no
-        - "tray_no": Contains self.__tray_no
         - "meas_no": Contains self.__meas_no
         - "strip_ID": Contains self.StripID
         - "meas_ID": Contains self.MeasID
@@ -1318,7 +1311,6 @@ class GainMeas(SiPMMeas):
         output = {
             "delivery_no": self.DeliveryNo,
             "set_no": self.SetNo,
-            "tray_no": self.TrayNo,
             "meas_no": self.MeasNo,
             "strip_ID": self.StripID,
             "meas_ID": self.MeasID,
