@@ -1228,6 +1228,9 @@ class GainMeas(SiPMMeas):
         Its name matches the following formatted string:
 
         f"G-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
+
+        Additionally, the output dictionary (the same which is
+        serialized to the mentioned file) is returned by this method.
         """
 
         htype.check_type(
@@ -1355,4 +1358,4 @@ class GainMeas(SiPMMeas):
                 f"In function GainMeas.output_summary(): The output file has been written to {output_filepath}."
             )
 
-        return
+        return output
