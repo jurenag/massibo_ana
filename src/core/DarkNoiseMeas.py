@@ -1383,6 +1383,7 @@ class DarkNoiseMeas(SiPMMeas):
         self,
         folderpath,
         *args,
+        include_analysis_results=True,
         overwrite=False,
         additional_entries={},
         indent=None,
@@ -1398,6 +1399,16 @@ class DarkNoiseMeas(SiPMMeas):
 
         This method gets the following keyword arguments:
 
+        - include_analysis_results (bool): If this parameter is True, then 
+        self.__half_a_pe, self.__one_and_a_half_pe,
+        self.get_dark_counts_number(),
+        self.get_dark_count_rate_in_mHz_per_mm2(*args),
+        self.get_cross_talk_probability() and
+        self.get_after_pulse_probability() values are included in the output
+        dictionary under the keys "half_a_pe", "one_and_a_half_pe", "DC#",
+        "DCR_mHz_per_mm2", "XTP" and "APP", respectively. If this parameter
+        is False, then these keys are still included in the output dictionary,
+        but their value is set to float('nan').
         - overwrite (bool): This parameter only makes a difference if there
         is already a file in the given folder path whose name matches
         f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json".
@@ -1462,12 +1473,19 @@ class DarkNoiseMeas(SiPMMeas):
         - "timedelay": Contains self.__timedelay,
         - "amplitude": Contains self.__amplitude,
         - "frame_idx": Contains self.__frame_idx,
-        - "half_a_pe": Contains self.__half_a_pe,
-        - "one_and_a_half_pe": Contains self.__one_and_a_half_pe,
-        - "DC#" Contains :self.get_dark_counts_number(),
-        - "DCR_mHz_per_mm2": Contains self.get_dark_count_rate_in_mHz_per_mm2(*args),
-        - "XTP": Contains self.get_cross_talk_probability(),
-        - "APP": Contains self.get_after_pulse_probability()
+        - "half_a_pe": Contains self.__half_a_pe if
+        include_analysis_results and float('nan') otherwise,
+        - "one_and_a_half_pe": Contains self.__one_and_a_half_pe if
+        include_analysis_results and float('nan') otherwise,
+        - "DC#" Contains :self.get_dark_counts_number() if
+        include_analysis_results and float('nan') otherwise,
+        - "DCR_mHz_per_mm2": Contains
+        self.get_dark_count_rate_in_mHz_per_mm2(*args) if
+        include_analysis_results and float('nan') otherwise,
+        - "XTP": Contains self.get_cross_talk_probability() if
+        include_analysis_results and float('nan') otherwise,
+        - "APP": Contains self.get_after_pulse_probability() if
+        include_analysis_results and float('nan') otherwise.
 
         The summary json file is saved within the given folder, up to folderpath.
         Its name matches the following formatted string:
@@ -1494,6 +1512,13 @@ class DarkNoiseMeas(SiPMMeas):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message("DarkNoiseMeas.output_summary", 72052)
             )
+        htype.check_type(
+            include_analysis_results,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.output_summary", 45923
+            ),
+        )
         htype.check_type(
             overwrite,
             bool,
@@ -1594,15 +1619,29 @@ class DarkNoiseMeas(SiPMMeas):
             # because np.int64 is not JSON serializable.
             # This is actually a python open issue:
             # https://bugs.python.org/issue24313
-            "frame_idx": [int(aux) for aux in self.__frame_idx],
-            "half_a_pe": self.__half_a_pe,
-            "one_and_a_half_pe": self.__one_and_a_half_pe,
-            "DC#": self.get_dark_counts_number(),
-            "DCR_mHz_per_mm2": self.get_dark_count_rate_in_mHz_per_mm2(*args),
-            "XTP": self.get_cross_talk_probability(),
-            "APP": self.get_after_pulse_probability(),
+            "frame_idx": [int(aux) for aux in self.__frame_idx]
         }
 
+        if include_analysis_results:
+            analysis_results = {
+                "half_a_pe": self.__half_a_pe,
+                "one_and_a_half_pe": self.__one_and_a_half_pe,
+                "DC#": self.get_dark_counts_number(),
+                "DCR_mHz_per_mm2": self.get_dark_count_rate_in_mHz_per_mm2(*args),
+                "XTP": self.get_cross_talk_probability(),
+                "APP": self.get_after_pulse_probability()
+            }
+        else:
+            analysis_results = {
+                "half_a_pe": float('nan'),
+                "one_and_a_half_pe": float('nan'),
+                "DC#": float('nan'),
+                "DCR_mHz_per_mm2": float('nan'),
+                "XTP": float('nan'),
+                "APP": float('nan')
+            }
+
+        output.update(analysis_results)
         output.update(additional_entries)
 
         with open(output_filepath, "w") as file:
