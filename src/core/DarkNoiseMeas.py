@@ -1473,6 +1473,9 @@ class DarkNoiseMeas(SiPMMeas):
         Its name matches the following formatted string:
 
         f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
+
+        Additionally, the output dictionary (the same which is
+        serialized to the mentioned file) is returned by this method.
         """
 
         htype.check_type(
@@ -1610,4 +1613,4 @@ class DarkNoiseMeas(SiPMMeas):
                 f"In function DarkNoiseMeas.output_summary(): The output file has been written to {output_filepath}."
             )
 
-        return
+        return output
