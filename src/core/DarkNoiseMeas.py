@@ -1387,8 +1387,7 @@ class DarkNoiseMeas(SiPMMeas):
         overwrite=False,
         additional_entries={},
         indent=None,
-        verbose=False,
-        **kwargs,
+        verbose=False
     ):
         """This method gets the following positional argument:
 
@@ -1435,9 +1434,6 @@ class DarkNoiseMeas(SiPMMeas):
         beginning of each new line. P.e. if indent is a string (such as "\t"),
         each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
-        - kwargs: Included so that this signature matches that of the
-        overrided method. It is not used, although it may be used in the
-        future.
 
         The goal of this method is to produce a summary of this DarkNoiseMeas
         object, in the form of a json file. This json file has as many fields
