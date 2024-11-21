@@ -2,7 +2,7 @@ import os
 import json
 import math
 from datetime import datetime
-from abc import ABC, abstractmethod
+from abc import ABC
 import numpy as np
 from scipy import signal as spsi
 from scipy import constants as spcon
@@ -1426,7 +1426,6 @@ class SiPMMeas(ABC):
 
         return cls(input_filepath, time_resolution, **RKD1, **RKD2)
 
-    @abstractmethod
     def output_summary(
         self,
         folderpath,
