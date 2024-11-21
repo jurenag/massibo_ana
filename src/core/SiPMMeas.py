@@ -1632,7 +1632,7 @@ class SiPMMeas(ABC):
                 f"In function SiPMMeas.output_summary(): The output file has been written to {output_filepath}."
             )
 
-        return
+        return output
 
     @staticmethod
     def get_value_from_dict(dictionary, key, none_fallback=False):
