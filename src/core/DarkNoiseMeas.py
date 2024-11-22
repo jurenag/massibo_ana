@@ -1381,23 +1381,32 @@ class DarkNoiseMeas(SiPMMeas):
 
     def output_summary(
         self,
-        folderpath,
         *args,
+        additional_entries={},
+        folderpath=None,
         include_analysis_results=True,
         overwrite=False,
-        additional_entries={},
         indent=None,
         verbose=False
     ):
         """This method gets the following positional argument:
 
-        - folderpath (string): Path which must point to an existing folder.
-        It is the folder where the output json file will be saved.
         - args: Extra positional arguments which are given to
         self.get_dark_count_rate_in_mHz_per_mm2.
 
         This method gets the following keyword arguments:
 
+        - additional_entries (dictionary): The output summary (a dictionary)
+        is updated with this dictionary, additional_entries, right before
+        being returned, or loaded to the output json file, up to the value
+        given to the 'folderpath' parameter. This update is done via the
+        'update' method of dictionaries. Hence, note that if any of the keys
+        within additional_entries.keys() already exists in the output
+        dictionary, it will be overwritten. Below, you can consult the keys
+        that will be part of the output dictionary by default.
+        - folderpath (string): If it is defined, it must be a path
+        which points to an existing folder, where an output json file
+        will be saved.
         - include_analysis_results (bool): If this parameter is True, then 
         self.__half_a_pe, self.__one_and_a_half_pe,
         self.get_dark_counts_number(),
@@ -1408,25 +1417,18 @@ class DarkNoiseMeas(SiPMMeas):
         "DCR_mHz_per_mm2", "XTP" and "APP", respectively. If this parameter
         is False, then these keys are still included in the output dictionary,
         but their value is set to float('nan').
-        - overwrite (bool): This parameter only makes a difference if there
-        is already a file in the given folder path whose name matches
+        - overwrite (bool): This parameter only makes a difference if
+        the 'folderpath' parameter is defined and if there is already
+        a file in the given folder path whose name matches
         f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json".
-        If that is the case, and overwrite is False, then this method does
-        not generate any json file. In any other case, this method generates
-        a new json file with the previously specified name in the given
-        folder. In this case, overwriting may occur.
-        - additional_entries (dictionary): The output dictionary, i.e. the
-        dictionary which is loaded into the output json file, is updated
-        with this dictionary, additional_entries, right before being loaded
-        to the output json file. This update is done via the 'update' method
-        of dictionaries. Hence, note that if any of the keys within
-        additional_entries.keys() already exists in the output dictionary,
-        it will be overwritten. Below, you can consult the keys that will
-        be part of the output dictionary by default.
-        - indent (None, non-negative integer or string): This parameter controls
-        the indentation with which the json summary-file is generated. It is
-        passed to the 'indent' parameter of json.dump. If indent is None, then
-        the most compact representation is used. If indent is a non-negative
+        In such case, and if overwrite is True, then this method overwrites
+        such file with a new json file. In such case, and if overwrite is
+        False, then this method does not generate any json file.        
+        - indent (None, non-negative integer or string): This parameter only
+        makes a difference if the 'folderpath' parameter is defined. It 
+        controls the indentation with which the json summary-file is generated.
+        It is passed to the 'indent' parameter of json.dump. If indent is None,
+        then the most compact representation is used. If indent is a non-negative
         integer, then one new line is added per each key-value pair, and indent
         is the number of spaces that are added at the very beginning of each
         new line. If indent is a string, then one new line is added per each
@@ -1434,10 +1436,13 @@ class DarkNoiseMeas(SiPMMeas):
         beginning of each new line. P.e. if indent is a string (such as "\t"),
         each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
-
-        The goal of this method is to produce a summary of this DarkNoiseMeas
-        object, in the form of a json file. This json file has as many fields
-        as objects of interest which should be summarized. These fields are:
+        
+        The goal of this method is to produce a summary dictionary of this
+        DarkNoiseMeas object. Additionally, this method can serialize this
+        dictionary to an output json file if the 'folderpath' parameter is
+        defined. This dictionary has as many fields as objects of interest
+        which should be summarized. For DarkNoiseMeas objects, these fields
+        are:
 
         - "delivery_no": Contains self.__delivery_no
         - "set_no": Contains self.__set_no
@@ -1483,45 +1488,13 @@ class DarkNoiseMeas(SiPMMeas):
         - "APP": Contains self.get_after_pulse_probability() if
         include_analysis_results and float('nan') otherwise.
 
-        The summary json file is saved within the given folder, up to folderpath.
-        Its name matches the following formatted string:
+        This method returns a summary dictionary of the DarkNoiseMeas
+        object. If a folder path is given, then the output dictionary
+        is additionally serialized to a json file in the specified folder.
+        The file name matches the following formatted string:
 
         f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
-
-        Additionally, the output dictionary (the same which is
-        serialized to the mentioned file) is returned by this method.
         """
-
-        htype.check_type(
-            folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 75697
-            ),
-        )
-
-        if not os.path.exists(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("DarkNoiseMeas.output_summary", 22733)
-            )
-        elif not os.path.isdir(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("DarkNoiseMeas.output_summary", 72052)
-            )
-        htype.check_type(
-            include_analysis_results,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 45923
-            ),
-        )
-        htype.check_type(
-            overwrite,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 92284
-            ),
-        )
 
         htype.check_type(
             additional_entries,
@@ -1531,81 +1504,12 @@ class DarkNoiseMeas(SiPMMeas):
             ),
         )
 
-        if indent is not None:
+        # The only parameter we are checking is additional_entries
+        # because we are making use of it in the body of this function.
+        # The rest of them are only used by the overriden base class,
+        # so they are type- and well-formedness- checked there.
 
-            htype.check_type(
-                indent,
-                int,
-                np.int64,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DarkNoiseMeas.output_summary", 46082
-                ),
-            )
-
-            if isinstance(indent, int) or isinstance(indent, np.int64):
-                if indent < 0:
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "DarkNoiseMeas.output_summary", 47294
-                        )
-                    )
-
-        htype.check_type(
-            verbose,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 79529
-            ),
-        )
-
-        output_filename = f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
-        output_filepath = os.path.join(folderpath, output_filename)
-
-        if os.path.exists(output_filepath):
-
-            # No need to assemble the ouptut dictionary if the output
-            # filepath already exists and we are not allowed to overwrite it
-            if not overwrite:
-                if verbose:
-                    print(
-                        f"In function DarkNoiseMeas.output_summary(): {output_filepath} already exists. It won't be overwritten."
-                    )
-                return
-            else:
-                if verbose:
-                    print(
-                        f"In function DarkNoiseMeas.output_summary(): {output_filepath} already exists. It will be overwritten."
-                    )
-
-        output = {
-            "delivery_no": self.DeliveryNo,
-            "set_no": self.SetNo,
-            "meas_no": self.MeasNo,
-            "strip_ID": self.StripID,
-            "meas_ID": self.MeasID,
-            # Object of type datetime is not
-            # JSON serializable, but strings are
-            "date": self.Date.strftime("%Y-%m-%d %H:%M:%S"),
-            "location": self.Location,
-            "operator": self.Operator,
-            "setup_ID": self.SetupID,
-            "system_characteristics": self.SystemCharacteristics,
-            "thermal_cycle": self.ThermalCycle,
-            "electronic_board_number": self.ElectronicBoardNumber,
-            "electronic_board_location": self.ElectronicBoardLocation,
-            "electronic_board_socket": self.ElectronicBoardSocket,
-            "sipm_location": self.SiPMLocation,
-            "sampling_ns": self.Sampling_ns,
-            "waveform_window_mus": self.WaveformWindow_mus,
-            "cover_type": self.CoverType,
-            "operation_voltage_V": self.OperationVoltage_V,
-            "overvoltage_V": self.Overvoltage_V,
-            "PDE": self.PDE,
-            "N_events": self.NEvents,
-            "signal_unit": self.SignalUnit,
-            "status": self.Status,
-            "acquisition_time_min": self.AcquisitionTime_min,
+        darknoisemeas_additional_output = {
             "threshold_mV": self.__threshold_mV,
             # Object of type numpy.ndarray is not
             # JSON serializable, but lists are
@@ -1637,15 +1541,16 @@ class DarkNoiseMeas(SiPMMeas):
                 "APP": float('nan')
             }
 
-        output.update(analysis_results)
-        output.update(additional_entries)
+        darknoisemeas_additional_output.update(analysis_results)
+        darknoisemeas_additional_output.update(additional_entries)
 
-        with open(output_filepath, "w") as file:
-            json.dump(output, file, indent=indent)
-
-        if verbose:
-            print(
-                f"In function DarkNoiseMeas.output_summary(): The output file has been written to {output_filepath}."
-            )
-
-        return output
+        return super().output_summary(
+            additional_entries=darknoisemeas_additional_output,
+            folderpath=folderpath,
+            filename=f"DN-{self.StripID}-{self.SiPMLocation}-"
+            f"{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-"
+            f"{self.Date.strftime('%Y-%m-%d')}.json",
+            overwrite=overwrite,
+            indent=indent,
+            verbose=verbose
+        )
