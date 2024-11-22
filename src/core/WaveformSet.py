@@ -400,6 +400,13 @@ class WaveformSet(OneTypeRTL):
         regardless the mode (either 'grid' or 'superposition'). If only
         one of them is defined, both are ignored.
         - show_plots (bool): Whether to show the plots or not.
+
+        This method returns a list of matplotlib.figure.Figure objects.
+        This list contains every figure (canvas) produced by this method,
+        up to the given input parameters. I.e. if mode is 'grid', then
+        such list will potentially contain more than one figure. If mode
+        is 'superposition', then the list will contain only one figure.
+
         """
 
         htype.check_type(
@@ -668,6 +675,7 @@ class WaveformSet(OneTypeRTL):
                     plt.show(block=False)
                     input("Press any key to iterate to next canvas...")
                 plt.close()
+                output.append(fig)
         else:
             fig, ax = plt.subplots(
                 figsize=(fig_width, fig_height) if fSetFigSize else None
@@ -687,7 +695,9 @@ class WaveformSet(OneTypeRTL):
                 plt.show(block=False)
                 input("Press any key to exit")
             plt.close()
-        return
+            output.append(fig)
+            
+        return output
 
     @staticmethod
     def set_custom_labels_visibility(ax, ax_i, ax_j, nrows):
