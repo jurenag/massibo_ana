@@ -1428,41 +1428,43 @@ class SiPMMeas(ABC):
 
     def output_summary(
         self,
-        folderpath,
-        *args,
-        overwrite=False,
         additional_entries={},
+        folderpath=None,
+        filename=None,
+        overwrite=False,
         indent=None,
-        verbose=False,
-        **kwargs,
+        verbose=False
     ):
-        """This method gets the following positional argument:
+        """This method gets the following keyword arguments:
 
-        - folderpath (string): Path which must point to an existing folder.
-        It is the folder where the output json file will be saved.
-        - args: For use in derived-classes implementations
-
-        This method gets the following keyword arguments:
-
-        - overwrite (bool): This parameter only makes a difference if there
-        is already a file in the given folder path whose name matches
+        - additional_entries (dictionary): The output summary (a dictionary)
+        is updated with this dictionary, additional_entries, right before
+        being returned, or loaded to the output json file, up to the value
+        given to the 'folderpath' parameter. This update is done via the
+        'update' method of dictionaries. Hence, note that if any of the keys
+        within additional_entries.keys() already exists in the output
+        dictionary, it will be overwritten. Below, you can consult the keys
+        that will be part of the output dictionary by default.
+        - folderpath (string): If it is defined, it must be a path
+        which points to an existing folder, where an output json file
+        will be saved.
+        - filename (None or string): This parameter only makes a difference
+        if the 'folderpath' parameter is defined. In such case, and if the
+        'filename' parameter is defined, this is the name of the output json
+        file. If it is not defined, then the output json file will be named
         f"{self.__strip_ID}-{self.__sipm_location}-{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV-{self.__date.strftime('%Y-%m-%d')}.json".
-        If that is the case, and overwrite is False, then this method does
-        not generate any json file. In any other case, this method generates
-        a new json file with the previously specified name in the given
-        folder. In this case, overwriting may occur.
-        - additional_entries (dictionary): The output dictionary, i.e. the
-        dictionary which is loaded into the output json file, is updated
-        with this dictionary, additional_entries, right before being loaded
-        to the output json file. This update is done via the 'update' method
-        of dictionaries. Hence, note that if any of the keys within
-        additional_entries.keys() already exists in the output dictionary,
-        it will be overwritten. Below, you can consult the keys that will
-        be part of the output dictionary by default.
-        - indent (None, non-negative integer or string): This parameter controls
-        the indentation with which the json summary-file is generated. It is
-        passed to the 'indent' parameter of json.dump. If indent is None, then
-        the most compact representation is used. If indent is a non-negative
+        - overwrite (bool): This parameter only makes a difference if
+        the 'folderpath' parameter is defined and if there is already
+        a file in the given folder path whose name matches the output
+        json file name, up to the value given to the 'filename' parameter.
+        In such case, and if overwrite is True, then this method overwrites
+        such file with a new json file. In such case, and if overwrite is
+        False, then this method does not generate any json file.
+        - indent (None, non-negative integer or string): This parameter only
+        makes a difference if the 'folderpath' parameter is defined. It 
+        controls the indentation with which the json summary-file is generated.
+        It is passed to the 'indent' parameter of json.dump. If indent is None,
+        then the most compact representation is used. If indent is a non-negative
         integer, then one new line is added per each key-value pair, and indent
         is the number of spaces that are added at the very beginning of each
         new line. If indent is a string, then one new line is added per each
@@ -1470,15 +1472,12 @@ class SiPMMeas(ABC):
         beginning of each new line. P.e. if indent is a string (such as "\t"),
         each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
-        - kwargs: For use in derived-classes implementations.
 
-        Although this method cannot be executed, since SiPMMeas cannot be
-        instantiated and this method must be overriden in derived classes,
-        this implementation should serve as a template for its overriding
-        implementations in derived classes. The goal of this method is to
-        produce a summary of this SiPMMeas object, in the form of a json
-        file. This json file has as many fields as objects of interest which
-        should be summarized. For SiPMMeas objects, these fields are:
+        The goal of this method is to produce a summary dictionary of this
+        SiPMMeas object. Additionally, this method can serialize this dictionary
+        to an output json file if the 'folderpath' parameter is defined. This
+        dictionary has as many fields as objects of interest which should be
+        summarized. For SiPMMeas objects, these fields are:
 
         - "delivery_no": Contains self.__delivery_no
         - "set_no": Contains self.__set_no
@@ -1506,35 +1505,13 @@ class SiPMMeas(ABC):
         - "status": Contains self.__status
         - "acquisition_time_min": Contains self.__acquisition_time_min
 
-        The summary json file is saved within the given folder, up to folderpath.
-        Its name matches the following formatted string:
+        This method returns a summary dictionary of the SiPMMeas object.
+        If a folder path is given, then the output dictionary is additionally
+        serialized to a json file in the specified folder with the specified
+        file name. If it was not specified, then the default file name is
 
         f"{self.__strip_ID}-{self.__sipm_location}-{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV-{self.__date.strftime('%Y-%m-%d')}.json"
         """
-
-        htype.check_type(
-            folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.output_summary", 84477
-            ),
-        )
-
-        if not os.path.exists(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("SiPMMeas.output_summary", 62875)
-            )
-        elif not os.path.isdir(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("SiPMMeas.output_summary", 64055)
-            )
-        htype.check_type(
-            overwrite,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.output_summary", 99583
-            ),
-        )
 
         htype.check_type(
             additional_entries,
@@ -1543,26 +1520,77 @@ class SiPMMeas(ABC):
                 "SiPMMeas.output_summary", 15693
             ),
         )
+        
+        fOutputJSON = False
 
-        if indent is not None:
+        if folderpath is not None:
 
             htype.check_type(
-                indent,
-                int,
-                np.int64,
+                folderpath,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "SiPMMeas.output_summary", 87057
+                    "SiPMMeas.output_summary", 84477
                 ),
             )
 
-            if isinstance(indent, int) or isinstance(indent, np.int64):
-                if indent < 0:
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "SiPMMeas.output_summary", 68241
+            if not os.path.exists(folderpath):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message("SiPMMeas.output_summary", 62875)
+                )
+            elif not os.path.isdir(folderpath):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message("SiPMMeas.output_summary", 64055)
+                )
+            
+            fOutputJSON = True
+
+            if filename is not None:
+
+                htype.check_type(
+                    filename,
+                    str,
+                    exception_message=htype.generate_exception_message(
+                        "SiPMMeas.output_summary", 84055
+                    ),
+                )
+
+                output_filepath = os.path.join(folderpath, filename)
+
+            else:
+
+                aux = f"{self.__strip_ID}-{self.__sipm_location}-"
+                f"{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV"
+                f"-{self.__date.strftime('%Y-%m-%d')}.json"
+
+                output_filepath = os.path.join(folderpath, aux)
+        
+            htype.check_type(
+                overwrite,
+                bool,
+                exception_message=htype.generate_exception_message(
+                    "SiPMMeas.output_summary", 99583
+                ),
+            )
+
+            if indent is not None:
+
+                htype.check_type(
+                    indent,
+                    int,
+                    np.int64,
+                    str,
+                    exception_message=htype.generate_exception_message(
+                        "SiPMMeas.output_summary", 87057
+                    ),
+                )
+
+                if isinstance(indent, int) or isinstance(indent, np.int64):
+                    if indent < 0:
+                        raise cuex.InvalidParameterDefinition(
+                            htype.generate_exception_message(
+                                "SiPMMeas.output_summary", 68241
+                            )
                         )
-                    )
 
         htype.check_type(
             verbose,
@@ -1571,25 +1599,6 @@ class SiPMMeas(ABC):
                 "SiPMMeas.output_summary", 40366
             ),
         )
-
-        output_filename = f"{self.__strip_ID}-{self.__sipm_location}-{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV-{self.__date.strftime('%Y-%m-%d')}.json"
-        output_filepath = os.path.join(folderpath, output_filename)
-
-        if os.path.exists(output_filepath):
-            # No need to assemble the ouptut dictionary if the output
-            # filepath already exists and we are not allowed to overwrite it
-            if not overwrite:
-
-                if verbose:
-                    print(
-                        f"In function SiPMMeas.output_summary(): {output_filepath} already exists. It won't be overwritten."
-                    )
-                return
-            else:
-                if verbose:
-                    print(
-                        f"In function SiPMMeas.output_summary(): {output_filepath} already exists. It will be overwritten."
-                    )
 
         output = {
             "delivery_no": self.__delivery_no,
@@ -1623,13 +1632,35 @@ class SiPMMeas(ABC):
 
         output.update(additional_entries)
 
-        with open(output_filepath, "w") as file:
-            json.dump(output, file, indent=indent)
+        if fOutputJSON:
 
-        if verbose:
-            print(
-                f"In function SiPMMeas.output_summary(): The output file has been written to {output_filepath}."
-            )
+            if os.path.exists(output_filepath):
+                if not overwrite:
+                    fOutputJSON = False
+                    if verbose:
+                        print(
+                            f"In function SiPMMeas.output_summary(): "
+                            f"{output_filepath} already exists. It won't be overwritten."
+                        )
+                else:
+                    if verbose:
+                        print(
+                            f"In function SiPMMeas.output_summary(): "
+                            f"{output_filepath} already exists. It will be overwritten."
+                        )
+
+        # The value of fOutputJSON might have changed
+        # in the previous if-block of code. This is
+        # why we need to re-check it here
+        if fOutputJSON:
+
+            with open(output_filepath, "w") as file:
+                json.dump(output, file, indent=indent)
+
+            if verbose:
+                print(
+                    f"In function SiPMMeas.output_summary(): The output file has been written to {output_filepath}."
+                )
 
         return output
 
