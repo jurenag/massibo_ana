@@ -369,7 +369,7 @@ class WaveformSet(OneTypeRTL):
         - fig_title (string): The title of the figure.
         - mode (string): It must be either 'grid' or 'superposition'. Any
         other input will be understood as 'grid'. If it matches 'grid',
-        then each waveform is plot in an exlcusive pair of axes, i.e. one
+        then each waveform is plot in an exclusive pair of axes, i.e. one
         waveform per pair of axes. Those axes make up a 2D-grid of
         nrows*ncols axes, where there are nrows rows and ncols columns.
         If mode matches 'superposition', then each waveform is plotted
