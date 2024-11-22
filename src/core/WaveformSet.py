@@ -344,7 +344,8 @@ class WaveformSet(OneTypeRTL):
         x0=[],
         y0=[],
         fig_width = None,
-        fig_height = None
+        fig_height = None,
+        show_plots = True
     ):
         """This method gets the following keyword arguments:
 
@@ -398,6 +399,7 @@ class WaveformSet(OneTypeRTL):
         matplotlib.pyplot.subplots() function for every produced canvas
         regardless the mode (either 'grid' or 'superposition'). If only
         one of them is defined, both are ignored.
+        - show_plots (bool): Whether to show the plots or not.
         """
 
         htype.check_type(
@@ -613,6 +615,16 @@ class WaveformSet(OneTypeRTL):
                     )
                 fSetFigSize = True
 
+        htype.check_type(
+            show_plots,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 50031
+            ),
+        )        
+
+        output = []
+
         if mode != "superposition":  # Grid plot is default
             counter = 0
             how_many_canvases = int(math.ceil(len(wvfs_indices) / (nrows * ncols)))
@@ -652,8 +664,9 @@ class WaveformSet(OneTypeRTL):
                     counter += 1
                 fig.suptitle(fig_title)
                 fig.tight_layout()
-                plt.show(block=False)
-                input("Press any key to iterate to next canvas...")
+                if show_plots:
+                    plt.show(block=False)
+                    input("Press any key to iterate to next canvas...")
                 plt.close()
         else:
             fig, ax = plt.subplots(
@@ -670,8 +683,9 @@ class WaveformSet(OneTypeRTL):
                     y0=y0,
                 )
             fig.suptitle(fig_title)
-            plt.show(block=False)
-            input("Press any key to exit")
+            if show_plots:
+                plt.show(block=False)
+                input("Press any key to exit")
             plt.close()
         return
 
