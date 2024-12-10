@@ -616,9 +616,7 @@ class SiPMMeas(ABC):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
-        minimal_width_in_samples=0,
-        std_no=3.0,
-        fit_to_density=True,
+        std_no=3.0
     ):
         """This static method gets the following optional keyword arguments:
 
@@ -633,62 +631,59 @@ class SiPMMeas(ABC):
         contain integers. Its length must comply with
         0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must belong to
         the interval [0, peaks_to_detect-1]. Let us sort the peaks_to_detect
-        detected peaks according to the iterator value for samples where they
-        occur. Then if i belongs to peaks_to_fit, the i-th detected peak will
-        be fit.
+        detected peaks according to the iterator value for the fit histogram
+        where they occur. Then if i belongs to peaks_to_fit, the i-th detected
+        peak will be fit.
         - bins_no (scalar integer): It must be positive (>0). It is the number
         of bins which are used to histogram the given samples.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
-        and smaller or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.tune_peak_height(). Check its docstring for more information.
+        and smaller or equal to 1 (<=1.0). It is given to the 'initial_percentage'
+        parameter of the static method
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
+        docstring for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
-        or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.tune_peak_height(). Check its docstring for more information.
-        - minimal_prominence_wrt_max (scalar float): It must be semipositive
-        (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
-        fraction of the maximum value of the histogram of samples. It is given
-        to the 'minimal_prominence_wrt_max' keyword argument of
-        SiPMMeas.tune_peak_height(). It sets a minimal prominence for a peak
-        to be detected, based on a fraction of the maximum value within the
-        samples histogram. I.e. the only detected peaks are those whose
-        prominence is bigger or equal to a fraction of the samples histogram
-        maximum. For more information check the SiPMMeas.tune_peak_height()
+        or equal to 1 (<=1.0). It is given to the 'percentage_step' parameter of
+        the static method SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        Check its docstring for more information.
+        - minimal_prominence_wrt_amp (scalar float): It must be semipositive
+        (>=0) and smaller or equal than 1.0 (<=1.0). It is given to the
+        'prominence' parameter of the static method
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        It sets a minimal prominence for a peak to be detected, based on a
+        fraction of the amplitude of the samples histogram. I.e. the only
+        detected peaks are those whose prominence is bigger or equal to a
+        fraction of the samples histogram amplitude. For more information
+        check the SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
         docstring.
-        - minimal_width_in_samples (scalar integer): It must be a semipositive
-        (>=0) integer. It is understood as the required width of a peak (in
-        samples), for it to be detected as a peak. It is given to the
-        'minimal_width_in_samples' keyword argument of SiPMMeas.tune_peak_height().
-        For more information check the SiPMMeas.tune_peak_height() docstring.
-        - std_no (scalar float): It must be positive (>0.0). This parameter is
-        given to the std_no keyword argument of
+        - std_no (scalar float): It must be positive (>0.0). This parameter
+        is given to the std_no keyword argument of
         SiPMMeas.piecewise_gaussian_fits(). Check its docstring for more
         information.
-        - fit_to_density (scalar boolean): It is given to the density parameter
-        of the numpy.histogram method when histogramming the input samples.
 
         This method fits one gaussian to each peak within a subset of the
-        peaks_to_detect highest peaks of the histogram of samples. Such
-        subset is defined via peaks_to_fit. This method returns the optimal
-        values for the fitting parameters, as well as the covariance matrix.
-        To do so, this method
+        peaks_to_detect first peaks of the histogram of samples. By 'first
+        peaks', we mean those which happen for smaller values of the histogram
+        array iterator. Such subset is defined via peaks_to_fit. This method
+        returns the optimal values for the fitting parameters, as well as
+        the covariance matrix. To do so, this method does the following:
 
-        1) generates an histogram using samples entries,
-        2) if fit_to_density, then it generates a probability distribution
-        function (pdf) out of such histogram. If not fit_to_density, then
-        the function considers the hits histogram of the samples entries,
-        3) then detects the peaks_to_detect highest peaks of such histogram,
-        via SiPMMeas.tune_peak_height() and scipy.signal.find_peaks(),
-        4) and targets the specified subset of the peaks_to_detect highest
-        peaks of such histogram (up to peaks_to_fit).
-        5) Then, it uses the output of SiPMMeas.tune_peak_height() to give
-        accurate seeds to SiPMMeas.piecewise_gaussian_fits(), which, in turn,
-        gives them to scipy.optimize.curve_fit(),
-        6) fits one gaussian function to each one of the targeted peaks
-        7) and returns the output of SiPMMeas.piecewise_gaussian_fits(), which
-        is made up of two lists, say popt and pcov, so that popt[i] (resp.
-        pcov[i]) is the set of optimal values (resp. covariance matrix) for the
-        fit of the i-th fit peak. For more information on such output, check
-        the SiPMMeas.piecewise_gaussian_fits() docstring."""
+        1) Generates an histogram using samples entries
+        2) Detects the peaks_to_detect first peaks of such histogram
+        via SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(), which
+        in turn makes use of scipy.signal.find_peaks()
+        3) Targets the specified subset of the peaks_to_detect first
+        peaks of such histogram (up to peaks_to_fit)
+        4) Uses the output of 
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram() to give
+        accurate seeds to SiPMMeas.piecewise_gaussian_fits(), which, in
+        turn, gives them to scipy.optimize.curve_fit()
+        5) Fits one gaussian function to each one of the targeted peaks
+        6) Returns the output of SiPMMeas.piecewise_gaussian_fits(),
+        which is made up of two lists, say popt and pcov, so that popt[i]
+        (resp. pcov[i]) is the set of optimal values (resp. covariance
+        matrix) for the fit of the i-th fit peak. For more information
+        on such output, check the SiPMMeas.piecewise_gaussian_fits()
+        docstring."""
 
         htype.check_type(
             samples,
@@ -812,20 +807,6 @@ class SiPMMeas(ABC):
                 )
             )
         htype.check_type(
-            minimal_width_in_samples,
-            int,
-            np.int64,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 13817
-            ),
-        )
-        if minimal_width_in_samples < 0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 22781
-                )
-            )
-        htype.check_type(
             std_no,
             float,
             np.float64,
@@ -839,54 +820,56 @@ class SiPMMeas(ABC):
                     "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 23163
                 )
             )
-        htype.check_type(
-            fit_to_density,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 47288
-            ),
-        )
         y_values, bin_edges = np.histogram(
-            samples, bins=bins_no, density=fit_to_density
+            samples, bins=bins_no
         )
+
+        # We need at least 3 points per gaussian
+        # fit (3 free parameters per gaussian)
+        if len(y_values) < (3 * len(peaks_to_fit_)):
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
+                    34723,
+                    extra_info=f"The y_values array does not contain samples "
+                    f"enough ({len(samples)}) to fit {len(peaks_to_fit_)} "
+                    "gaussians with 3 free parameters each.",
+                )
+            )
 
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
         resolution = np.mean(np.diff(bin_centers))
 
-        peak_height = SiPMMeas.tune_peak_height(
-            y_values,
-            peaks_to_detect,
-            starting_fraction=starting_fraction,
-            step_fraction=step_fraction,
-            minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            minimal_width_in_samples=minimal_width_in_samples,
-        )
-        if peak_height is None:
+        found_requested_peaks, spsi_output = \
+            SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(
+                y_values,
+                peaks_to_detect,
+                minimal_prominence_wrt_max,
+                initial_percentage=starting_fraction,
+                percentage_step=step_fraction
+            )
+        
+        if not found_requested_peaks:
             raise RuntimeError(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",  # SiPMMeas.tune_peak_height() might not find a suitable peak height
-                    21319,
-                    extra_info=f"SiPMMeas.tune_peak_height() failed to find a suitable peak height. Please check the data in 'y_values' and 'bin_centers' and the values of the arguments given to SiPMMeas.tune_peak_height().",
+                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
+                    21318,
+                    extra_info=f"SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()"
+                    " failed to find the requested number of peaks. Please check the data"
+                    " in 'y_values' and 'bin_centers' and the values of the arguments "
+                    "given to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().",
                 )
             )
-        peaks_idx, peaks_properties = spsi.find_peaks(
-            y_values,
-            # Tuning the height from SiPMMeas.tune_peak_height() so
-            # that only peaks_to_detect peaks are found. Also, we are
-            # adding a dummy width just so scipy.signal.find_peaks()
-            # returns the width information for the detected peaks.
-            height=peak_height,
-            width=0.0,
-            prominence=minimal_prominence_wrt_max * np.max(y_values),
-        )
-
-        fit_peaks_idx = [
-            peaks_idx[i] for i in peaks_to_fit_
-        ]  # Filter out non-fit peaks
-        fit_peaks_properties = {
-            key: np.array([value[i] for i in peaks_to_fit_])
-            for key, value in peaks_properties.items()
-        }
+        
+        # If we reached this point it means that peaks_to_detect peaks were
+        # found, so peaks_to_fit_ is well-formed with respect to spsi_output.
+        # Also, we are using the call to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
+        # to unpack the output of scipy.signal.find_peaks(). 
+        fit_peaks_idx, fit_peaks_properties = \
+            SiPMMeas.__select_peaks_from_spsi_find_peaks_output(
+                spsi_output,
+                peaks_to_fit_
+            )
 
         # We are going to fit gaussian functions to the
         # pieces of data which match each of the detected
