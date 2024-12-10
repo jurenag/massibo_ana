@@ -898,21 +898,33 @@ class SiPMMeas(ABC):
             for key, value in peaks_properties.items()
         }
 
-        # We are going to fit gaussian functions to the pieces of data which match each of the detected peaks. To do so,
-        # the output from scipy.signal.find_peaks() contains valuable information for the seeds of the fit parameters.
-
-        mean_seeds = [bin_centers[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))]
+        # We are going to fit gaussian functions to the
+        # pieces of data which match each of the detected
+        # peaks. To do so, the output from scipy.signal.find_peaks()
+        # contains valuable information for the seeds of the
+        # fit parameters.
+        mean_seeds = [
+            bin_centers[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
+        ]
 
         # The width calculated by scipy.signal.find_peaks
         # is the peak FWHM in samples. You can check so
         # in scipy documentation on how the peak width
         # and the peak prominence is computed by find_peaks().
+        # Also, it is worth noting here that
+        # SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
+        # calls scipy.signal.find_peaks(*args, width=0,
+        # rel_height=0.5, **kwargs), so we are safe asking
+        # for the peak width property here, and interpreting
+        # it as a width at half height.
         std_seeds = [
             fit_peaks_properties["widths"][i] * resolution / 2.355
             for i in range(len(fit_peaks_properties["widths"]))
         ]
 
-        scaling_seeds = [y_values[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))]
+        scaling_seeds = [
+            y_values[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
+        ]
 
         popt, pcov = SiPMMeas.piecewise_gaussian_fits(
             bin_centers,
