@@ -756,16 +756,6 @@ class SiPMMeas(ABC):
                     )
             peaks_to_fit_ = peaks_to_fit
 
-        # We need at least 3 samples per gaussian
-        # fit (3 free parameters per gaussian)
-        if len(samples) < (3 * len(peaks_to_fit_)):
-            raise cuex.NoAvailableData(
-                htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
-                    34723,
-                    extra_info=f"The samples array does not have samples enough ({len(samples)}) to fit {len(peaks_to_fit_)} gaussians with 3 free parameters each.",
-                )
-            )
         htype.check_type(
             bins_no,
             int,
