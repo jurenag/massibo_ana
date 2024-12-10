@@ -436,7 +436,6 @@ class DarkNoiseMeas(SiPMMeas):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
-        minimal_width_in_samples=0,
         std_no=3.0,
         timedelay_cut=0.0,
     ):
@@ -480,12 +479,6 @@ class DarkNoiseMeas(SiPMMeas):
          considered peaks are those whose prominence is bigger or equal to a
          fraction of the histogram maximum. For more information check the
          SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
-         - minimal_width_in_samples (scalar integer): It must be a semipositive
-         (>=0) integer. It is understood as the required width of a peak (in
-         samples), for it to be detected as a peak. It is given to the
-         'minimal_width_in_samples' keyword argument of
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). For more
-         information, check its docstring.
          - std_no (scalar float): It must be positive (>0.0). This parameter is
          given to the std_no keyword argument of the static method
          SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
@@ -575,20 +568,6 @@ class DarkNoiseMeas(SiPMMeas):
                 )
             )
         htype.check_type(
-            minimal_width_in_samples,
-            int,
-            np.int64,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.compute_amplitude_levels", 15669
-            ),
-        )
-        if minimal_width_in_samples < 0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DarkNoiseMeas.compute_amplitude_levels", 43512
-                )
-            )
-        htype.check_type(
             std_no,
             float,
             np.float64,
@@ -635,9 +614,7 @@ class DarkNoiseMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            minimal_width_in_samples=minimal_width_in_samples,
-            std_no=std_no,
-            fit_to_density=True,
+            std_no=std_no
         )
 
         # Assess which fit matches which peak
