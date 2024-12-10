@@ -1134,6 +1134,7 @@ class GainMeas(SiPMMeas):
         self,
         additional_entries={},
         folderpath=None,
+        include_analysis_results=True,
         overwrite=False,
         indent=None,
         verbose=False,
@@ -1152,6 +1153,11 @@ class GainMeas(SiPMMeas):
         - folderpath (string): If it is defined, it must be a path
         which points to an existing folder, where an output json file
         will be saved.
+        - include_analysis_results (bool): If this parameter is True, then 
+        the self.__charge_entries value is included in the output
+        dictionary under the key "charge_entries". If this parameter
+        is False, then this key is still included in the output dictionary,
+        but its value is set to float('nan').
         - overwrite (bool): This parameter only makes a difference if
         the 'folderpath' parameter is defined and if there is already
         a file in the given folder path whose name matches
@@ -1208,7 +1214,8 @@ class GainMeas(SiPMMeas):
         - "LED_frequency_kHz": Contains self.__LED_frequency_kHz,
         - "LED_pulse_shape": Contains self.__LED_pulse_shape,
         - "LED_high_width_ns": Contains self.__LED_high_width_ns,
-        - "charge_entries": Contains self.__charge_entries
+        - "charge_entries": Contains self.__charge_entries if
+        include_analysis_results and float('nan') otherwise
 
         Note that the output does not contain the gain of this GainMeas. To do
         so, we could allow the use of kwargs and pass them onto GainMeas.fit_gain().
@@ -1235,21 +1242,39 @@ class GainMeas(SiPMMeas):
             ),
         )
 
-        # The only parameter we are checking is additional_entries
-        # because we are making use of it in the body of this function.
-        # The rest of them are only used by the overriden base class,
-        # so they are type- and well-formedness- checked there.
+        htype.check_type(
+            include_analysis_results,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "GainMeas.output_summary", 60135
+            ),
+        )
+
+        # The only parameters we are checking are additional_entries
+        # and include_analysis_results, because we are making use of
+        # them in the body of this function. The rest of them are
+        # only used by the overriden base class, so they are type-
+        # and well-formedness- checked there.
 
         gainmeas_additional_output = {
             "LED_voltage_V": self.__LED_voltage_V,
             "LED_frequency_kHz": self.__LED_frequency_kHz,
             "LED_pulse_shape": self.__LED_pulse_shape,
-            "LED_high_width_ns": self.__LED_high_width_ns,
-            # Object of type numpy.ndarray is not
-            # JSON serializable, but lists are
-            "charge_entries": list(self.__charge_entries),
+            "LED_high_width_ns": self.__LED_high_width_ns
         }
 
+        if include_analysis_results:
+            analysis_results = {
+                # Object of type numpy.ndarray is not
+                # JSON serializable, but lists are
+                "charge_entries": list(self.__charge_entries)
+            }
+        else:
+            analysis_results = {
+                "charge_entries": float('nan')
+            }
+
+        gainmeas_additional_output.update(analysis_results)
         gainmeas_additional_output.update(additional_entries)
 
         return super().output_summary(
