@@ -923,6 +923,55 @@ class SiPMMeas(ABC):
             std_no=std_no,
         )
         return popt, pcov
+    
+    @staticmethod
+    def __select_peaks_from_spsi_find_peaks_output(
+        spsi_output,
+        peaks_to_select
+    ):
+        """This helper method gets the following positional
+        arguments:
+
+        - spsi_output (tuple of (np.ndarray, dict,): The output
+        of a call to scipy.signal.find_peaks(). No checks are
+        performed here regarding the well-formedness of this input.
+        - peaks_to_select (tuple of int): Its length must comply
+        with 0<=len(peaks_to_select)<=len(spsi_output[0]). Every
+        entry must belong to the interval [0, len(spsi_output[0])-1].
+        These checks are not performed here.
+
+        This helper method should only be called by the
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()
+        static method, where the well-formedness checks of the
+        input parameters have been performed. This function
+        gets the output of a certain call to
+        scipy.signal.find_peaks(), selects some entries from it,
+        up to the 'peaks_to_select' parameter, and returns the
+        list of selected peaks, following the same format as
+        the scipy.signal.find_peaks() output. I.e. the returned
+        output is a tuple of two elements. The first element
+        is an unidimensional numpy array which contains the
+        selected elements of the first element of the given
+        spsi_output. The second element is a dictionary which
+        contains the same keys as the second element of the
+        given spsi_output, but the values (which are
+        unidimensional numpy arrays) contain only the selected
+        elements of the values of the second element of the
+        given spsi_output.
+        """
+
+        aux = set(peaks_to_select)
+
+        first_output = [
+            spsi_output[0][i] for i in aux
+        ]
+
+        second_output = {
+            key: np.array([value[i] for i in aux])
+            for key, value in spsi_output[1].items()
+        }
+
+        return (first_output, second_output)
 
     @staticmethod
     def tune_peak_height(
