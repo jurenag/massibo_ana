@@ -617,7 +617,7 @@ class DarkNoiseMeas(SiPMMeas):
         )
 
         if len(samples) == 0:
-            raise cuex.NoAvailableData(
+            raise cuex.RestrictiveTimedelay(
                 htype.generate_exception_message(
                     "DarkNoiseMeas.compute_amplitude_levels",
                     47289,
