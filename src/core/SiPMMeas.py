@@ -1405,12 +1405,6 @@ class SiPMMeas(ABC):
                 -0.5 * (z - mean) * (z - mean) / (std * std)
             )
         else:
-
-            def gaussian(z, mean, std):
-                return (1.0 / (std * math.sqrt(2.0 * spcon.pi))) * math.exp(
-                    -0.5 * (z - mean) * (z - mean) / (std * std)
-                )
-
             gaussian = lambda z, mean, std: (
                 1.0 / (std * math.sqrt(2.0 * spcon.pi))
             ) * math.exp(-0.5 * (z - mean) * (z - mean) / (std * std))
