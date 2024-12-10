@@ -606,7 +606,7 @@ class SiPMMeas(ABC):
     @property
     def Waveforms(self):
         return self.__waveforms
-
+    
     @staticmethod
     def fit_piecewise_gaussians_to_the_n_highest_peaks(
         samples,
