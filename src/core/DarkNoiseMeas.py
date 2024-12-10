@@ -1408,13 +1408,15 @@ class DarkNoiseMeas(SiPMMeas):
         which points to an existing folder, where an output json file
         will be saved.
         - include_analysis_results (bool): If this parameter is True, then 
+        self.__timedelay, self.__amplitude, self.__frame_idx,
         self.__half_a_pe, self.__one_and_a_half_pe,
         self.get_dark_counts_number(),
         self.get_dark_count_rate_in_mHz_per_mm2(*args),
         self.get_cross_talk_probability() and
         self.get_after_pulse_probability() values are included in the output
-        dictionary under the keys "half_a_pe", "one_and_a_half_pe", "DC#",
-        "DCR_mHz_per_mm2", "XTP" and "APP", respectively. If this parameter
+        dictionary under the keys "timedelay", "amplitude", "frame_idx",
+        "half_a_pe", "one_and_a_half_pe", "DC#", "DCR_mHz_per_mm2",
+        "XTP" and "APP", respectively. If this parameter
         is False, then these keys are still included in the output dictionary,
         but their value is set to float('nan').
         - overwrite (bool): This parameter only makes a difference if
@@ -1471,9 +1473,12 @@ class DarkNoiseMeas(SiPMMeas):
         - "acquisition_time_min": Contains self.AcquisitionTime_min,
 
         - "threshold_mV": Contains self.__threshold_mV,
-        - "timedelay": Contains self.__timedelay,
-        - "amplitude": Contains self.__amplitude,
-        - "frame_idx": Contains self.__frame_idx,
+        - "timedelay": Contains self.__timedelay if
+        include_analysis_results and float('nan') otherwise,
+        - "amplitude": Contains self.__amplitude if
+        include_analysis_results and float('nan') otherwise,
+        - "frame_idx": Contains self.__frame_idx if
+        include_analysis_results and float('nan') otherwise,
         - "half_a_pe": Contains self.__half_a_pe if
         include_analysis_results and float('nan') otherwise,
         - "one_and_a_half_pe": Contains self.__one_and_a_half_pe if
@@ -1504,26 +1509,35 @@ class DarkNoiseMeas(SiPMMeas):
             ),
         )
 
-        # The only parameter we are checking is additional_entries
-        # because we are making use of it in the body of this function.
-        # The rest of them are only used by the overriden base class,
-        # so they are type- and well-formedness- checked there.
+        htype.check_type(
+            include_analysis_results,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.output_summary", 45625
+            ),
+        )
+
+        # The only parameters we are checking are additional_entries
+        # and include_analysis_results, because we are making use of
+        # them in the body of this function. The rest of them are
+        # only used by the overriden base class, so they are type-
+        # and well-formedness- checked there.
 
         darknoisemeas_additional_output = {
-            "threshold_mV": self.__threshold_mV,
-            # Object of type numpy.ndarray is not
-            # JSON serializable, but lists are
-            "timedelay": list(self.__timedelay),
-            "amplitude": list(self.__amplitude),
-            # Need the casting to python-built-in int type,
-            # because np.int64 is not JSON serializable.
-            # This is actually a python open issue:
-            # https://bugs.python.org/issue24313
-            "frame_idx": [int(aux) for aux in self.__frame_idx]
+            "threshold_mV": self.__threshold_mV
         }
 
         if include_analysis_results:
             analysis_results = {
+                # Object of type numpy.ndarray is not
+                # JSON serializable, but lists are
+                "timedelay": list(self.__timedelay),
+                "amplitude": list(self.__amplitude),
+                # Need the casting to python-built-in int type,
+                # because np.int64 is not JSON serializable.
+                # This is actually a python open issue:
+                # https://bugs.python.org/issue24313
+                "frame_idx": [int(aux) for aux in self.__frame_idx],
                 "half_a_pe": self.__half_a_pe,
                 "one_and_a_half_pe": self.__one_and_a_half_pe,
                 "DC#": self.get_dark_counts_number(),
@@ -1533,6 +1547,9 @@ class DarkNoiseMeas(SiPMMeas):
             }
         else:
             analysis_results = {
+                "timedelay": float('nan'),
+                "amplitude": float('nan'),
+                "frame_idx": float('nan'),
                 "half_a_pe": float('nan'),
                 "one_and_a_half_pe": float('nan'),
                 "DC#": float('nan'),
