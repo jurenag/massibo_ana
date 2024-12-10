@@ -1421,6 +1421,18 @@ class SiPMMeas(ABC):
             mask = x >= (mean_seeds[i] - (std_no * std_seeds[i]))
             mask *= x <= (mean_seeds[i] + (std_no * std_seeds[i]))
             fit_x, fit_y = x[mask], y[mask]
+
+            if len(fit_x) < (2 if not fWithScaling else 3):
+                raise cuex.NotEnoughFitSamples(
+                    htype.generate_exception_message(
+                        "SiPMMeas.piecewise_gaussian_fits",
+                        83500,
+                        extra_info=f"The fit_x array does not contain samples "
+                        f"enough ({len(fit_x)}) to fit a gaussian with "
+                        f"{2 if not fWithScaling else 3} free parameters.",
+                    )
+                )
+
             seeds_package = [mean_seeds[i], std_seeds[i], scaling_seeds_[i]]
             p0 = seeds_package if fWithScaling else seeds_package[:-1]
             aux_popt, aux_pcov = spopt.curve_fit(
