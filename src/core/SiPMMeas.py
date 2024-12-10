@@ -925,6 +925,123 @@ class SiPMMeas(ABC):
         return popt, pcov
     
     @staticmethod
+    def __spot_first_peaks_in_CalibrationHistogram(
+        y_values,
+        max_peaks: int,
+        prominence: float,
+        initial_percentage=0.1,
+        percentage_step=0.1
+    ):
+        """This helper method gets the positional argument:
+
+        - y_values (unidimensional numpy array, int or float):
+        The values to spot peaks on
+        - max_peaks (int): The maximum number of peaks to spot.
+        It must be a positive integer. This is not checked here,
+        it is the caller's responsibility to ensure this.
+        - prominence (float): The prominence parameter to pass
+        to the scipy.signal.find_peaks() function. Since the
+        signal is normalized, this prominence can be understood
+        as a fraction of the total amplitude of the signal. P.e.
+        setting prominence to 0.5, will prevent scipy.signal.find_peaks()
+        from spotting peaks whose prominence is less than half
+        of the total amplitude of the signal.
+
+        This helper method gets the following keyword arguments:
+
+        - initial_percentage (float): The initial percentage
+        of the y_values array to consider. It must be greater
+        than 0.0 and smaller than 1.0.
+        - percentage_step (float): The percentage step to
+        increase the signal to consider in successive calls
+        of scipy.signal.find_peaks(). It must be greater than
+        0.0 and smaller than 1.0.
+
+        This helper method is not intended for user usage.
+        It must be only called by 
+        fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        where the well-formedness checks of the input
+        parameters have been performed. This function tries 
+        to find peaks over the signal which is computed as
+
+            signal = (y_values - np.min(y_values))/np.max(y_values)
+
+        This function iteratively calls
+
+            scipy.signal.find_peaks(signal[0:points], 
+                                    prominence = prominence)
+
+        to spot, at most, max_peaks peaks. To do so, at the 
+        first iteration, points is computed as 
+        math.floor(initial_percentage * len(signal)). If the 
+        number of spotted peaks is less than max_peaks, then 
+        points is increased by 
+        math.ceil(percentage_step * len(signal)) and the 
+        scipy.signal.find_peaks() function is called again. 
+        This process is repeated until the number of spotted peaks
+        is equal to max_peaks, or until the number of points 
+        reaches len(signal). If the number of points reaches 
+        len(signal), then scipy.signal.find_peaks() is called 
+        one last time as
+
+            scipy.signal.find_peaks(signal, 
+                                    prominence = prominence)
+
+        If the last call found a number of peaks smaller than
+        max_peaks, then this function returns (False, peaks),
+        where peaks is the output of the last call to 
+        scipy.signal.find_peaks(). If the last call found a
+        number of peaks greater than or equal to max_peaks, 
+        then the function returns (True, peaks), where peaks 
+        is the output of scipy.signal.find_peaks() but 
+        truncated to the first max_peaks found peaks. For
+        more information on the second object of the returned
+        tuple, check the scipy.signal.find_peaks() documentation.
+        """
+
+        signal = (y_values - np.min(y_values)) / np.max(y_values)
+
+        fFoundMax = False
+        fReachedEnd = False
+        points = math.floor(initial_percentage * len(signal))
+
+        while not fFoundMax and not fReachedEnd:
+
+            points = min(points, len(signal))
+
+            # Adding a minimal 0 width, which constraints nothing,
+            # but which makes scipy.signal.find_peaks() return
+            # information about each peak-width at half its height.
+
+            spsi_output = spsi.find_peaks(
+                signal[0:points],
+                prominence=prominence,
+                width=0,
+                rel_height=0.5
+            )
+            
+            if len(spsi_output[0]) >= max_peaks:
+
+                # Using __select_peaks_from_spsi_find_peaks_output()
+                # to truncate the output of scipy.signal.find_peaks()
+                spsi_output = \
+                    SiPMMeas.__select_peaks_from_spsi_find_peaks_output(
+                        spsi_output,
+                        tuple(range(0, max_peaks))
+                )
+                fFoundMax = True
+
+            if points == len(signal):
+                fReachedEnd = True
+
+            points += math.ceil(percentage_step * len(signal))
+
+        if fFoundMax:
+            return (True, spsi_output)
+        else:
+            return (False, spsi_output)
+    
+    @staticmethod
     def __select_peaks_from_spsi_find_peaks_output(
         spsi_output,
         peaks_to_select
