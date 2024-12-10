@@ -98,4 +98,29 @@ class InvalidPhysicalConfiguration(Exception):
 
     @classmethod
     def why(self):
-        return "This exception is meant for situations where the set of parameters do not define a physically possible configuration."
+        return "This exception is meant for situations where the set " \
+        "of parameters do not define a physically possible configuration."
+    
+class RestrictiveTimedelay(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        return
+
+    @classmethod
+    def why(self):
+        return "This exception is not meant for a general situation. " \
+        "This exception is meant for the case where, in the " \
+        "DarkNoiseMeas.compute_amplitude_levels() method, the" \
+        "value given to the timedelay_cut variable is so big that " \
+        "no samples were left."
+    
+class NotEnoughFitSamples(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        return
+
+    @classmethod
+    def why(self):
+        return "This exception is meant for a situations where " \
+        "the number of samples (points) for fit is smaller than " \
+        "the number of fitting parameters."
