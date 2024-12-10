@@ -1084,7 +1084,10 @@ class SiPMMeas(ABC):
         minimal_prominence_wrt_max=0.0,
         minimal_width_in_samples=0,
     ):
-        """This static method gets the following mandatory positional arguments:
+        """Note: This function is currently not used. It is kept here
+        just in case it becomes useful again at some point.
+
+        This static method gets the following mandatory positional arguments:
 
         - signal (unidimensional numpy array, int or float)
         - peaks_to_detect (scalar integer)
