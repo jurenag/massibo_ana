@@ -2879,3 +2879,38 @@ class WaveformSet(OneTypeRTL):
                 )
             )
         return result
+    
+    # Despite not following the same conventions as the rest of the class,
+    # for the methods written below this point I am using the typing module
+    # and not calling the htype.check_type(). The reason for this is that
+    # at some point I plan to deprecate htype.check_type() and replace it
+    # with the usage of the typing module. This will make the code more
+    # efficient, standard and readable.
+    def rebin(
+            self,
+            group: int,
+            verbose: bool = False
+        ) -> None:
+        """This function gets the following positional arguments:
+
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of every waveform in this WaveformSet. The
+        second condition grants that, for every Waveform object, there
+        is at least two entries in the resulting Waveform.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function rebins every Waveform object in this WaveformSet.
+        To do so, for every Waveform object wvf in this WaveformSet, this
+        function calls wvf.rebin() with the same group parameter. For more
+        information on the rebinning process, check the documentation of
+        such Waveform method. Note that this function modifies (inplace)
+        the values of the NPoints, Time and Signal attributes of every
+        Waveform object."""
+
+        # The well-formedness checks are handled
+        # by the Waveform.rebin() method.
+
+        for wvf in self:
+            wvf.rebin(group, verbose)
+
+        return
