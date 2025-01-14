@@ -1867,3 +1867,38 @@ class SiPMMeas(ABC):
                     f"In function SiPMMeas.get_value_from_dict(): "
                     "The key {key} does not exist in the given dictionary."
                 )
+            
+    # Despite not following the same conventions as the rest of the class,
+    # for the methods written below this point I am using the typing module
+    # and not calling the htype.check_type(). The reason for this is that
+    # at some point I plan to deprecate htype.check_type() and replace it
+    # with the usage of the typing module. This will make the code more
+    # efficient, standard and readable.
+    def rebin(
+            self,
+            group: int,
+            verbose: bool = False
+        ) -> None:
+        """This function gets the following positional arguments:
+
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of every waveform in the __waveforms attribute
+        of this SiPMMeas object. The second condition grants that, for
+        every Waveform object, there is at least two entries in the
+        resulting Waveform.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function rebins every Waveform object in the __waveforms
+        attribute of this SiPMMeas object. To do so, this method calls the
+        WaveformSet.rebin() method of the __waveforms WaveformSet. For
+        more information on the rebinning process, check the documentation
+        of such WaveformSet method. Note that this method modifies (inplace)
+        the values of the NPoints, Time and Signal attributes of every
+        considered Waveform object. Also, the __sampling_ns attribute of
+        this SiPMMeas object is updated to the new sampling time of the
+        rebinned waveforms."""
+
+        self.__waveforms.rebin(group, verbose)
+        self.__sampling_ns *= group
+
+        return
