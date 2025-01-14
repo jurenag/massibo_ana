@@ -1044,3 +1044,134 @@ class Waveform:
             return input[mask]
         else:
             return input[mask], mask
+        
+    # Despite not following the same conventions as the rest of the class,
+    # for the methods written below this point I am using the typing module
+    # and not calling the htype.check_type(). The reason for this is that
+    # at some point I plan to deprecate htype.check_type() and replace it
+    # with the usage of the typing module. This will make the code more
+    # efficient, standard and readable.
+    @staticmethod
+    def rebin_array(
+            samples: np.ndarray, 
+            group: int,
+            verbose: bool = False
+        ) -> np.ndarray:
+        """This function gets the following positional arguments:
+
+        - samples (unidimensional numpy array): The array to re-bin.
+        The type of its entries must be so that the np.mean() operation
+        is well-defined.
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of samples. The second condition grants that
+        there is at least two entries in the output array.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function returns an unidimensional numpy array which is
+        computed as follows. To start with, the input array samples is
+        trimmed until its length is divisible by 'group'. The division,
+        say n = len(trimmed_samples) / group, matches the number of
+        entries in the output (re-binned) array. Adjacent entries of
+        the trimmed array are grouped up into sets of 'group' entries.
+        The i-th entry of the output (re-binned) array is computed as
+        the mean of the entries in the i-th group of the trimmed array."""
+
+        if samples.ndim != 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    'Waveform.rebin()',
+                    92989,
+                    extra_info="The given array must have one dimension, "
+                    "but an array with a number of dimensions equal to "
+                    f"{samples.ndim} was given."
+                )
+            )
+
+        # Make sure that there is at least
+        # 2 points in the resulting array
+        if group < 1 or group > len(samples) / 2.:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    'Waveform.rebin()',
+                    21628,
+                    extra_info=f"The given 'group' ({group}) must be positive "
+                    "and smaller or equal to half of the length of the given "
+                    f"array (<= {len(samples) / 2.}). The second condition is "
+                    "required to make sure that there is at least two "
+                    "points in the output arrays."
+                )
+            )
+            
+        trimmed_length = len(samples)
+        fTrimmed = False
+        while trimmed_length % group != 0:
+            trimmed_length -= 1
+            fTrimmed = True
+
+        if fTrimmed:
+            if verbose: 
+                print(
+                    f"In function Waveform.rebin(): The last "
+                    f"{len(samples) - trimmed_length} points were trimmed in "
+                    f"order to rebin the input array into groups of {group} "
+                    "entries."
+                )
+
+            samples_ = samples[:trimmed_length]
+        else:
+            samples_ = samples
+
+        return np.mean(
+            samples_.reshape(
+                -1,
+                group
+            ),
+            axis=1
+        )
+    
+    def rebin(
+            self,
+            group: int,
+            verbose: bool = False
+        ) -> None:
+        """This function gets the following positional arguments:
+
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of this waveform, i.e. len(self.__signal) / 2.
+        The second condition grants that there is at least two entries
+        in the resulting Waveform.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function rebins this Waveform object, by calling the static
+        method Waveform.rebin_array() two times. First using the attribute
+        self.__signal as its first argument, and then using the attribute
+        self.__time as its first argument. The second argument of both
+        calls is the group parameter. The resulting arrays are stored
+        back into self.__signal and self.__time, respectively. For more
+        information on the rebinning process, check the documentation of
+        Waveform.rebin_array().
+
+        Note that this function affects the following attributes of self:
+        self.__npoints, self.__signal and self.__time. Also, contrary to
+        what one could think, this function does not affect self.__integral
+        nor self.__signs. P.e. one could think that the integration limits
+        or the peaks positions stored in self.__signs are iterator values
+        referred to self.__time, i.e. referred to the previous binning.
+        However, they typically are (or they should be) time values, not
+        iterator values. Therefore, they are well-defined even after
+        the rebinning."""
+
+        # Well-formedness checks are handled by Waveform.rebin_array()
+        self.__time = Waveform.rebin_array(
+            self.__time,
+            group,
+            verbose
+        )
+        self.__signal = Waveform.rebin_array(
+            self.__signal,
+            group,
+            verbose
+        )
+        self.__npoints = len(self.__time)
+
+        return
