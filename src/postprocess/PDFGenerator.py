@@ -64,7 +64,7 @@ class PDFGenerator:
             figure_to_add: matplotlib.figure.Figure,
             horizontal_pos_frac: float,
             vertical_pos_frac: float,
-            plot_width_wrt_page_width: float = 1.,
+            plot_width_wrt_page_width: float = .99,
             horizontally_center: bool = False,
         ) -> None:
         
