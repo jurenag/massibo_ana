@@ -448,6 +448,18 @@ class Waveform:
                 # the way of computing the marker position for a less fancy one.
                 aux_amplitude = np.max(self.__signal)-np.min(self.__signal)
 
+                # Add some text giving the number
+                # of spotted peaks in this waveform
+                ax.text(
+                    .99,
+                    .98,
+                    f"{len(self.__signs["peaks_pos"])} p.",
+                    # Make the coordinates relative to the axes system
+                    transform=ax.transAxes,
+                    verticalalignment='top',
+                    horizontalalignment='right'
+                )
+
                 # Assuming that peaks_pos and peaks_top have the same length
                 for i in range(len(self.__signs["peaks_pos"])):
 
