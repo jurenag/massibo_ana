@@ -641,7 +641,7 @@ class DarkNoiseMeas(SiPMMeas):
         if self.__amplitude is None:
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
-                    "DarkNoiseMeas.get_dark_counts_number", 84301
+                    "DarkNoiseMeas.get_dark_counts_number", 84302
                 )
             )
 
