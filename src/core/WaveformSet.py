@@ -335,6 +335,7 @@ class WaveformSet(OneTypeRTL):
         plot_peaks=True,
         randomize=False,
         fig_title=None,
+        title_fontsize=12,
         mode="grid",
         nrows=2,
         ncols=2,
@@ -368,6 +369,8 @@ class WaveformSet(OneTypeRTL):
         with randomize set to True, then this function plots wfts_to_plot
         randomly chosen waveforms from the set.
         - fig_title (string): The title of the figure.
+        - title_fontsize (positive integer or float): Font size of the
+        figure title.
         - mode (string): It must be either 'grid' or 'superposition'. Any
         other input will be understood as 'grid'. If it matches 'grid',
         then each waveform is plot in an exclusive pair of axes, i.e. one
@@ -463,11 +466,26 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.plot", 50007
                 ),
             )
+
+        htype.check_type(
+            title_fontsize,
+            int,
+            np.int64,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 50008
+            ),
+        )
+        if title_fontsize <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.plot", 50009)
+            )
         htype.check_type(
             mode,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50008
+                "WaveformSet.plot", 500010
             ),
         )
         htype.check_type(
@@ -475,36 +493,36 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50009
+                "WaveformSet.plot", 50011
             ),
         )
         if nrows < 2:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50010)
+                htype.generate_exception_message("WaveformSet.plot", 50012)
             )
         htype.check_type(
             ncols,
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50011
+                "WaveformSet.plot", 50013
             ),
         )
         if ncols < 2:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50012)
+                htype.generate_exception_message("WaveformSet.plot", 50014)
             )
         if xlim is not None:
             htype.check_type(
                 xlim,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50013
+                    "WaveformSet.plot", 50015
                 ),
             )
             if len(xlim) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50014)
+                    htype.generate_exception_message("WaveformSet.plot", 50016)
                 )
             for aux in xlim:
                 htype.check_type(
@@ -512,24 +530,24 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50015
+                        "WaveformSet.plot", 50017
                     ),
                 )
             if xlim[0] >= xlim[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50016)
+                    htype.generate_exception_message("WaveformSet.plot", 50018)
                 )
         if ylim is not None:
             htype.check_type(
                 ylim,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50017
+                    "WaveformSet.plot", 50019
                 ),
             )
             if len(ylim) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50018)
+                    htype.generate_exception_message("WaveformSet.plot", 50020)
                 )
             for aux in ylim:
                 htype.check_type(
@@ -537,30 +555,30 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50019
+                        "WaveformSet.plot", 50021
                     ),
                 )
             if ylim[0] >= ylim[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50020)
+                    htype.generate_exception_message("WaveformSet.plot", 50022)
                 )
         htype.check_type(
             wvf_linewidth,
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50021
+                "WaveformSet.plot", 50023
             ),
         )
         if wvf_linewidth <= 0.0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50022)
+                htype.generate_exception_message("WaveformSet.plot", 50024)
             )
         htype.check_type(
             x0,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50023
+                "WaveformSet.plot", 50025
             ),
         )
         for elem in x0:
@@ -569,14 +587,14 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50024
+                    "WaveformSet.plot", 50026
                 ),
             )
         htype.check_type(
             y0,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50025
+                "WaveformSet.plot", 50027
             ),
         )
         for elem in y0:
@@ -585,7 +603,7 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50026
+                    "WaveformSet.plot", 50028
                 ),
             )
 
@@ -596,13 +614,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50027
+                    "WaveformSet.plot", 50029
                 ),
             )
             if fig_width <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.plot", 50028)
+                        "WaveformSet.plot", 50030)
                 )
             
             # Only check fig_height if fig_width is well-defined
@@ -612,13 +630,13 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50029
+                        "WaveformSet.plot", 50031
                     ),
                 )
                 if fig_height <= 0.0:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.plot", 50030)
+                            "WaveformSet.plot", 50032)
                     )
                 fSetFigSize = True
 
@@ -626,7 +644,7 @@ class WaveformSet(OneTypeRTL):
             show_plots,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50031
+                "WaveformSet.plot", 50033
             ),
         )        
 
@@ -669,7 +687,10 @@ class WaveformSet(OneTypeRTL):
                     except IndexError:
                         break
                     counter += 1
-                fig.suptitle(fig_title)
+                fig.suptitle(
+                    fig_title,
+                    fontsize=title_fontsize
+                )
                 fig.tight_layout()
                 if show_plots:
                     plt.show(block=False)
@@ -690,7 +711,10 @@ class WaveformSet(OneTypeRTL):
                     x0=x0,
                     y0=y0,
                 )
-            fig.suptitle(fig_title)
+            fig.suptitle(
+                fig_title,
+                fontsize=title_fontsize
+            )
             if show_plots:
                 plt.show(block=False)
                 input("Press any key to exit")
