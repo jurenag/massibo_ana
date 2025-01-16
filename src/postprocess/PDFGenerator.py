@@ -177,7 +177,10 @@ class PDFGenerator:
             horizontal (resp. vertical) position of the text block in the
             page, as a fraction of the page width (resp. height). 
             Particularly, it gives the position of the lower left corner
-            of the added text block.
+            of the added text block, with respect to the lower left corner
+            of the page. I.e. a bigger value of horizontal_pos_frac 
+            (resp. vertical_pos_frac) means that the text block is more
+            to the right (resp. upper part) in the page.
         max_width_frac: float 
             It must be a float in the (0., 1.] range. It is the maximum
             width of the text block, as a fraction of the page width.
