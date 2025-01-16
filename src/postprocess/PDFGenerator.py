@@ -76,11 +76,16 @@ class PDFGenerator:
         figure_to_add: matplotlib.figure.Figure
             The figure that will be added to the PDF as a PNG image.
         horizontal_pos_frac (resp. vertical_pos_frac): float
-            It must be a float in the [0., 1.) range. It represents the
-            horizontal (resp. vertical) position of the image in the page,
-            as a fraction of the page width (resp. height). Particularly,
-            it gives the position of the lower left corner of the added
-            plot.
+            It must be a float which is smaller than 1.0. It represents
+            the horizontal (resp. vertical) position of the image in the
+            page, as a fraction of the page width (resp. height).
+            Particularly, it gives the position of the lower left corner
+            of the added plot, with respect to the lower left corner of
+            the page. I.e. a bigger value of horizontal_pos_frac 
+            (resp. vertical_pos_frac) means that the plot is more to the
+            right (resp. upper part) in the page. Allowing negative
+            values is convenient to create tight layouts with images
+            which have big blank frames.
         plot_width_wrt_page_width: float
             It must be a float in the (0., 1.) range. The width of the
             plot is scaled so that the ratio between its final width
@@ -99,22 +104,22 @@ class PDFGenerator:
         """
 
         if not horizontally_center:
-            if horizontal_pos_frac < 0. or horizontal_pos_frac >= 1.:
+            if horizontal_pos_frac >= 1.:
                 raise ValueError(htype.generate_exception_message(
                         "PDFGenerator.add_plot",
                         1,
                         extra_info="The given horizontal_pos_frac "
-                        f"({horizontal_pos_frac}) must belong to "
-                        "the [0.0, 1.0) range.",
+                        f"({horizontal_pos_frac}) must be smaller "
+                        "than 1.0.",
                     ))
         
-        if vertical_pos_frac < 0. or vertical_pos_frac >= 1.:
+        if vertical_pos_frac >= 1.:
             raise ValueError(htype.generate_exception_message(
                     "PDFGenerator.add_plot",
                     2,
                     extra_info="The given vertical_pos_frac "
-                    f"({vertical_pos_frac}) must belong to "
-                    "the [0.0, 1.0) range.",
+                    f"({vertical_pos_frac}) must be smaller "
+                    "than 1.0.",
                 ))
         
         if plot_width_wrt_page_width <= 0. or plot_width_wrt_page_width >= 1.:
