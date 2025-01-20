@@ -104,7 +104,7 @@ class WaveformSet(OneTypeRTL):
     def SetTimeWindow(self):
         return self.__set_time_window
 
-    def recompute_first_peak_baseline_of_the_whole_wvfset(
+    def compute_first_peak_baseline(
         self, signal_fraction_for_median_cutoff=0.2
     ):
         """This method gets the following optional keyword argument:
@@ -137,7 +137,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset", 1
+                "WaveformSet.compute_first_peak_baseline", 1
             ),
         )
         if (
@@ -146,7 +146,7 @@ class WaveformSet(OneTypeRTL):
         ):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset",
+                    "WaveformSet.compute_first_peak_baseline",
                     2,
                 )
             )
