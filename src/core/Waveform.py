@@ -689,7 +689,7 @@ class Waveform:
                 x=self.__time[i_low : i_up + 1],
             )
         except KeyError:
-            raise KeyError(
+            raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "Waveform.integrate",
                     1,
@@ -772,7 +772,7 @@ class Waveform:
         try:
             aux = signal_maximum - self.__signs["first_peak_baseline"][0]
         except KeyError:
-            raise KeyError(
+            raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "Waveform.find_beginning_of_rise",
                     4,
