@@ -363,9 +363,21 @@ class DarkNoiseMeas(SiPMMeas):
             aux_t += self.Waveforms[ordering_wvfs_idx[i]].T0
             times += list(aux_t)
 
-            aux_baseline = self.Waveforms[ordering_wvfs_idx[i]].Signs[
-                "first_peak_baseline"
-            ][0]
+            try:
+                aux_baseline = self.Waveforms[ordering_wvfs_idx[i]].Signs[
+                    "first_peak_baseline"
+                ][0]
+            except KeyError:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas.construct_absolute_time_peaks_map",
+                        72248,
+                        extra_info="The baseline of the first peak of the "
+                        f"{ordering_wvfs_idx[i]}-th waveform must have been "
+                        "computed before calling this method."
+                    )
+                )
+
             aux_a = [
                 self.Waveforms[ordering_wvfs_idx[i]].Signs["peaks_top"][j]
                 - aux_baseline
