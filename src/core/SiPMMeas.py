@@ -1864,8 +1864,8 @@ class SiPMMeas(ABC):
                 return None
             else:
                 raise KeyError(
-                    f"In function SiPMMeas.get_value_from_dict(): "
-                    "The key {key} does not exist in the given dictionary."
+                    "In function SiPMMeas.get_value_from_dict(): "
+                    f"The key {key} does not exist in the given dictionary."
                 )
             
     # Despite not following the same conventions as the rest of the class,
