@@ -2659,7 +2659,12 @@ class WaveformSet(OneTypeRTL):
         get_dispersion is True, then the returned dictionary
         contains the 'dispersion' key, whose value is the
         difference between the maximal baseline and the
-        minimal baseline."""
+        minimal baseline.
+        
+        Note that the baselines of the waveforms must have
+        been previously computed, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method, on a
+        waveform basis."""
 
         htype.check_type(
             get_std,
@@ -2676,7 +2681,17 @@ class WaveformSet(OneTypeRTL):
             ),
         )
 
-        baselines = np.array([wvf.Signs["first_peak_baseline"][0] for wvf in self])
+        try:
+            baselines = np.array([wvf.Signs["first_peak_baseline"][0] for wvf in self])
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "WaveformSet.get_average_baseline",
+                    3,
+                    extra_info="The baseline of the first peak of every "
+                    "waveform have been computed before calling this method."
+                )
+            )
 
         if get_std == False and get_dispersion == False:
             return np.mean(baselines)
@@ -2685,7 +2700,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.NoAvailableData(
                     htype.generate_exception_message(
                         "WaveformSet.get_average_baseline",
-                        3,
+                        4,
                         extra_info=f"There are not enough waveforms in this waveform set to compute the standard deviation or the disperion of its baselines.",
                     )
                 )
