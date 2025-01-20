@@ -1902,3 +1902,22 @@ class SiPMMeas(ABC):
         self.__sampling_ns *= group
 
         return
+    
+    def get_title(
+            self,
+            abbreviate: bool = False
+        ):
+        """This method gets the following keyword argument:
+
+        - abbreviate (bool): If it is True (resp. False), then
+        the output string is abbreviated (resp. not abbreviated).
+
+        This method returns an string which could serve as a title
+        for this SiPMMeas object. Such title contains information
+        on the ElectronicBoardSocket, StripID, SiPMLocation,
+        ThermalCycle and Date attributes of this SiPMMeas object."""
+
+        if not abbreviate:
+            return f"Socket {self.ElectronicBoardSocket}, SiPM {self.StripID}-{self.SiPMLocation}, T.C. {self.ThermalCycle}, {self.Date.strftime('%Y-%m-%d %H:%M:%S')}"
+        else:
+            return f"S. {self.ElectronicBoardSocket}, {self.StripID}-{self.SiPMLocation}, T.C. {self.ThermalCycle}, {self.Date.strftime('%Y-%m-%d')}"
