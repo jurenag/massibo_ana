@@ -43,7 +43,7 @@ class WaveformSet(OneTypeRTL):
 
         if len(waveforms) < 1:
             raise cuex.NoAvailableData(
-                htype.generate_exception_message("WaveformSet.__init__", 10001)
+                htype.generate_exception_message("WaveformSet.__init__", 1)
             )
 
         for i in range(len(waveforms)):
@@ -51,7 +51,7 @@ class WaveformSet(OneTypeRTL):
                 waveforms[i],
                 Waveform,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.__init__", 10002
+                    "WaveformSet.__init__", 2
                 ),
             )
         if set_name is not None:
@@ -59,7 +59,7 @@ class WaveformSet(OneTypeRTL):
                 set_name,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.__init__", 10003
+                    "WaveformSet.__init__", 3
                 ),
             )
             self.__set_name_is_available = True
@@ -68,7 +68,7 @@ class WaveformSet(OneTypeRTL):
                 ref_datetime,
                 dt.datetime,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.__init__", 10004
+                    "WaveformSet.__init__", 4
                 ),
             )
             self.__ref_datetime_is_available = True
@@ -97,7 +97,7 @@ class WaveformSet(OneTypeRTL):
             return self.__ref_datetime
         else:
             raise cuex.NoAvailableData(
-                htype.generate_exception_message("WaveformSet.RefDatetime", 20001)
+                htype.generate_exception_message("WaveformSet.RefDatetime", 1)
             )
 
     @property
@@ -137,7 +137,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset", 30001
+                "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset", 1
             ),
         )
         if (
@@ -147,7 +147,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset",
-                    30002,
+                    2,
                 )
             )
         for wvf in self:
@@ -190,7 +190,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    40001,
+                    1,
                     extra_info="There must be at least one waveform in this waveform set.",
                 )
             )
@@ -200,12 +200,12 @@ class WaveformSet(OneTypeRTL):
                 amplitude_range,
                 list,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.mean_waveform", 40002
+                    "WaveformSet.mean_waveform", 2
                 ),
             )
             if len(amplitude_range) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.mean_waveform", 40003)
+                    htype.generate_exception_message("WaveformSet.mean_waveform", 3)
                 )
             for i in range(len(amplitude_range)):
                 htype.check_type(
@@ -213,12 +213,12 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.mean_waveform", 40004
+                        "WaveformSet.mean_waveform", 4
                     ),
                 )
             if amplitude_range[0] >= amplitude_range[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.mean_waveform", 40005)
+                    htype.generate_exception_message("WaveformSet.mean_waveform", 5)
                 )
             fAmplitudeIsDefined = True
 
@@ -228,13 +228,13 @@ class WaveformSet(OneTypeRTL):
                     integral_range,
                     list,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.mean_waveform", 40006
+                        "WaveformSet.mean_waveform", 6
                     ),
                 )
                 if len(integral_range) != 2:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.mean_waveform", 40007
+                            "WaveformSet.mean_waveform", 7
                         )
                     )
                 for i in range(len(integral_range)):
@@ -243,20 +243,20 @@ class WaveformSet(OneTypeRTL):
                         float,
                         np.float64,
                         exception_message=htype.generate_exception_message(
-                            "WaveformSet.mean_waveform", 40008
+                            "WaveformSet.mean_waveform", 8
                         ),
                     )
                 if integral_range[0] >= integral_range[1]:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.mean_waveform", 40009
+                            "WaveformSet.mean_waveform", 9
                         )
                     )
             else:
                 raise cuex.NoAvailableData(
                     htype.generate_exception_message(
                         "WaveformSet.mean_waveform",
-                        40010,
+                        10,
                         extra_info=f"Either amplitude_range or integral_range must be defined.",
                     )
                 )
@@ -264,7 +264,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    40011,
+                    11,
                     extra_info=f"There are no waveforms in this waveform set.",
                 )
             )
@@ -274,7 +274,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.mean_waveform",
-                        40012,
+                        12,
                         extra_info=f"The {i}-th waveform time array does not match that of the 0-th waveform within the waveform set.",
                     )
                 )
@@ -309,7 +309,7 @@ class WaveformSet(OneTypeRTL):
                     raise cuex.NoAvailableData(
                         htype.generate_exception_message(
                             "WaveformSet.mean_waveform",
-                            40013,
+                            13,
                             extra_info=f"The integral of the {i}-th waveform could not be retrieved.",
                         )
                     )
@@ -317,7 +317,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    40014,
+                    14,
                     extra_info=f"There are no waveforms which comply with the given {'amplitude' if fAmplitudeIsDefined else 'integral'} range.",
                 )
             )
@@ -416,14 +416,14 @@ class WaveformSet(OneTypeRTL):
             plot_peaks,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50001
+                "WaveformSet.plot", 1
             ),
         )
         htype.check_type(
             randomize,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50002
+                "WaveformSet.plot", 2
             ),
         )
         if wvfs_to_plot is None:
@@ -431,7 +431,7 @@ class WaveformSet(OneTypeRTL):
         elif type(wvfs_to_plot) == int:
             if wvfs_to_plot < 1 or wvfs_to_plot > self.__len__():
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50003)
+                    htype.generate_exception_message("WaveformSet.plot", 3)
                 )
             if randomize:
                 wvfs_indices = tuple(
@@ -446,24 +446,24 @@ class WaveformSet(OneTypeRTL):
                     int,
                     np.int64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50004
+                        "WaveformSet.plot", 4
                     ),
                 )
                 if wvfs_to_plot[i] < 0 or wvfs_to_plot[i] >= self.__len__():
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.plot", 50005)
+                        htype.generate_exception_message("WaveformSet.plot", 5)
                     )
             wvfs_indices = tuple(set(wvfs_to_plot))  # Purge matching entries
         else:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50006)
+                htype.generate_exception_message("WaveformSet.plot", 6)
             )
         if fig_title is not None:
             htype.check_type(
                 fig_title,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50007
+                    "WaveformSet.plot", 7
                 ),
             )
 
@@ -474,18 +474,18 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50008
+                "WaveformSet.plot", 8
             ),
         )
         if title_fontsize <= 0.0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50009)
+                htype.generate_exception_message("WaveformSet.plot", 9)
             )
         htype.check_type(
             mode,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 500010
+                "WaveformSet.plot", 10
             ),
         )
         htype.check_type(
@@ -493,36 +493,36 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50011
+                "WaveformSet.plot", 11
             ),
         )
         if nrows < 2:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50012)
+                htype.generate_exception_message("WaveformSet.plot", 12)
             )
         htype.check_type(
             ncols,
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50013
+                "WaveformSet.plot", 13
             ),
         )
         if ncols < 2:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50014)
+                htype.generate_exception_message("WaveformSet.plot", 14)
             )
         if xlim is not None:
             htype.check_type(
                 xlim,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50015
+                    "WaveformSet.plot", 15
                 ),
             )
             if len(xlim) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50016)
+                    htype.generate_exception_message("WaveformSet.plot", 16)
                 )
             for aux in xlim:
                 htype.check_type(
@@ -530,24 +530,24 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50017
+                        "WaveformSet.plot", 17
                     ),
                 )
             if xlim[0] >= xlim[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50018)
+                    htype.generate_exception_message("WaveformSet.plot", 18)
                 )
         if ylim is not None:
             htype.check_type(
                 ylim,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50019
+                    "WaveformSet.plot", 19
                 ),
             )
             if len(ylim) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50020)
+                    htype.generate_exception_message("WaveformSet.plot", 20)
                 )
             for aux in ylim:
                 htype.check_type(
@@ -555,30 +555,30 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50021
+                        "WaveformSet.plot", 21
                     ),
                 )
             if ylim[0] >= ylim[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50022)
+                    htype.generate_exception_message("WaveformSet.plot", 22)
                 )
         htype.check_type(
             wvf_linewidth,
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50023
+                "WaveformSet.plot", 23
             ),
         )
         if wvf_linewidth <= 0.0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50024)
+                htype.generate_exception_message("WaveformSet.plot", 24)
             )
         htype.check_type(
             x0,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50025
+                "WaveformSet.plot", 25
             ),
         )
         for elem in x0:
@@ -587,14 +587,14 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50026
+                    "WaveformSet.plot", 26
                 ),
             )
         htype.check_type(
             y0,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50027
+                "WaveformSet.plot", 27
             ),
         )
         for elem in y0:
@@ -603,7 +603,7 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50028
+                    "WaveformSet.plot", 28
                 ),
             )
 
@@ -614,13 +614,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50029
+                    "WaveformSet.plot", 29
                 ),
             )
             if fig_width <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.plot", 50030)
+                        "WaveformSet.plot", 30)
                 )
             
             # Only check fig_height if fig_width is well-defined
@@ -630,13 +630,13 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50031
+                        "WaveformSet.plot", 31
                     ),
                 )
                 if fig_height <= 0.0:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.plot", 50032)
+                            "WaveformSet.plot", 32)
                     )
                 fSetFigSize = True
 
@@ -644,7 +644,7 @@ class WaveformSet(OneTypeRTL):
             show_plots,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50033
+                "WaveformSet.plot", 33
             ),
         )        
 
@@ -749,39 +749,39 @@ class WaveformSet(OneTypeRTL):
             ax_i,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.set_custom_labels_visibility", 60001
+                "WaveformSet.set_custom_labels_visibility", 1
             ),
         )
         htype.check_type(
             ax_j,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.set_custom_labels_visibility", 60002
+                "WaveformSet.set_custom_labels_visibility", 2
             ),
         )
         htype.check_type(
             nrows,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.set_custom_labels_visibility", 60003
+                "WaveformSet.set_custom_labels_visibility", 3
             ),
         )
         if nrows < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.set_custom_labels_visibility", 60004
+                    "WaveformSet.set_custom_labels_visibility", 4
                 )
             )
         if ax_i < 0 or ax_i >= nrows:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.set_custom_labels_visibility", 60005
+                    "WaveformSet.set_custom_labels_visibility", 5
                 )
             )
         if ax_j < 0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.set_custom_labels_visibility", 60006
+                    "WaveformSet.set_custom_labels_visibility", 6
                 )
             )
         if ax_j > 0:
@@ -810,26 +810,26 @@ class WaveformSet(OneTypeRTL):
             i_max,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_random_indices", 70001
+                "WaveformSet.get_random_indices", 1
             ),
         )
         if i_max < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.get_random_indices", 70002
+                    "WaveformSet.get_random_indices", 2
                 )
             )
         htype.check_type(
             how_many_samples,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_random_indices", 70003
+                "WaveformSet.get_random_indices", 3
             ),
         )
         if how_many_samples < 0 or how_many_samples > i_max:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.get_random_indices", 70004
+                    "WaveformSet.get_random_indices", 4
                 )
             )
 
@@ -858,23 +858,23 @@ class WaveformSet(OneTypeRTL):
             i_max,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.index_generator", 80001
+                "WaveformSet.index_generator", 1
             ),
         )
         if i_max < 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.index_generator", 80002)
+                htype.generate_exception_message("WaveformSet.index_generator", 2)
             )
         htype.check_type(
             i_max,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.index_generator", 80003
+                "WaveformSet.index_generator", 3
             ),
         )
         if j_max < 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.index_generator", 80004)
+                htype.generate_exception_message("WaveformSet.index_generator", 4)
             )
         if i_max == 1:
             return WaveformSet.unidimensional_index_generator(j_max)
@@ -1682,7 +1682,7 @@ class WaveformSet(OneTypeRTL):
             list_of_scalars,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.bubble_sort", 160001
+                "WaveformSet.bubble_sort", 1
             ),
         )
         for elem in list_of_scalars:
@@ -1693,14 +1693,14 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.bubble_sort", 160002
+                    "WaveformSet.bubble_sort", 2
                 ),
             )
         htype.check_type(
             sort_increasingly,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.bubble_sort", 160003
+                "WaveformSet.bubble_sort", 3
             ),
         )
         samples_ = list_of_scalars
@@ -1734,7 +1734,7 @@ class WaveformSet(OneTypeRTL):
             wvfs_to_erase,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.purge", 170001
+                "WaveformSet.purge", 1
             ),
         )
         for elem in wvfs_to_erase:
@@ -1743,18 +1743,18 @@ class WaveformSet(OneTypeRTL):
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.purge", 170002
+                    "WaveformSet.purge", 2
                 ),
             )
             if elem < 0:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 170003)
+                    htype.generate_exception_message("WaveformSet.plot", 3)
                 )
         htype.check_type(
             ask_for_confirmation,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.purge", 170004
+                "WaveformSet.purge", 4
             ),
         )
         wvfs_to_erase_ = list(set(wvfs_to_erase))  # Remove redundancy
@@ -1852,14 +1852,14 @@ class WaveformSet(OneTypeRTL):
 
         if not callable(filter_function):
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.filter", 180001)
+                htype.generate_exception_message("WaveformSet.filter", 1)
             )
         signature = inspect.signature(filter_function)
         if len(signature.parameters) < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180002,
+                    2,
                     extra_info="The signature of the given filter must have one argument at least.",
                 )
             )
@@ -1867,7 +1867,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180003,
+                    3,
                     extra_info="The name of the first parameter of the signature of the given filter must be 'waveform'.",
                 )
             )
@@ -1875,7 +1875,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180004,
+                    4,
                     extra_info="The type of the first parameter of the signature of the given filter must be hinted as Waveform.",
                 )
             )
@@ -1883,7 +1883,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180005,
+                    5,
                     extra_info="The return type of the given filter must be hinted as bool.",
                 )
             )
@@ -1891,21 +1891,21 @@ class WaveformSet(OneTypeRTL):
             return_idcs,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.filter", 180006
+                "WaveformSet.filter", 6
             ),
         )
         htype.check_type(
             purge,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.filter", 180007
+                "WaveformSet.filter", 7
             ),
         )
         htype.check_type(
             ask_for_confirmation,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.filter", 180008
+                "WaveformSet.filter", 8
             ),
         )
         mask, wvfs_to_erase = [], []
@@ -1919,7 +1919,7 @@ class WaveformSet(OneTypeRTL):
                     np.bool_,
                     exception_message=htype.generate_exception_message(
                         "WaveformSet.filter",
-                        180009,
+                        9,
                         extra_info="The filter function is not behaving as expected.",
                     ),
                 )
@@ -1934,7 +1934,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.filter",
-                        180010,
+                        10,
                         extra_info="Either the number of provided positional arguments do not match the expected one, or you gave some keyword argument which was not defined in the signature of the given filter_function.",
                     )
                 )
@@ -2030,7 +2030,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190001
+                "WaveformSet.threshold_filter", 1
             ),
         )
         htype.check_type(
@@ -2038,28 +2038,28 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190002
+                "WaveformSet.threshold_filter", 2
             ),
         )
         htype.check_type(
             threshold_from_baseline,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190003
+                "WaveformSet.threshold_filter", 3
             ),
         )
         htype.check_type(
             rise,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190004
+                "WaveformSet.threshold_filter", 4
             ),
         )
         htype.check_type(
             filter_out,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190005
+                "WaveformSet.threshold_filter", 5
             ),
         )
         fUseISubrange = False
@@ -2068,19 +2068,19 @@ class WaveformSet(OneTypeRTL):
                 i_subrange,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.threshold_filter", 190006
+                    "WaveformSet.threshold_filter", 6
                 ),
             )
             if len(i_subrange) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.filter", 190007)
+                    htype.generate_exception_message("WaveformSet.filter", 7)
                 )
             htype.check_type(
                 i_subrange[0],
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.threshold_filter", 190008
+                    "WaveformSet.threshold_filter", 8
                 ),
             )
             htype.check_type(
@@ -2088,7 +2088,7 @@ class WaveformSet(OneTypeRTL):
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.threshold_filter", 190009
+                    "WaveformSet.threshold_filter", 9
                 ),
             )
 
@@ -2099,11 +2099,11 @@ class WaveformSet(OneTypeRTL):
                 or i_subrange[1] > len(waveform.Time) - 1
             ):
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.filter", 190010)
+                    htype.generate_exception_message("WaveformSet.filter", 10)
                 )
             if i_subrange[0] >= i_subrange[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.filter", 190011)
+                    htype.generate_exception_message("WaveformSet.filter", 11)
                 )
             fUseISubrange = True
 
@@ -2116,19 +2116,19 @@ class WaveformSet(OneTypeRTL):
                     subrange,
                     tuple,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.threshold_filter", 190012
+                        "WaveformSet.threshold_filter", 12
                     ),
                 )
                 if len(subrange) != 2:
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.filter", 190013)
+                        htype.generate_exception_message("WaveformSet.filter", 13)
                     )
                 htype.check_type(
                     subrange[0],
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.threshold_filter", 190014
+                        "WaveformSet.threshold_filter", 14
                     ),
                 )
                 htype.check_type(
@@ -2136,7 +2136,7 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.threshold_filter", 190015
+                        "WaveformSet.threshold_filter", 15
                     ),
                 )
 
@@ -2149,11 +2149,11 @@ class WaveformSet(OneTypeRTL):
                     or subrange[1] > aux_max
                 ):
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.filter", 190016)
+                        htype.generate_exception_message("WaveformSet.filter", 16)
                     )
                 if subrange[0] >= subrange[1]:
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.filter", 190017)
+                        htype.generate_exception_message("WaveformSet.filter", 17)
                     )
                 # Use subrange only if not fUseISubrange
                 # AND subrange is properly defined
@@ -2174,7 +2174,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    190018,
+                    18,
                     extra_info="The waveform signal resolution is not fine enough. Please provide a wider range for parsing.",
                 )
             )
@@ -2282,7 +2282,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200001
+                "WaveformSet.correlation_filter", 1
             ),
         )
         htype.check_type(
@@ -2290,32 +2290,32 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200002
+                "WaveformSet.correlation_filter", 2
             ),
         )
         htype.check_type(
             model_y,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200003
+                "WaveformSet.correlation_filter", 3
             ),
         )
         if model_y.dtype != np.float64:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200004
+                    "WaveformSet.correlation_filter", 4
                 )
             )
         if model_y.ndim != 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200005
+                    "WaveformSet.correlation_filter", 5
                 )
             )
         if len(model_y) != len(waveform.Time):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200006
+                    "WaveformSet.correlation_filter", 6
                 )
             )
         htype.check_type(
@@ -2323,13 +2323,13 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200007
+                "WaveformSet.correlation_filter", 7
             ),
         )
         if i0 < 0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200008
+                    "WaveformSet.correlation_filter", 8
                 )
             )
         fUseDeltaT = False
@@ -2339,13 +2339,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200009
+                    "WaveformSet.correlation_filter", 9
                 ),
             )
             if delta_t <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.correlation_filter", 200010
+                        "WaveformSet.correlation_filter", 10
                     )
                 )
             fUseDeltaT = True
@@ -2354,7 +2354,7 @@ class WaveformSet(OneTypeRTL):
             also_return_correlation,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200011
+                "WaveformSet.correlation_filter", 11
             ),
         )
         if fUseDeltaT:
@@ -2365,7 +2365,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.correlation_filter",
-                        200012,
+                        12,
                         extra_info="The given delta_t is not big enough (compared to the waveform time resolution) so as to give at least two different points for the integral.",
                     )
                 )
@@ -2431,7 +2431,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210001
+                "WaveformSet.integral_filter", 1
             ),
         )
         htype.check_type(
@@ -2439,7 +2439,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210002
+                "WaveformSet.integral_filter", 2
             ),
         )
         htype.check_type(
@@ -2447,12 +2447,12 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210003
+                "WaveformSet.integral_filter", 3
             ),
         )
         if i0 < 0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.integral_filter", 210004)
+                htype.generate_exception_message("WaveformSet.integral_filter", 4)
             )
         fUseDeltaT = False
         if delta_t is not None:
@@ -2461,13 +2461,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.integral_filter", 210005
+                    "WaveformSet.integral_filter", 5
                 ),
             )
             if delta_t <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.integral_filter", 210006
+                        "WaveformSet.integral_filter", 6
                     )
                 )
             fUseDeltaT = True
@@ -2476,7 +2476,7 @@ class WaveformSet(OneTypeRTL):
             also_return_integral,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210007
+                "WaveformSet.integral_filter", 7
             ),
         )
         if not fUseDeltaT:
@@ -2523,7 +2523,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.peaks_no_filter", 220001
+                "WaveformSet.peaks_no_filter", 1
             ),
         )
         htype.check_type(
@@ -2531,14 +2531,14 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.peaks_no_filter", 220002
+                "WaveformSet.peaks_no_filter", 2
             ),
         )
         htype.check_type(
             filter_out_below,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.peaks_no_filter", 220003
+                "WaveformSet.peaks_no_filter", 3
             ),
         )
         if filter_out_below:
@@ -2567,7 +2567,7 @@ class WaveformSet(OneTypeRTL):
             idcs_to_exclude,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.exclude_these_indices", 230001
+                "WaveformSet.exclude_these_indices", 1
             ),
         )
         for elem in idcs_to_exclude:
@@ -2576,13 +2576,13 @@ class WaveformSet(OneTypeRTL):
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.exclude_these_indices", 230002
+                    "WaveformSet.exclude_these_indices", 2
                 ),
             )
             if elem < 0 or elem >= len(self):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.exclude_these_indices", 230003
+                        "WaveformSet.exclude_these_indices", 3
                     )
                 )
         idcs_to_exclude_ = list(set(idcs_to_exclude))  # Remove redundancy
@@ -2637,14 +2637,14 @@ class WaveformSet(OneTypeRTL):
             get_std,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_average_baseline", 240001
+                "WaveformSet.get_average_baseline", 1
             ),
         )
         htype.check_type(
             get_dispersion,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_average_baseline", 240002
+                "WaveformSet.get_average_baseline", 2
             ),
         )
 
@@ -2657,7 +2657,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.NoAvailableData(
                     htype.generate_exception_message(
                         "WaveformSet.get_average_baseline",
-                        240003,
+                        3,
                         extra_info=f"There are not enough waveforms in this waveform set to compute the standard deviation or the disperion of its baselines.",
                     )
                 )
@@ -2700,7 +2700,7 @@ class WaveformSet(OneTypeRTL):
             return_peak_properties,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.find_peaks", 250001
+                "WaveformSet.find_peaks", 1
             ),
         )
 
@@ -2713,7 +2713,7 @@ class WaveformSet(OneTypeRTL):
                 np.int64,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.find_peaks", 250002
+                    "WaveformSet.find_peaks", 2
                 ),
             )
             fUseHeight = True
@@ -2819,7 +2819,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integrate", 260001
+                "WaveformSet.integrate", 1
             ),
         )
         htype.check_type(
@@ -2827,12 +2827,12 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integrate", 260002
+                "WaveformSet.integrate", 2
             ),
         )
         if system_amplification_factor <= 0.0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.integrate", 260003)
+                htype.generate_exception_message("WaveformSet.integrate", 3)
             )
 
         # integration_lower_lim and integration_upper_lim
@@ -2871,13 +2871,13 @@ class WaveformSet(OneTypeRTL):
             sign,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.check_homogeneity_of_sign_through_set", 52547
+                "WaveformSet.check_homogeneity_of_sign_through_set", 1
             ),
         )
         if not sign in Waveform.stackable_aks + Waveform.nonstackable_aks:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.check_homogeneity_of_sign_through_set", 87272
+                    "WaveformSet.check_homogeneity_of_sign_through_set", 2
                 )
             )
         result = True
