@@ -99,31 +99,31 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10001
+                "Waveform.__init__", 1
             ),
         )
         htype.check_type(
             signal,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10002
+                "Waveform.__init__", 2
             ),
         )
         if np.ndim(signal) != 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.__init__", 10003)
+                htype.generate_exception_message("Waveform.__init__", 3)
             )
         htype.check_type(
             signal[0],
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10004
+                "Waveform.__init__", 4
             ),
         )
 
         if t_step is None and time is None:
             raise cuex.InsufficientParameters(
-                htype.generate_exception_message("Waveform.__init__", 10005)
+                htype.generate_exception_message("Waveform.__init__", 5)
             )
         elif t_step is not None:
             # If both, time and t_step are defined, t_step configuration is used by default
@@ -132,12 +132,12 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10006
+                    "Waveform.__init__", 6
                 ),
             )
             if t_step <= 0.0:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 10007)
+                    htype.generate_exception_message("Waveform.__init__", 7)
                 )
             fUseTStep = True
         else:
@@ -146,23 +146,23 @@ class Waveform:
                 time,
                 np.ndarray,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10008
+                    "Waveform.__init__", 8
                 ),
             )
             if np.ndim(time) != 1:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 10009)
+                    htype.generate_exception_message("Waveform.__init__", 9)
                 )
             htype.check_type(
                 time[0],
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10010
+                    "Waveform.__init__", 10
                 ),
             )
             if np.shape(time) != np.shape(signal):
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 10011)
+                    htype.generate_exception_message("Waveform.__init__", 11)
                 )
             fUseTStep = False
 
@@ -171,7 +171,7 @@ class Waveform:
                 infer_t0,
                 bool,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10012
+                    "Waveform.__init__", 12
                 ),
             )
 
@@ -185,7 +185,7 @@ class Waveform:
                 signs,
                 dict,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10013
+                    "Waveform.__init__", 13
                 ),
             )
             for key in signs.keys():
@@ -296,7 +296,7 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.compute_first_peak_baseline", 20001
+                "Waveform.compute_first_peak_baseline", 1
             ),
         )
         if (
@@ -305,7 +305,7 @@ class Waveform:
         ):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.compute_first_peak_baseline", 20002
+                    "Waveform.compute_first_peak_baseline", 2
                 )
             )
         cutoff_idx = round(signal_fraction_for_median_cutoff * len(self.__signal))
@@ -321,7 +321,7 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "Waveform.compute_first_peak_baseline",
-                    20003,
+                    3,
                     extra_info=f"The {signal_fraction_for_median_cutoff} initial fraction of the signal is either infinite or undefined. A baseline cannot be computed.",
                 )
             )
@@ -339,12 +339,12 @@ class Waveform:
         htype.check_type(
             plot_peaks,
             bool,
-            exception_message=htype.generate_exception_message("Waveform.plot", 30001),
+            exception_message=htype.generate_exception_message("Waveform.plot", 1),
         )
         htype.check_type(
             x0,
             list,
-            exception_message=htype.generate_exception_message("Waveform.plot", 30002),
+            exception_message=htype.generate_exception_message("Waveform.plot", 2),
         )
         for elem in x0:
             htype.check_type(
@@ -352,13 +352,13 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.plot", 30003
+                    "Waveform.plot", 3
                 ),
             )
         htype.check_type(
             y0,
             list,
-            exception_message=htype.generate_exception_message("Waveform.plot", 30004),
+            exception_message=htype.generate_exception_message("Waveform.plot", 4),
         )
         for elem in y0:
             htype.check_type(
@@ -366,7 +366,7 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.plot", 30005
+                    "Waveform.plot", 5
                 ),
             )
         # ax.set_title('Temporary title')
@@ -558,26 +558,26 @@ class Waveform:
             tuple,
             list,
             exception_message=htype.generate_exception_message(
-                "Waveform.Signs.setter", 40001
+                "Waveform.Signs.setter", 1
             ),
         )
         if len(pack) != 3:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.Signs.setter", 40002)
+                htype.generate_exception_message("Waveform.Signs.setter", 2)
             )
         key, value, overwrite = pack  # Unpack the arguments
         htype.check_type(
             value,
             list,
             exception_message=htype.generate_exception_message(
-                "Waveform.Signs.setter", 40003
+                "Waveform.Signs.setter", 3
             ),
         )
         htype.check_type(
             overwrite,
             bool,
             exception_message=htype.generate_exception_message(
-                "Waveform.Signs.setter", 40004
+                "Waveform.Signs.setter", 4
             ),
         )
 
@@ -589,7 +589,7 @@ class Waveform:
                     element,
                     str,
                     exception_message=htype.generate_exception_message(
-                        "Waveform.Signs.setter", 40005
+                        "Waveform.Signs.setter", 5
                     ),
                 )
             fIsStackable = False
@@ -605,7 +605,7 @@ class Waveform:
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "Waveform.Signs.setter", 40006
+                        "Waveform.Signs.setter", 6
                     ),
                 )
             fIsStackable = False
@@ -616,7 +616,7 @@ class Waveform:
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "Waveform.Signs.setter", 40007
+                        "Waveform.Signs.setter", 7
                     ),
                 )
             fIsStackable = True
@@ -627,7 +627,7 @@ class Waveform:
 
         if not fIsStackable and len(value) != 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.Signs.setter", 40008)
+                htype.generate_exception_message("Waveform.Signs.setter", 8)
             )
         if not overwrite and not fIsStackable:
             if key in self.Signs.keys():
@@ -732,20 +732,20 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.find_beginning_of_rise", 50001
+                "Waveform.find_beginning_of_rise", 1
             ),
         )
         if tolerance <= 0.0 or tolerance >= 1.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.find_beginning_of_rise", 50002
+                    "Waveform.find_beginning_of_rise", 2
                 )
             )
         htype.check_type(
             return_iterator,
             bool,
             exception_message=htype.generate_exception_message(
-                "Waveform.find_beginning_of_rise", 50003
+                "Waveform.find_beginning_of_rise", 3
             ),
         )
 
@@ -764,7 +764,7 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "Waveform.find_beginning_of_rise",
-                    50004,
+                    4,
                     extra_info="This waveform is too ill-formed. Trying to find the rise index of its first peak makes no sense.",
                 )
             )
@@ -796,7 +796,7 @@ class Waveform:
             raise cuex.MalFunction(
                 htype.generate_exception_message(
                     "Waveform.find_rise_idx",
-                    50005,
+                    5,
                     extra_info="Something is not working as expected.",
                 )
             )
@@ -847,20 +847,20 @@ class Waveform:
             timearray,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "Waveform.adjust_integration_limits", 60001
+                "Waveform.adjust_integration_limits", 1
             ),
         )
         if np.ndim(timearray) != 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60002
+                    "Waveform.adjust_integration_limits", 2
                 )
             )
         htype.check_type(
             timearray[0],
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.adjust_integration_limits", 60003
+                "Waveform.adjust_integration_limits", 3
             ),
         )
         # This condition is met if the array is not sorted
@@ -869,7 +869,7 @@ class Waveform:
         ):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60004
+                    "Waveform.adjust_integration_limits", 4
                 )
             )
 
@@ -879,7 +879,7 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60005
+                    "Waveform.adjust_integration_limits", 5
                 ),
             )
             ill_candidate_ = Waveform.force_to_range(
@@ -895,7 +895,7 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60006
+                    "Waveform.adjust_integration_limits", 6
                 ),
             )
             iul_candidate_ = Waveform.force_to_range(
@@ -950,7 +950,7 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.force_to_range", 70001
+                "Waveform.force_to_range", 1
             ),
         )
         htype.check_type(
@@ -959,7 +959,7 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.force_to_range", 70002
+                "Waveform.force_to_range", 2
             ),
         )
         htype.check_type(
@@ -968,12 +968,12 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.force_to_range", 70003
+                "Waveform.force_to_range", 3
             ),
         )
         if min > max:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.force_to_range", 70004)
+                htype.generate_exception_message("Waveform.force_to_range", 4)
             )
         if x < min:
             return float(min)
@@ -1005,22 +1005,22 @@ class Waveform:
             input,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "Waveform.filter_infs_and_nans", 80001
+                "Waveform.filter_infs_and_nans", 1
             ),
         )
         if np.ndim(input) != 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.filter_infs_and_nans", 80002)
+                htype.generate_exception_message("Waveform.filter_infs_and_nans", 2)
             )
         if input.dtype != np.float64:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.filter_infs_and_nans", 80003)
+                htype.generate_exception_message("Waveform.filter_infs_and_nans", 3)
             )
         htype.check_type(
             get_mask,
             bool,
             exception_message=htype.generate_exception_message(
-                "Waveform.filter_infs_and_nans", 80004
+                "Waveform.filter_infs_and_nans", 4
             ),
         )
 
