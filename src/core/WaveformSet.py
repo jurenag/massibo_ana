@@ -164,7 +164,10 @@ class WaveformSet(OneTypeRTL):
         than amplitude_range[1] (resp. integral_range[1]). The amplitude
         is computed as the maximum value of the signal minus its
         baseline, i.e. for a waveform wvf, its
-        wvf.Signs['first_peak_baseline'][0].
+        wvf.Signs['first_peak_baseline'][0]. Note that the baseline
+        of every waveform must have been computed before calling this
+        method, p.e. by calling the Waveform.compute_first_peak_baseline()
+        method, on a waveform basis.
 
         Either amplitude_range or integral_range must be defined. If
         both are defined, then integral_range is ignored. If
@@ -282,9 +285,20 @@ class WaveformSet(OneTypeRTL):
 
         if fAmplitudeIsDefined:
             for i in range(len(self)):
-                ith_amplitude = (
-                    np.max(self[i].Signal) - self[i].Signs["first_peak_baseline"][0]
-                )
+                try:
+                    ith_amplitude = (
+                        np.max(self[i].Signal) - self[i].Signs["first_peak_baseline"][0]
+                    )
+                except KeyError:
+                    raise cuex.NoAvailableData(
+                        htype.generate_exception_message(
+                            "WaveformSet.mean_waveform",
+                            13,
+                            extra_info="The baseline of the first peak must "
+                            "have been computed before calling this method."
+                        )
+                    )
+
                 if (
                     ith_amplitude >= amplitude_range[0]
                     and ith_amplitude <= amplitude_range[1]
@@ -309,7 +323,7 @@ class WaveformSet(OneTypeRTL):
                     raise cuex.NoAvailableData(
                         htype.generate_exception_message(
                             "WaveformSet.mean_waveform",
-                            13,
+                            14,
                             extra_info=f"The integral of the {i}-th waveform could not be retrieved.",
                         )
                     )
@@ -317,7 +331,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    14,
+                    15,
                     extra_info=f"There are no waveforms which comply with the given {'amplitude' if fAmplitudeIsDefined else 'integral'} range.",
                 )
             )
