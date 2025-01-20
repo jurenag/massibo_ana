@@ -2796,7 +2796,10 @@ class WaveformSet(OneTypeRTL):
                 wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
 
                 peaks_idx, properties = spsi.find_peaks(
-                    wvf.Signal, **kwargs
+                    wvf.Signal,
+                    height=None if not fUseHeight
+                    else wvf.Signs["first_peak_baseline"][0] + height,
+                    **kwargs
                 )  # Peak finding algorithm
                 result.append(properties)
 
