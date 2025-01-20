@@ -457,7 +457,11 @@ class Waveform:
                     # Make the coordinates relative to the axes system
                     transform=ax.transAxes,
                     verticalalignment='top',
-                    horizontalalignment='right'
+                    horizontalalignment='right',
+                    color='black'
+                    if len(self.__signs["peaks_pos"]) == 1
+                    else 'red',
+
                 )
 
                 # Assuming that peaks_pos and peaks_top have the same length
