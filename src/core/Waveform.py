@@ -643,6 +643,8 @@ class Waveform:
     def integrate(self, integration_lower_lim=None, integration_upper_lim=None):
         """This method integrates the signal of this Waveform object minus its
         baseline, which is considered to match self.__signs['first_peak_baseline'].
+        I.e. the waveform baseline must have been computed before calling this
+        method, p.e. by calling the Waveform.compute_first_peak_baseline() method.
         The integral is performed using the trapezoid method, and the resulting
         integral is loaded into the self.__integral attribute. The trapezoid
         integration is performed by numpy.trapz. This method gets the following
@@ -681,10 +683,21 @@ class Waveform:
         self.Signs = ("integration_ll", [self.__time[i_low]], True)
         self.Signs = ("integration_ul", [self.__time[i_up]], True)
 
-        self.__integral = np.trapz(
-            self.__signal[i_low : i_up + 1] - self.Signs["first_peak_baseline"],
-            x=self.__time[i_low : i_up + 1],
-        )
+        try:
+            self.__integral = np.trapz(
+                self.__signal[i_low : i_up + 1] - self.Signs["first_peak_baseline"],
+                x=self.__time[i_low : i_up + 1],
+            )
+        except KeyError:
+            raise KeyError(
+                htype.generate_exception_message(
+                    "Waveform.integrate",
+                    1,
+                    extra_info="The baseline of the first peak must "
+                    "have been computed before calling this method.",
+                )
+            )
+
         return self.__integral
 
     def find_beginning_of_rise(self, tolerance=0.05, return_iterator=True):
