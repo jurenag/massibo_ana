@@ -665,7 +665,7 @@ class Waveform:
 
     def integrate(self, integration_lower_lim=None, integration_upper_lim=None):
         """This method integrates the signal of this Waveform object minus its
-        baseline, which is considered to match self.__signs['first_peak_baseline].
+        baseline, which is considered to match self.__signs['first_peak_baseline'].
         The integral is performed using the trapezoid method, and the resulting
         integral is loaded into the self.__integral attribute. The trapezoid
         integration is performed by numpy.trapz. This method gets the following
