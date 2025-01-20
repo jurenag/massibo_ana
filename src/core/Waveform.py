@@ -733,6 +733,9 @@ class Waveform:
         first point in self.__signal which exceeds
         self.__signs['first_peak_baseline'][0] + ...
         + tolerance*(signal_maximum-self.__signs['first_peak_baseline'][0]).
+        Note that the waveform baseline must have been computed
+        before calling this method, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method.
 
         As a matter of fact, the result of this method is only
         well-defined for well-defined waveforms, meaning those
@@ -766,7 +769,17 @@ class Waveform:
             Waveform.filter_infs_and_nans(self.__signal, get_mask=False)
         )
 
-        aux = signal_maximum - self.__signs["first_peak_baseline"][0]
+        try:
+            aux = signal_maximum - self.__signs["first_peak_baseline"][0]
+        except KeyError:
+            raise KeyError(
+                htype.generate_exception_message(
+                    "Waveform.find_beginning_of_rise",
+                    4,
+                    extra_info="The baseline of the first peak must "
+                    "have been computed before calling this method.",
+                )
+            )
 
         # This is a cross-check. Up to the computation of
         # first_peak_baseline, aux should be positive.
@@ -777,10 +790,13 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "Waveform.find_beginning_of_rise",
-                    4,
+                    5,
                     extra_info="This waveform is too ill-formed. Trying to find the rise index of its first peak makes no sense.",
                 )
             )
+        
+        # If the code execution made it to this point, then
+        # self.__signs["first_peak_baseline"][0] is defined
         threshold = self.__signs["first_peak_baseline"][0] + (tolerance * aux)
 
         result_iterator = -2
@@ -809,7 +825,7 @@ class Waveform:
             raise cuex.MalFunction(
                 htype.generate_exception_message(
                     "Waveform.find_rise_idx",
-                    5,
+                    6,
                     extra_info="Something is not working as expected.",
                 )
             )
