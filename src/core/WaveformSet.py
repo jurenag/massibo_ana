@@ -294,8 +294,9 @@ class WaveformSet(OneTypeRTL):
                         htype.generate_exception_message(
                             "WaveformSet.mean_waveform",
                             13,
-                            extra_info="The baseline of the first peak must "
-                            "have been computed before calling this method."
+                            extra_info="The baseline of the first peak of the "
+                            f"{i}-th waveform must have been computed before "
+                            "calling this method."
                         )
                     )
 
