@@ -1995,7 +1995,11 @@ class WaveformSet(OneTypeRTL):
         - threshold_from_baseline (bool): If False, then the
         given threshold is understood as an absolute threshold.
         If else, then the given threshold is understood as an
-        offset of wvf.Signs['first_peak_baseline'][0].
+        offset of wvf.Signs['first_peak_baseline'][0]. In this
+        case, note that the baseline of every waveform must
+        have been previously computed, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method, on a
+        waveform basis.
 
         - rise (bool): For more information, check the
         documentation below.
@@ -2194,8 +2198,17 @@ class WaveformSet(OneTypeRTL):
             )
         threshold_ = threshold
         if threshold_from_baseline:
-            threshold_ += waveform.Signs["first_peak_baseline"][0]
-
+            try:
+                threshold_ += waveform.Signs["first_peak_baseline"][0]
+            except KeyError:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "WaveformSet.threshold_filter",
+                        19,
+                        extra_info="The baseline of the first peak must "
+                        "have been computed before calling this method."
+                    )
+                )
         if rise:
             result = (
                 np.max(waveform.Signal[i_low : i_up + 1]) >= threshold_
