@@ -2729,7 +2729,9 @@ class WaveformSet(OneTypeRTL):
         wvf.Signs['first_peak_baseline'][0] + h, where h is the value of the
         'height' keyword argument given to this method. This means that the
         minimal height for a peak to be considered so is measured with respect
-        to the baseline of each waveform.
+        to the baseline of each waveform. Note that, in this case, the baseline
+        of every waveform must have been previously computed, p.e. by calling
+        the Waveform.compute_first_peak_baseline() method, on a waveform basis.
 
         This method analyzes this waveform set: it uses scipy.signal.find_peaks to
         spot the peaks in every waveform in the WaveformSet. For each waveform, wvf,
@@ -2769,12 +2771,22 @@ class WaveformSet(OneTypeRTL):
                 wvf.Signs = ("peaks_pos", [], True)  # Erasing previous info.
                 wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
 
-                peaks_idx, _ = spsi.find_peaks(
-                    wvf.Signal,
-                    height=None if not fUseHeight 
-                        else wvf.Signs["first_peak_baseline"][0] + height,
-                    **kwargs
-                )  # Peak finding algorithm
+                try:
+                    peaks_idx, _ = spsi.find_peaks(
+                        wvf.Signal,
+                        height=None if not fUseHeight 
+                            else wvf.Signs["first_peak_baseline"][0] + height,
+                        **kwargs
+                    )  # Peak finding algorithm
+                except KeyError:
+                    raise cuex.NoAvailableData(
+                        htype.generate_exception_message(
+                            "WaveformSet.find_peaks",
+                            3,
+                            extra_info="The baseline of the first peak of every "
+                            "waveform have been computed before calling this method."
+                        )
+                    )
 
                 for idx in peaks_idx:
                     wvf.Signs = (
@@ -2795,12 +2807,23 @@ class WaveformSet(OneTypeRTL):
                 wvf.Signs = ("peaks_pos", [], True)  # Erasing previous info.
                 wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
 
-                peaks_idx, properties = spsi.find_peaks(
-                    wvf.Signal,
-                    height=None if not fUseHeight
-                    else wvf.Signs["first_peak_baseline"][0] + height,
-                    **kwargs
-                )  # Peak finding algorithm
+                try:
+                    peaks_idx, properties = spsi.find_peaks(
+                        wvf.Signal,
+                        height=None if not fUseHeight
+                        else wvf.Signs["first_peak_baseline"][0] + height,
+                        **kwargs
+                    )  # Peak finding algorithm
+                except KeyError:
+                    raise cuex.NoAvailableData(
+                        htype.generate_exception_message(
+                            "WaveformSet.find_peaks",
+                            4,
+                            extra_info="The baseline of the first peak of every "
+                            "waveform have been computed before calling this method."
+                        )
+                    )
+
                 result.append(properties)
 
                 for idx in peaks_idx:
