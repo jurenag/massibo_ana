@@ -16,8 +16,7 @@ class Waveform:
         t_step=None,
         time=None,
         infer_t0=False,
-        signs=None,
-        signal_fraction_for_median_cutoff=0.2,
+        signs=None
     ):
         """This class aims to model a certain waveform (a curve in a 2D plane) as a function
         of the time. In practice, waveforms start at t=0. To recover its time position with
@@ -93,11 +92,6 @@ class Waveform:
                                             detected peak. (stackable)
 
         For more information on this parameter and the setting process, see Signs.setter docstring.
-        - signal_fraction_for_median_cutoff (scalar float): It must belong to the interval [0.0, 1.0].
-        This value represents the fraction of the signal which is used to compute the baseline.
-        P.e. 0.2 means that only the first 20% (in time) of the signal is used to compute the
-        baseline. For more information on this parameter, check the
-        Waveform.compute_first_peak_baseline() method docstring.
         """
 
         htype.check_type(
@@ -203,22 +197,6 @@ class Waveform:
                 # without worrying abour overwritting previous information.
                 self.Signs = (key, signs[key], True)  # (key, value, overwrite)
 
-        htype.check_type(
-            signal_fraction_for_median_cutoff,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10014
-            ),
-        )
-        if (
-            signal_fraction_for_median_cutoff < 0.0
-            or signal_fraction_for_median_cutoff > 1.0
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.__init__", 10015)
-            )
-
         self.__npoints = np.shape(signal)[0]
 
         if fUseTStep:
@@ -240,11 +218,6 @@ class Waveform:
         # This attribute is not computed by default.
         # It is only computed by self.integrate().
         self.__integral = None
-
-        # Compute baseline by default
-        self.compute_first_peak_baseline(
-            signal_fraction_for_median_cutoff=signal_fraction_for_median_cutoff
-        )
         return
 
     # Class variables
