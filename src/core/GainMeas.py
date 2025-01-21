@@ -787,65 +787,6 @@ class GainMeas(SiPMMeas):
                     )
             peaks_to_fit_ = peaks_to_fit
 
-        htype.check_type(
-            bins_no,
-            int,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 43213
-            ),
-        )
-        if bins_no < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 93774)
-            )
-        htype.check_type(
-            starting_fraction,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 91754
-            ),
-        )
-        if starting_fraction < 0.0 or starting_fraction > 1.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 61666)
-            )
-        htype.check_type(
-            step_fraction,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 65239
-            ),
-        )
-        if step_fraction <= 0.0 or step_fraction > 1.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 14122)
-            )
-        htype.check_type(
-            minimal_prominence_wrt_max,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 37989
-            ),
-        )
-        if minimal_prominence_wrt_max < 0.0 or minimal_prominence_wrt_max > 1.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 94651)
-            )
-        htype.check_type(
-            std_no,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 75002
-            ),
-        )
-        if std_no <= 0.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 75060)
-            )
         fPlotGainFit = False
         if gain_fit_axes is not None:
             htype.check_type(
@@ -864,50 +805,13 @@ class GainMeas(SiPMMeas):
                 "GainMeas.fit_gain", 12478
             ),
         )
-        # histogram_fit_axes is handled by GainMeas.fit_peaks_histogram()
-        # histogram_axes_title is handled by GainMeas.fit_peaks_histogram()
 
-        htype.check_type(
-            gaussian_plot_npoints,
-            int,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 21273
-            ),
-        )
-        if gaussian_plot_npoints < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 14143)
-            )
-        if plot_charge_range is not None:
-            htype.check_type(
-                plot_charge_range,
-                list,
-                exception_message=htype.generate_exception_message(
-                    "GainMeas.fit_gain", 22406
-                ),
-            )
-            if len(plot_charge_range) != 2:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("GainMeas.fit_gain", 81945)
-                )
-            for element in plot_charge_range:
-                htype.check_type(
-                    element,
-                    float,
-                    np.float64,
-                    int,
-                    np.int64,
-                    exception_message=htype.generate_exception_message(
-                        "GainMeas.fit_gain", 20263
-                    ),
-                )
-        htype.check_type(
-            show_histogram_fit,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 63251
-            ),
-        )
+        # bins_no, starting_fraction, step_fraction, minimal_prominence_wrt_max,
+        # std_no, histogram_fit_axes, logarithmic_plot, histogram_axes_title,
+        # gaussian_plot_npoints, plot_charge_range and show_histogram_fit
+        # are handled to GainMeas.fit_peaks_histogram() and never used
+        # again in this method. Well-formedness checks of these parameters
+        # are done by GainMeas.fit_peaks_histogram().
 
         histogram_popt, histogram_pcov = self.fit_peaks_histogram(
             peaks_to_detect=peaks_to_detect,
