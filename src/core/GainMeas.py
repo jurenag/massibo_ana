@@ -769,10 +769,10 @@ class GainMeas(SiPMMeas):
             gain_popt[0] (resp. gain_popt[1]) matches the optimal slope (resp.
             intercept) resulting from the gain fit.
 
-            - gain_std: Standard deviations for the optimal parameters, as
+            - gain_stderr: Standard error of the estimated parameters, as
             computed by scipy.stats.linregress() under the assumption of
-            residual normality. gain_std[0] (resp. gain_std[1]) is the standard
-            deviation for the slope (resp. intercept).
+            residual normality. gain_stderr[0] (resp. gain_stderr[1]) is
+            the standard error for the slope (resp. intercept).
 
             - histogram_popt, histogramp_pcov: These lists match the output
             of self.fit_peaks_histogram(). histogram_popt[i] (resp.
@@ -885,7 +885,7 @@ class GainMeas(SiPMMeas):
 
         aux = spsta.linregress(photoelectrons_no, y=photoelectrons_charge)
         gain_popt = [aux.slope, aux.intercept]
-        gain_std = [aux.stderr, aux.intercept_stderr]
+        gain_stderr = [aux.stderr, aux.intercept_stderr]
 
         fit_function = lambda x: (gain_popt[0] * x) + gain_popt[1]
 
@@ -918,7 +918,7 @@ class GainMeas(SiPMMeas):
             gain_fit_axes.set_xlim([-0.5, photoelectrons_no[-1] + 0.5])
             gain_fit_axes.grid()
 
-        return gain_popt, gain_std, histogram_popt, histogram_pcov
+        return gain_popt, gain_stderr, histogram_popt, histogram_pcov
 
     @classmethod
     def from_json_file(cls, gainmeas_config_json):
