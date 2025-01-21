@@ -386,20 +386,20 @@ class GainMeas(SiPMMeas):
         information.
         - plot_axes (None or matplotlib.axes.Axes object): If it is not
         defined, then no plot is done. If it is defined, then the fit
-        histogram, together with the fit functions, are plotted in the
+        histogram is plotted in the given axes.
         given axes.
         - axes_title (None or string): This parameter only makes a difference
         if plot_axes is defined. In such case, it is the title of the given
         axes.
         - gaussian_plot_npoints (scalar integer): It must be positive (>0).
-        This parameter only makes a difference if plot_axis is defined. It
+        This parameter only makes a difference if plot_axes is defined. It
         matches the number of points which are plotted for each gaussian fit.
         - plot_charge_range (None or list of two floats): This parameter
         only makes a difference if plot_axes is suitably defined. In such
         case, it is given to plot_axes.set_xlim().
         - show_fit (scalar boolean): This parameter only makes a difference
-        if plot_axis is defined. In such case, it means whether to show
-        the fit functions together with the plotted histogram.
+        if plot_axes is defined. In such case, it means whether to show
+        the fit functions together with the plotted histogram. Note that,
 
         This method histograms self.__charge_entries and fits one gaussian
         to a subset of the peaks_to_detect highest peaks which comply with
@@ -692,7 +692,7 @@ class GainMeas(SiPMMeas):
         error bars of the gain-fit plot, are scaled by errorbars_scaling.
         - histogram_fit_axes (None or matplotlib.axes.Axes object): If it is
         not defined, then the histogram fit is not done. If it is defined,
-        then the fit histogram, together with the fit functions (gaussian
+        then the fit histogram is plotted in the given axes.
         functions), are plotted in the given axes.
         - histogram_axes_title (None or string): This parameter only makes
         a difference if histogram_fit_axes is defined. It is given to the
