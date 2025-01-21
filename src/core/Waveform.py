@@ -433,8 +433,7 @@ class Waveform:
                     horizontalalignment='right',
                     color='black'
                     if len(self.__signs["peaks_pos"]) == 1
-                    else 'red',
-
+                    else 'red'
                 )
 
                 # Assuming that peaks_pos and peaks_top have the same length
