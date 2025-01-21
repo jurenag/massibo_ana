@@ -568,8 +568,7 @@ class GainMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            std_no=std_no,
-            fit_to_density=False,
+            std_no=std_no
         )
         if fPlot:
             _, _, _ = plot_axes.hist(self.__charge_entries, bins_no, histtype="step")
