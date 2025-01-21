@@ -355,6 +355,9 @@ class GainMeas(SiPMMeas):
         peaks_to_detect detected peaks according to the iterator value for
         self.__charge_entries where they occur. Then if i belongs to
         peaks_to_fit, the i-th detected peak will be fit.
+        - bins_no (scalar integer): It must be positive (>0). It is eventually
+        given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
+        number of bins which are used to histogram the self.__charge_entries.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the static method
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
@@ -648,6 +651,9 @@ class GainMeas(SiPMMeas):
         peaks_to_detect detected peaks according to the iterator value for
         self.__charge_entries where they occur. Then if i belongs to
         peaks_to_fit, the i-th detected peak will be fit.
+        - bins_no (scalar integer): It must be positive (>0). It is eventually
+        given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
+        number of bins which are used to histogram the self.__charge_entries.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
