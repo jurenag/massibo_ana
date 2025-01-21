@@ -358,13 +358,13 @@ class GainMeas(SiPMMeas):
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the static method
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-        turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
-        for more information.
+        turn, gives it to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        Check its docstrings for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the static method
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-        turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
-        for more information.
+        turn, gives it to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        Check its docstrings for more information.
         - minimal_prominence_wrt_max (scalar float): It must be semipositive
         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
         fraction of the maximum value of the histogram of self.ChargeEntries.
@@ -653,13 +653,15 @@ class GainMeas(SiPMMeas):
         and smaller or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
-        which in turn, gives it to SiPMMeas.tune_peak_height(). Check its
+        which in turn, gives it to
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
         docstrings for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
-        which in turn, gives it to SiPMMeas.tune_peak_height(). Check its
+        which in turn, gives it to
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
         docstrings for more information.
         - minimal_prominence_wrt_max (scalar float): It must be semipositive
         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
