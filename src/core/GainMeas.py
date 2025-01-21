@@ -653,6 +653,7 @@ class GainMeas(SiPMMeas):
         gain_fit_axes=None,
         errorbars_scaling=1.0,
         histogram_fit_axes=None,
+        logarithmic_plot=False,
         histogram_axes_title=None,
         gaussian_plot_npoints=100,
         plot_charge_range=None,
@@ -720,7 +721,11 @@ class GainMeas(SiPMMeas):
         - histogram_fit_axes (None or matplotlib.axes.Axes object): If it is
         not defined, then the histogram fit is not done. If it is defined,
         then the fit histogram is plotted in the given axes.
-        functions), are plotted in the given axes.
+        - logarithmic_plot (scalar boolean): It is given to the 'logarithmic_plot'
+        keyword argument of GainMeas.fit_peaks_histogram(). This parameter
+        only makes a difference if histogram_fit_axes is defined. In such
+        case, it means whether the plotted histogram, and potentially the
+        plotted gaussian fits, are in logarithmic scale or not.
         - histogram_axes_title (None or string): This parameter only makes
         a difference if histogram_fit_axes is defined. It is given to the
         'axes_title' keyword argument of GainMeas.fit_peaks_histogram(). It
@@ -736,6 +741,8 @@ class GainMeas(SiPMMeas):
         - show_histogram_fit (scalar boolean): This parameter only makes a
         difference if histogram_fit_axes is defined. In such case, it means
         whether to show the fit functions together with the plotted histogram.
+        Note that, if show_histogram_fit is True, then the fit plots are also
+        affected by the logarithmic_plot parameter.
 
         This method calls self.fit_peaks_histogram(), which fits a gaussian
         function to a subset of the peaks_to_detect highest peaks of the
@@ -855,6 +862,7 @@ class GainMeas(SiPMMeas):
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
             std_no=std_no,
             plot_axes=histogram_fit_axes,
+            logarithmic_plot=logarithmic_plot,
             axes_title=histogram_axes_title,
             gaussian_plot_npoints=gaussian_plot_npoints,
             plot_charge_range=plot_charge_range,
