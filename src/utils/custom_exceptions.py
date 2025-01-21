@@ -124,3 +124,13 @@ class NotEnoughFitSamples(Exception):
         return "This exception is meant for a situations where " \
         "the number of samples (points) for fit is smaller than " \
         "the number of fitting parameters."
+    
+class RequestedPeaksNotFound(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        return
+
+    @classmethod
+    def why(self):
+        return "This exception is meant for situations where the " \
+        "number of requested peaks were not found."
