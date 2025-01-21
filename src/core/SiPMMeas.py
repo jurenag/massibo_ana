@@ -850,7 +850,7 @@ class SiPMMeas(ABC):
             )
         
         if not found_requested_peaks:
-            raise RuntimeError(
+            raise cuex.RequestedPeaksNotFound(
                 htype.generate_exception_message(
                     "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
                     21318,
