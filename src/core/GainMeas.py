@@ -331,6 +331,7 @@ class GainMeas(SiPMMeas):
         minimal_prominence_wrt_max=0.0,
         std_no=3.0,
         plot_axes=None,
+        logarithmic_plot=False,
         axes_title=None,
         gaussian_plot_npoints=100,
         plot_charge_range=None,
@@ -387,7 +388,10 @@ class GainMeas(SiPMMeas):
         - plot_axes (None or matplotlib.axes.Axes object): If it is not
         defined, then no plot is done. If it is defined, then the fit
         histogram is plotted in the given axes.
-        given axes.
+        - logarithmic_plot (scalar boolean): This parameter only makes a
+        difference if plot_axes is defined. In such case, it means whether
+        the plotted histogram, and potentially the plotted gaussian fits,
+        are in logarithmic scale or not.
         - axes_title (None or string): This parameter only makes a difference
         if plot_axes is defined. In such case, it is the title of the given
         axes.
@@ -400,6 +404,8 @@ class GainMeas(SiPMMeas):
         - show_fit (scalar boolean): This parameter only makes a difference
         if plot_axes is defined. In such case, it means whether to show
         the fit functions together with the plotted histogram. Note that,
+        if show_fit is True, then the fit plots are also affected by the
+        logarithmic_plot parameter.
 
         This method histograms self.__charge_entries and fits one gaussian
         to a subset of the peaks_to_detect highest peaks which comply with
@@ -500,6 +506,13 @@ class GainMeas(SiPMMeas):
             )
             fPlot = True
 
+        htype.check_type(
+            logarithmic_plot,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "GainMeas.fit_peaks_histogram", 92611
+            ),
+        )
         if axes_title is not None:
             htype.check_type(
                 axes_title,
@@ -574,7 +587,16 @@ class GainMeas(SiPMMeas):
             std_no=std_no
         )
         if fPlot:
-            _, _, _ = plot_axes.hist(self.__charge_entries, bins_no, histtype="step")
+            _, _, _ = plot_axes.hist(
+                self.__charge_entries,
+                bins_no,
+                log=logarithmic_plot,
+                histtype="step")
+            
+            # Do not extend the vertical axis down to order of
+            # magnitudes which are senseless for a hits-histogram.
+            if logarithmic_plot:
+                plot_axes.set_ylim(10**-1)
 
             if show_fit:
 
@@ -600,9 +622,14 @@ class GainMeas(SiPMMeas):
                     for i in range(len(popt))
                 ]
 
+                aux_func = plot_axes.semilogy if logarithmic_plot else plot_axes.plot
+
                 for i in range(len(piecewise_xs)):
-                    plot_axes.plot(
-                        piecewise_xs[i], piecewise_ys[i], linestyle="--", color="black"
+                    aux_func(
+                        piecewise_xs[i],
+                        piecewise_ys[i],
+                        linestyle="--",
+                        color="black"
                     )
 
             plot_axes.set_xlabel(f"Charge (C)")
