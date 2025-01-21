@@ -632,6 +632,18 @@ class GainMeas(SiPMMeas):
                         color="black"
                     )
 
+            # Add some text giving the number
+            # of fitted peaks in the histogram
+            plot_axes.text(
+                .99,
+                .98,
+                f"{len(popt)} f. p.",
+                # Make the coordinates relative to the axes system
+                transform=plot_axes.transAxes,
+                verticalalignment='top',
+                horizontalalignment='right'
+            )
+
             plot_axes.set_xlabel(f"Charge (C)")
             plot_axes.set_ylabel(f"Hits")
             plot_axes.set_xlim(plot_charge_range)
