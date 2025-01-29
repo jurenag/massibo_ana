@@ -669,7 +669,7 @@ class GainMeas(SiPMMeas):
         histogram_axes_title=None,
         gaussian_plot_npoints=100,
         plot_charge_range=None,
-        show_histogram_fit=True,
+        plot_histogram_fit=True,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -750,10 +750,10 @@ class GainMeas(SiPMMeas):
         only makes a difference if histogram_fit_axes is suitably defined.
         In such case, it is given to self.fit_peaks_histogram(), which in
         turn gives it to plot_axes.set_xlim().
-        - show_histogram_fit (scalar boolean): This parameter only makes a
+        - plot_histogram_fit (scalar boolean): This parameter only makes a
         difference if histogram_fit_axes is defined. In such case, it means
-        whether to show the fit functions together with the plotted histogram.
-        Note that, if show_histogram_fit is True, then the fit plots are also
+        whether to plot the fit functions together with the plotted histogram.
+        Note that, if plot_histogram_fit is True, then the fit plots are also
         affected by the logarithmic_plot parameter.
 
         This method calls self.fit_peaks_histogram(), which fits a gaussian
@@ -860,7 +860,7 @@ class GainMeas(SiPMMeas):
 
         # bins_no, starting_fraction, step_fraction, minimal_prominence_wrt_max,
         # std_no, histogram_fit_axes, logarithmic_plot, histogram_axes_title,
-        # gaussian_plot_npoints, plot_charge_range and show_histogram_fit
+        # gaussian_plot_npoints, plot_charge_range and plot_histogram_fit
         # are handled to GainMeas.fit_peaks_histogram() and never used
         # again in this method. Well-formedness checks of these parameters
         # are done by GainMeas.fit_peaks_histogram().
@@ -878,7 +878,7 @@ class GainMeas(SiPMMeas):
             axes_title=histogram_axes_title,
             gaussian_plot_npoints=gaussian_plot_npoints,
             plot_charge_range=plot_charge_range,
-            show_fit=show_histogram_fit,
+            plot_fit=plot_histogram_fit,
         )
 
         photoelectrons_no = (
