@@ -169,21 +169,23 @@ class WaveformSet(OneTypeRTL):
         method, p.e. by calling the Waveform.compute_first_peak_baseline()
         method, on a waveform basis.
 
-        Either amplitude_range or integral_range must be defined. If
-        both are defined, then integral_range is ignored. If
-        amplitude_range is defined, then amplitude_range[0]
-        (resp. amplitude_range[1]) is interpreted as the minimum
-        (resp. maximum) value of the amplitude range. If integral_range
-        is defined and amplitude_range is not, then integral_range[0]
-        (resp. integral_range[1]) is interpreted as the minimum (resp.
-        maximum) value of the integral range.
-
-        Once an amplitude (resp. integral) range is defined, the mean
+        If both, amplitude_range and integral_range are defined, are
+        defined, then integral_range is ignored. If amplitude_range is
+        defined, then amplitude_range[0] (resp. amplitude_range[1]) is
+        interpreted as the minimum (resp. maximum) value of the amplitude
+        range. If integral_range is defined and amplitude_range is not,
+        then integral_range[0] (resp. integral_range[1]) is interpreted
+        as the minimum (resp. maximum) value of the integral range.
+        If an amplitude (resp. integral) range is defined, the mean
         waveform of all of the waveforms whose amplitude (resp. integral)
-        fall into such range is computed. A necessary requirement for
-        this computation to be performed is that all of the waveforms
-        within this WaveformSet object have matching x-values, i.e.
-        that self.__time is the same for all of the waveforms.
+        fall into such range is computed. If none of them are defined,
+        then every waveform within this WaveformSet object is considered
+        for the computation of the mean waveform.
+        
+        A necessary requirement for this computation to be performed is
+        that all of the waveforms within this WaveformSet object have
+        matching x-values, i.e. that self.__time is the same for all of
+        the waveforms.
 
         When calling this method, this waveform set must contain at least
         one waveform. If not, this method raises a cuex.NoAvailableData
@@ -197,7 +199,12 @@ class WaveformSet(OneTypeRTL):
                     extra_info="There must be at least one waveform in this waveform set.",
                 )
             )
-        fAmplitudeIsDefined = False
+        
+        # fMode equal to 0 means that every waveform will be considered.
+        # fMode equal to 1 means that the amplitude range will be considered.
+        # fMode equal to 2 means that the integral range will be considered.
+        fMode = 0
+
         if amplitude_range is not None:
             htype.check_type(
                 amplitude_range,
@@ -223,9 +230,9 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message("WaveformSet.mean_waveform", 5)
                 )
-            fAmplitudeIsDefined = True
+            fMode = 1
 
-        if not fAmplitudeIsDefined:
+        if fMode != 1:
             if integral_range is not None:
                 htype.check_type(
                     integral_range,
@@ -255,19 +262,13 @@ class WaveformSet(OneTypeRTL):
                             "WaveformSet.mean_waveform", 9
                         )
                     )
-            else:
-                raise cuex.NoAvailableData(
-                    htype.generate_exception_message(
-                        "WaveformSet.mean_waveform",
-                        10,
-                        extra_info=f"Either amplitude_range or integral_range must be defined.",
-                    )
-                )
+                fMode = 2
+
         if len(self) < 1:
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    11,
+                    10,
                     extra_info=f"There are no waveforms in this waveform set.",
                 )
             )
@@ -277,13 +278,16 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.mean_waveform",
-                        12,
+                        11,
                         extra_info=f"The {i}-th waveform time array does not match that of the 0-th waveform within the waveform set.",
                     )
                 )
         filtered_wvfs_idx = []
 
-        if fAmplitudeIsDefined:
+        if fMode == 0:
+            filtered_wvfs_idx = list(range(len(self)))
+
+        elif fMode == 1:
             for i in range(len(self)):
                 try:
                     ith_amplitude = (
@@ -293,7 +297,7 @@ class WaveformSet(OneTypeRTL):
                     raise cuex.NoAvailableData(
                         htype.generate_exception_message(
                             "WaveformSet.mean_waveform",
-                            13,
+                            12,
                             extra_info="The baseline of the first peak of the "
                             f"{i}-th waveform must have been computed before "
                             "calling this method."
@@ -305,7 +309,8 @@ class WaveformSet(OneTypeRTL):
                     and ith_amplitude <= amplitude_range[1]
                 ):
                     filtered_wvfs_idx.append(i)
-        else:
+
+        else: # fMode == 2
             for i in range(len(self)):
                 # If self[i] had not been integrated previously,
                 # then self[i].Integral will be None
@@ -324,25 +329,38 @@ class WaveformSet(OneTypeRTL):
                     raise cuex.NoAvailableData(
                         htype.generate_exception_message(
                             "WaveformSet.mean_waveform",
-                            14,
+                            13,
                             extra_info=f"The integral of the {i}-th waveform could not be retrieved.",
                         )
                     )
+
         if len(filtered_wvfs_idx) == 0:
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    15,
-                    extra_info=f"There are no waveforms which comply with the given {'amplitude' if fAmplitudeIsDefined else 'integral'} range.",
+                    14,
+                    # Since we already checked that len(self) > 0,
+                    # len(filtered_wvfs_idx) can only be zero if fMode is 1 or 2
+                    extra_info=f"There are no waveforms which comply with the given {'amplitude' if (fMode == 1) else 'integral'} range.",
                 )
             )
-
-        # We have made sure that there's at
-        # least one waveform in this waveform set
-        sum = copy.copy(self[filtered_wvfs_idx[0]].Signal)
-        for i in range(1, len(filtered_wvfs_idx)):
-            sum += self[filtered_wvfs_idx[i]].Signal
-        return sum / len(filtered_wvfs_idx)
+        
+        try:
+            return np.mean(
+                [
+                    self[idx].Signal - self[idx].Signs['first_peak_baseline']
+                    for idx in filtered_wvfs_idx
+                ],
+                axis=0
+            )
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "WaveformSet.mean_waveform",
+                    15,
+                    extra_info="The baseline of the first peak of every waveform must have been computed before calling this method."
+                )
+            )
 
     def plot(
         self,
