@@ -3025,3 +3025,66 @@ class WaveformSet(OneTypeRTL):
             wvf.rebin(group, verbose)
 
         return
+    
+    def find_mean_beginning_of_raise(
+        self,
+        signal_fraction_for_median_cutoff=0.2,
+        tolerance=0.05,
+        return_iterator=True
+    ):
+        
+        """This method gets the following optional keyword arguments:
+
+        - signal_fraction_for_median_cutoff (scalar float): It must belong
+        to the interval [0.0, 1.0]. This value represents the fraction of the
+        signal of the mean waveform which is used to compute its baseline. P.e.
+        0.2 means that, for each waveform, only its first 20% (in time) of the
+        signal is used to compute the baseline.
+        - tolerance (scalar float): It must be positive (>0.0) and
+        smaller than 1 (<1.0). It is given to the 'tolerance' parameter of the
+        Waveform.find_beginning_of_raise() method, on a waveform basis. For more
+        information, check the documentation of such method.
+        - return_iterator (scalar boolean): If True, this method returns the
+        iterator value, say idx, where the rise of the mean waveform begins.
+        If False, this method returns mean_waveform.Time[idx], where mean_waveform
+        is the mean waveform of this WaveformSet.
+
+        This method computes the beginning of the rise of the mean waveform of
+        this WaveformSet. To do so, first, the mean waveform is computed by calling
+        the WaveformSet.mean_waveform() method. Every waveform within this WaveformSet
+        is used to compute the mean waveform, i.e. no filtering is applied. Then, the
+        first-peak baseline of the mean waveform is computed by calling the
+        Waveform.compute_first_peak_baseline() method. Finally, the beginning of
+        the rise of the mean waveform is computed by calling the
+        Waveform.find_beginning_of_raise() method over the mean waveform.
+        """
+
+        # First, find the mean waveform of this WaveformSet.
+        # No filtering is applied (not an amplitude one
+        # nor an integral one). I.e. all of the waveforms
+        # in the set are taken into account for the mean
+        mean_waveform = Waveform(
+            0.0,
+            self.mean_waveform(
+                amplitude_range=None,
+                integral_range=None
+            ),
+            # WaveformSet.mean_waveform() would have
+            # thrown an exception if the time array
+            # for every Waveform is not the same
+            time = self[0].Time
+        )
+
+        # Then, compute the first peak baseline of the mean waveform
+        mean_waveform.compute_first_peak_baseline(
+            signal_fraction_for_median_cutoff = signal_fraction_for_median_cutoff
+        )
+
+        # Then, find the beginning of the rise of the mean waveform
+        result = mean_waveform.find_beginning_of_rise(
+            tolerance=tolerance,
+            return_iterator=return_iterator
+        )
+
+        return result
+
