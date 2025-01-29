@@ -700,13 +700,10 @@ class Waveform:
         return self.__integral
 
     def find_beginning_of_rise(self, tolerance=0.05, return_iterator=True):
-        """This method gets the following positional argument:
+        """This method gets the following keyword argument:
 
         - tolerance (scalar float): It must be positive (>0.0) and
         smaller than 1 (<1.0).
-
-        This method gets the following keyword argument:
-
         - return_iterator (scalar boolean): If True, this method
         returns the iterator value, say idx, where the rise begins.
         If False, this method returns self.__time[idx].
@@ -823,7 +820,7 @@ class Waveform:
             # something is not working as expected.
             raise cuex.MalFunction(
                 htype.generate_exception_message(
-                    "Waveform.find_rise_idx",
+                    "Waveform.find_beginning_of_rise",
                     6,
                     extra_info="Something is not working as expected.",
                 )
