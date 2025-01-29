@@ -1245,3 +1245,23 @@ class GainMeas(SiPMMeas):
             indent=indent,
             verbose=verbose
         )
+    
+    # Overrides SiPMMeas.get_title(), simply because this
+    # implementation includes information about the 
+    # overvoltage, which is a more relevant parameter in
+    # the case of gain measurements
+    def get_title(
+            self,
+            abbreviate: bool = False
+        ):
+        """This method gets the following keyword argument:
+
+        - abbreviate (bool): If it is True (resp. False), then
+        the output string is abbreviated (resp. not abbreviated).
+
+        This method returns an string which could serve as a title
+        for this SiPMMeas object. Such title contains information
+        on the ElectronicBoardSocket, StripID, SiPMLocation,
+        ThermalCycle and Date attributes of this SiPMMeas object."""
+
+        return super().get_title(abbreviate=abbreviate) + f", OV {round(10.*self.Overvoltage_V)} dV"
