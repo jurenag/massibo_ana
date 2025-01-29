@@ -19,7 +19,6 @@ class GainMeas(SiPMMeas):
         *args,
         delivery_no=None,
         set_no=None,
-        tray_no=None,
         meas_no=None,
         strip_ID=None,
         meas_ID=None,
@@ -29,7 +28,6 @@ class GainMeas(SiPMMeas):
         setup_ID=None,
         system_characteristics=None,
         thermal_cycle=None,
-        elapsed_cryo_time_min=None,
         electronic_board_number=None,
         electronic_board_location=None,
         electronic_board_socket=None,
@@ -66,11 +64,8 @@ class GainMeas(SiPMMeas):
         - set_no (semipositive integer): Integer which identifies the set where the measured
         SiPM was included. For DUNE's particular case, this number identifies the internal
         delivery which we receive from another DUNE institution.
-        - tray_no (semipositive integer): Integer which identifies the tray where the measured
-        SiPM was included. For DUNE's particular case, this number identifies the 20-strips box
-        where the measured SiPM was included.
         - meas_no (semipositive integer): Integer which identifies the measurement within the
-        tray where the measured SiPM was included.
+        set where the measured SiPM was included.
         - strip_ID (int): Integer which identifies the SiPM strip which hosts the measured SiPM.
         - meas_ID (string): String which identifies this measurement.
         - date (string): Date of the measurement. This string must follow the following format:
@@ -81,8 +76,6 @@ class GainMeas(SiPMMeas):
         - system_characteristics (string): Any extra information on the setup for this measurement.
         - thermal_cycle (semipositive integer): ¿How many thermal cycles have this SiPM undergone
         by the end of this measurement?
-        - elapsed_cryo_time_min (semipositive float): Elapsed time, in minutes, in cryogenic
-        conditions for this SiPM (in the current cryogenic bath) when this measurement started.
         - electronic_board_number (semipositive integer): Number which identifies the electronic
         board where the flex board was mounted on.
         - electronic_board_location (string): String which identifies the location of the used
@@ -113,7 +106,7 @@ class GainMeas(SiPMMeas):
         - LED_high_width_ns (positive float): Width of the high level of the pulsed signal that feeds
         the LED, in nanoseconds. It is loaded into the object-attribute self.__LED_high_width_ns.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
-        are points_per_wvf (int), wvfs_to_read (int), separator (string), timestamp_filepath (string),
+        are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
         wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
@@ -196,11 +189,13 @@ class GainMeas(SiPMMeas):
 
         self.__charge_entries = None
 
+        # N.B.: acquisition_time_min does not appear in
+        # this list because it comes from the WaveformSet
+        # core data. It is computed by WaveformSet.from_files().
         super().__init__(
             *args,
             delivery_no=delivery_no,
             set_no=set_no,
-            tray_no=tray_no,
             meas_no=meas_no,
             strip_ID=strip_ID,
             meas_ID=meas_ID,
@@ -210,7 +205,6 @@ class GainMeas(SiPMMeas):
             setup_ID=setup_ID,
             system_characteristics=system_characteristics,
             thermal_cycle=thermal_cycle,
-            elapsed_cryo_time_min=elapsed_cryo_time_min,
             electronic_board_number=electronic_board_number,
             electronic_board_location=electronic_board_location,
             electronic_board_socket=electronic_board_socket,
@@ -337,10 +331,11 @@ class GainMeas(SiPMMeas):
         minimal_prominence_wrt_max=0.0,
         std_no=3.0,
         plot_axes=None,
+        logarithmic_plot=False,
         axes_title=None,
         gaussian_plot_npoints=100,
         plot_charge_range=None,
-        show_fit=True,
+        plot_fit=True,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -361,16 +356,19 @@ class GainMeas(SiPMMeas):
         peaks_to_detect detected peaks according to the iterator value for
         self.__charge_entries where they occur. Then if i belongs to
         peaks_to_fit, the i-th detected peak will be fit.
+        - bins_no (scalar integer): It must be positive (>0). It is eventually
+        given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
+        number of bins which are used to histogram the self.__charge_entries.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the static method
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-        turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
-        for more information.
+        turn, gives it to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        Check its docstrings for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the static method
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-        turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
-        for more information.
+        turn, gives it to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        Check its docstrings for more information.
         - minimal_prominence_wrt_max (scalar float): It must be semipositive
         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
         fraction of the maximum value of the histogram of self.ChargeEntries.
@@ -389,20 +387,25 @@ class GainMeas(SiPMMeas):
         information.
         - plot_axes (None or matplotlib.axes.Axes object): If it is not
         defined, then no plot is done. If it is defined, then the fit
-        histogram, together with the fit functions, are plotted in the
-        given axes.
+        histogram is plotted in the given axes.
+        - logarithmic_plot (scalar boolean): This parameter only makes a
+        difference if plot_axes is defined. In such case, it means whether
+        the plotted histogram, and potentially the plotted gaussian fits,
+        are in logarithmic scale or not.
         - axes_title (None or string): This parameter only makes a difference
         if plot_axes is defined. In such case, it is the title of the given
         axes.
         - gaussian_plot_npoints (scalar integer): It must be positive (>0).
-        This parameter only makes a difference if plot_axis is defined. It
+        This parameter only makes a difference if plot_axes is defined. It
         matches the number of points which are plotted for each gaussian fit.
         - plot_charge_range (None or list of two floats): This parameter
         only makes a difference if plot_axes is suitably defined. In such
         case, it is given to plot_axes.set_xlim().
-        - show_fit (scalar boolean): This parameter only makes a difference
-        if plot_axis is defined. In such case, it means whether to show
-        the fit functions together with the plotted histogram.
+        - plot_fit (scalar boolean): This parameter only makes a difference
+        if plot_axes is defined. In such case, it means whether to plot
+        the fit functions together with the plotted histogram. Note that,
+        if plot_fit is True, then the fit plots are also affected by the
+        logarithmic_plot parameter.
 
         This method histograms self.__charge_entries and fits one gaussian
         to a subset of the peaks_to_detect highest peaks which comply with
@@ -410,7 +413,7 @@ class GainMeas(SiPMMeas):
         the peaks_to_fit keyword argument. To perform the fits, this method
         calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). In
         addition, if plot_axes is provided, then the resulting histogram is
-        plotted in the given axes. Furthermore, if show_fit is True, then the
+        plotted in the given axes. Furthermore, if plot_fit is True, then the
         fit functions are plotted together with the histogram. To end with,
         this method returns the output of
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which are
@@ -503,6 +506,13 @@ class GainMeas(SiPMMeas):
             )
             fPlot = True
 
+        htype.check_type(
+            logarithmic_plot,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "GainMeas.fit_peaks_histogram", 92611
+            ),
+        )
         if axes_title is not None:
             htype.check_type(
                 axes_title,
@@ -548,7 +558,7 @@ class GainMeas(SiPMMeas):
                     ),
                 )
         htype.check_type(
-            show_fit,
+            plot_fit,
             bool,
             exception_message=htype.generate_exception_message(
                 "GainMeas.fit_peaks_histogram", 47189
@@ -574,13 +584,21 @@ class GainMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            std_no=std_no,
-            fit_to_density=False,
+            std_no=std_no
         )
         if fPlot:
-            _, _, _ = plot_axes.hist(self.__charge_entries, bins_no, histtype="step")
+            _, _, _ = plot_axes.hist(
+                self.__charge_entries,
+                bins_no,
+                log=logarithmic_plot,
+                histtype="step")
+            
+            # Do not extend the vertical axis down to order of
+            # magnitudes which are senseless for a hits-histogram.
+            if logarithmic_plot:
+                plot_axes.set_ylim(10**-1)
 
-            if show_fit:
+            if plot_fit:
 
                 # SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() gives
                 # scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
@@ -604,10 +622,27 @@ class GainMeas(SiPMMeas):
                     for i in range(len(popt))
                 ]
 
+                aux_func = plot_axes.semilogy if logarithmic_plot else plot_axes.plot
+
                 for i in range(len(piecewise_xs)):
-                    plot_axes.plot(
-                        piecewise_xs[i], piecewise_ys[i], linestyle="--", color="black"
+                    aux_func(
+                        piecewise_xs[i],
+                        piecewise_ys[i],
+                        linestyle="--",
+                        color="black"
                     )
+
+            # Add some text giving the number
+            # of fitted peaks in the histogram
+            plot_axes.text(
+                .99,
+                .98,
+                f"{len(popt)} f. p.",
+                # Make the coordinates relative to the axes system
+                transform=plot_axes.transAxes,
+                verticalalignment='top',
+                horizontalalignment='right'
+            )
 
             plot_axes.set_xlabel(f"Charge (C)")
             plot_axes.set_ylabel(f"Hits")
@@ -630,10 +665,11 @@ class GainMeas(SiPMMeas):
         gain_fit_axes=None,
         errorbars_scaling=1.0,
         histogram_fit_axes=None,
+        logarithmic_plot=False,
         histogram_axes_title=None,
         gaussian_plot_npoints=100,
         plot_charge_range=None,
-        show_histogram_fit=True,
+        plot_histogram_fit=True,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -655,17 +691,22 @@ class GainMeas(SiPMMeas):
         peaks_to_detect detected peaks according to the iterator value for
         self.__charge_entries where they occur. Then if i belongs to
         peaks_to_fit, the i-th detected peak will be fit.
+        - bins_no (scalar integer): It must be positive (>0). It is eventually
+        given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
+        number of bins which are used to histogram the self.__charge_entries.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
-        which in turn, gives it to SiPMMeas.tune_peak_height(). Check its
+        which in turn, gives it to
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
         docstrings for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
-        which in turn, gives it to SiPMMeas.tune_peak_height(). Check its
+        which in turn, gives it to
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
         docstrings for more information.
         - minimal_prominence_wrt_max (scalar float): It must be semipositive
         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
@@ -691,8 +732,12 @@ class GainMeas(SiPMMeas):
         error bars of the gain-fit plot, are scaled by errorbars_scaling.
         - histogram_fit_axes (None or matplotlib.axes.Axes object): If it is
         not defined, then the histogram fit is not done. If it is defined,
-        then the fit histogram, together with the fit functions (gaussian
-        functions), are plotted in the given axes.
+        then the fit histogram is plotted in the given axes.
+        - logarithmic_plot (scalar boolean): It is given to the 'logarithmic_plot'
+        keyword argument of GainMeas.fit_peaks_histogram(). This parameter
+        only makes a difference if histogram_fit_axes is defined. In such
+        case, it means whether the plotted histogram, and potentially the
+        plotted gaussian fits, are in logarithmic scale or not.
         - histogram_axes_title (None or string): This parameter only makes
         a difference if histogram_fit_axes is defined. It is given to the
         'axes_title' keyword argument of GainMeas.fit_peaks_histogram(). It
@@ -705,9 +750,11 @@ class GainMeas(SiPMMeas):
         only makes a difference if histogram_fit_axes is suitably defined.
         In such case, it is given to self.fit_peaks_histogram(), which in
         turn gives it to plot_axes.set_xlim().
-        - show_histogram_fit (scalar boolean): This parameter only makes a
+        - plot_histogram_fit (scalar boolean): This parameter only makes a
         difference if histogram_fit_axes is defined. In such case, it means
-        whether to show the fit functions together with the plotted histogram.
+        whether to plot the fit functions together with the plotted histogram.
+        Note that, if plot_histogram_fit is True, then the fit plots are also
+        affected by the logarithmic_plot parameter.
 
         This method calls self.fit_peaks_histogram(), which fits a gaussian
         function to a subset of the peaks_to_detect highest peaks of the
@@ -734,10 +781,10 @@ class GainMeas(SiPMMeas):
             gain_popt[0] (resp. gain_popt[1]) matches the optimal slope (resp.
             intercept) resulting from the gain fit.
 
-            - gain_std: Standard deviations for the optimal parameters, as
+            - gain_stderr: Standard error of the estimated parameters, as
             computed by scipy.stats.linregress() under the assumption of
-            residual normality. gain_std[0] (resp. gain_std[1]) is the standard
-            deviation for the slope (resp. intercept).
+            residual normality. gain_stderr[0] (resp. gain_stderr[1]) is
+            the standard error for the slope (resp. intercept).
 
             - histogram_popt, histogramp_pcov: These lists match the output
             of self.fit_peaks_histogram(). histogram_popt[i] (resp.
@@ -792,65 +839,6 @@ class GainMeas(SiPMMeas):
                     )
             peaks_to_fit_ = peaks_to_fit
 
-        htype.check_type(
-            bins_no,
-            int,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 43213
-            ),
-        )
-        if bins_no < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 93774)
-            )
-        htype.check_type(
-            starting_fraction,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 91754
-            ),
-        )
-        if starting_fraction < 0.0 or starting_fraction > 1.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 61666)
-            )
-        htype.check_type(
-            step_fraction,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 65239
-            ),
-        )
-        if step_fraction <= 0.0 or step_fraction > 1.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 14122)
-            )
-        htype.check_type(
-            minimal_prominence_wrt_max,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 37989
-            ),
-        )
-        if minimal_prominence_wrt_max < 0.0 or minimal_prominence_wrt_max > 1.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 94651)
-            )
-        htype.check_type(
-            std_no,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 75002
-            ),
-        )
-        if std_no <= 0.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 75060)
-            )
         fPlotGainFit = False
         if gain_fit_axes is not None:
             htype.check_type(
@@ -869,50 +857,13 @@ class GainMeas(SiPMMeas):
                 "GainMeas.fit_gain", 12478
             ),
         )
-        # histogram_fit_axes is handled by GainMeas.fit_peaks_histogram()
-        # histogram_axes_title is handled by GainMeas.fit_peaks_histogram()
 
-        htype.check_type(
-            gaussian_plot_npoints,
-            int,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 21273
-            ),
-        )
-        if gaussian_plot_npoints < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.fit_gain", 14143)
-            )
-        if plot_charge_range is not None:
-            htype.check_type(
-                plot_charge_range,
-                list,
-                exception_message=htype.generate_exception_message(
-                    "GainMeas.fit_gain", 22406
-                ),
-            )
-            if len(plot_charge_range) != 2:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("GainMeas.fit_gain", 81945)
-                )
-            for element in plot_charge_range:
-                htype.check_type(
-                    element,
-                    float,
-                    np.float64,
-                    int,
-                    np.int64,
-                    exception_message=htype.generate_exception_message(
-                        "GainMeas.fit_gain", 20263
-                    ),
-                )
-        htype.check_type(
-            show_histogram_fit,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.fit_gain", 63251
-            ),
-        )
+        # bins_no, starting_fraction, step_fraction, minimal_prominence_wrt_max,
+        # std_no, histogram_fit_axes, logarithmic_plot, histogram_axes_title,
+        # gaussian_plot_npoints, plot_charge_range and plot_histogram_fit
+        # are handled to GainMeas.fit_peaks_histogram() and never used
+        # again in this method. Well-formedness checks of these parameters
+        # are done by GainMeas.fit_peaks_histogram().
 
         histogram_popt, histogram_pcov = self.fit_peaks_histogram(
             peaks_to_detect=peaks_to_detect,
@@ -923,10 +874,11 @@ class GainMeas(SiPMMeas):
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
             std_no=std_no,
             plot_axes=histogram_fit_axes,
+            logarithmic_plot=logarithmic_plot,
             axes_title=histogram_axes_title,
             gaussian_plot_npoints=gaussian_plot_npoints,
             plot_charge_range=plot_charge_range,
-            show_fit=show_histogram_fit,
+            plot_fit=plot_histogram_fit,
         )
 
         photoelectrons_no = (
@@ -945,7 +897,7 @@ class GainMeas(SiPMMeas):
 
         aux = spsta.linregress(photoelectrons_no, y=photoelectrons_charge)
         gain_popt = [aux.slope, aux.intercept]
-        gain_std = [aux.stderr, aux.intercept_stderr]
+        gain_stderr = [aux.stderr, aux.intercept_stderr]
 
         fit_function = lambda x: (gain_popt[0] * x) + gain_popt[1]
 
@@ -978,7 +930,7 @@ class GainMeas(SiPMMeas):
             gain_fit_axes.set_xlim([-0.5, photoelectrons_no[-1] + 0.5])
             gain_fit_axes.grid()
 
-        return gain_popt, gain_std, histogram_popt, histogram_pcov
+        return gain_popt, gain_stderr, histogram_popt, histogram_pcov
 
     @classmethod
     def from_json_file(cls, gainmeas_config_json):
@@ -996,14 +948,13 @@ class GainMeas(SiPMMeas):
         say RKD1, which concerns the GainMeas attributes, has the
         following potential keys:
 
-        "delivery_no", "set_no", "tray_no", "meas_no",
-        "strip_ID", "meas_ID", "date", "location", "operator",
-        "setup_ID", "system_characteristics", "thermal_cycle",
-        "elapsed_cryo_time_min", "electronic_board_number",
-        "electronic_board_location", "electronic_board_socket",
-        "sipm_location", "sampling_ns", "cover_type",
-        "operation_voltage_V", "overvoltage_V", "PDE",
-        "status", "LED_voltage_V", "LED_frequency_kHz",
+        "delivery_no", "set_no", "meas_no", "strip_ID", 
+        "meas_ID", "date", "location", "operator", "setup_ID",
+        "system_characteristics", "thermal_cycle",
+        "electronic_board_number", "electronic_board_location", 
+        "electronic_board_socket", "sipm_location", "sampling_ns", 
+        "cover_type", "operation_voltage_V", "overvoltage_V", 
+        "PDE", "status", "LED_voltage_V", "LED_frequency_kHz",
         "LED_pulse_shape", "LED_high_width_ns" and
         "wvfset_json_filepath".
 
@@ -1018,8 +969,8 @@ class GainMeas(SiPMMeas):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "separator", "timestamp_filepath",
-        "delta_t_wf", "set_name", "creation_dt_offset_min" and
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
+        "set_name", "creation_dt_offset_min" and
         "wvf_extra_info".
 
         Here, we do not expect a date because the date information
@@ -1056,7 +1007,6 @@ class GainMeas(SiPMMeas):
         pks1 = {
             "delivery_no": int,
             "set_no": int,
-            "tray_no": int,
             "meas_no": int,
             "strip_ID": int,
             "meas_ID": str,
@@ -1066,7 +1016,6 @@ class GainMeas(SiPMMeas):
             "setup_ID": str,
             "system_characteristics": str,
             "thermal_cycle": int,
-            "elapsed_cryo_time_min": float,
             "electronic_board_number": int,
             "electronic_board_location": str,
             "electronic_board_socket": int,
@@ -1090,7 +1039,6 @@ class GainMeas(SiPMMeas):
             "time_resolution": float,
             "points_per_wvf": int,
             "wvfs_to_read": int,
-            "separator": str,
             "timestamp_filepath": str,
             "delta_t_wf": float,
             "set_name": str,
@@ -1139,45 +1087,47 @@ class GainMeas(SiPMMeas):
 
         return cls(input_filepath, time_resolution, **RKD1, **RKD2)
 
+    # Overrides SiPMMeas.output_summary()
     def output_summary(
         self,
-        folderpath,
-        *args,
-        overwrite=False,
         additional_entries={},
+        folderpath=None,
+        include_analysis_results=True,
+        overwrite=False,
         indent=None,
         verbose=False,
-        **kwargs,
     ):
-        """This method gets the following positional argument:
-
-        - folderpath (string): Path which must point to an existing folder.
-        It is the folder where the output json file will be saved.
-        - args: Included so that this signature matches that of the
-        overrided method. It is not used, although it may be used in the
-        future.
-
+        """
         This method gets the following keyword arguments:
 
-        - overwrite (bool): This parameter only makes a difference if there
-        is already a file in the given folder path whose name matches
+        - additional_entries (dictionary): The output summary (a dictionary)
+        is updated with this dictionary, additional_entries, right before
+        being returned, or loaded to the output json file, up to the value
+        given to the 'folderpath' parameter. This update is done via the
+        'update' method of dictionaries. Hence, note that if any of the keys
+        within additional_entries.keys() already exists in the output
+        dictionary, it will be overwritten. Below, you can consult the keys
+        that will be part of the output dictionary by default.
+        - folderpath (string): If it is defined, it must be a path
+        which points to an existing folder, where an output json file
+        will be saved.
+        - include_analysis_results (bool): If this parameter is True, then 
+        the self.__charge_entries value is included in the output
+        dictionary under the key "charge_entries". If this parameter
+        is False, then this key is still included in the output dictionary,
+        but its value is set to float('nan').
+        - overwrite (bool): This parameter only makes a difference if
+        the 'folderpath' parameter is defined and if there is already
+        a file in the given folder path whose name matches
         f"G-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json".
-        If that is the case, and overwrite is False, then this method does
-        not generate any json file. In any other case, this method generates
-        a new json file with the previously specified name in the given
-        folder. In this case, overwriting may occur.
-        - additional_entries (dictionary): The output dictionary, i.e. the
-        dictionary which is loaded into the output json file, is updated
-        with this dictionary, additional_entries, right before being loaded
-        to the output json file. This update is done via the 'update' method
-        of dictionaries. Hence, note that if any of the keys within
-        additional_entries.keys() already exists in the output dictionary,
-        it will be overwritten. Below, you can consult the keys that will
-        be part of the output dictionary by default.
-        - indent (None, non-negative integer or string): This parameter controls
-        the indentation with which the json summary-file is generated. It is
-        passed to the 'indent' parameter of json.dump. If indent is None, then
-        the most compact representation is used. If indent is a non-negative
+        In such case, and if overwrite is True, then this method overwrites
+        such file with a new json file. In such case, and if overwrite is
+        False, then this method does not generate any json file.
+        - indent (None, non-negative integer or string): This parameter only
+        makes a difference if the 'folderpath' parameter is defined. It 
+        controls the indentation with which the json summary-file is generated.
+        It is passed to the 'indent' parameter of json.dump. If indent is None,
+        then the most compact representation is used. If indent is a non-negative
         integer, then one new line is added per each key-value pair, and indent
         is the number of spaces that are added at the very beginning of each
         new line. If indent is a string, then one new line is added per each
@@ -1185,17 +1135,15 @@ class GainMeas(SiPMMeas):
         beginning of each new line. P.e. if indent is a string (such as "\t"),
         each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
-        - kwargs: Included so that this signature matches that of the
-        overrided method. It is not used, although it may be used in the
-        future.
 
-        The goal of this method is to produce a summary of this GainMeas
-        object, in the form of a json file. This json file has as many fields
-        as objects of interest which should be summarized. These fields are:
+        The goal of this method is to produce a summary dictionary of this
+        GainMeas object. Additionally, this method can serialize this dictionary
+        to an output json file if the 'folderpath' parameter is defined. This
+        dictionary has as many fields as objects of interest which should be
+        summarized. For GainMeas objects, these fields are:
 
         - "delivery_no": Contains self.__delivery_no
         - "set_no": Contains self.__set_no
-        - "tray_no": Contains self.__tray_no
         - "meas_no": Contains self.__meas_no
         - "strip_ID": Contains self.StripID
         - "meas_ID": Contains self.MeasID
@@ -1205,7 +1153,6 @@ class GainMeas(SiPMMeas):
         - "setup_ID": Contains self.SetupID
         - "system_characteristics": Contains self.SystemCharacteristics
         - "thermal_cycle": Contains self.ThermalCycle
-        - "elapsed_cryo_time_min": Contains self.ElapsedCryoTimeMin
         - "electronic_board_number": Contains self.ElectronicBoardNumber
         - "electronic_board_location": Contains self.ElectronicBoardLocation
         - "electronic_board_socket": Contains self.ElectronicBoardSocket
@@ -1219,12 +1166,14 @@ class GainMeas(SiPMMeas):
         - "N_events": Contains self.NEvents
         - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
+        - "acquisition_time_min": Contains self.AcquisitionTime_min,
 
         - "LED_voltage_V": Contains self.__LED_voltage_V,
         - "LED_frequency_kHz": Contains self.__LED_frequency_kHz,
         - "LED_pulse_shape": Contains self.__LED_pulse_shape,
         - "LED_high_width_ns": Contains self.__LED_high_width_ns,
-        - "charge_entries": Contains self.__charge_entries
+        - "charge_entries": Contains self.__charge_entries if
+        include_analysis_results and float('nan') otherwise
 
         Note that the output does not contain the gain of this GainMeas. To do
         so, we could allow the use of kwargs and pass them onto GainMeas.fit_gain().
@@ -1235,35 +1184,13 @@ class GainMeas(SiPMMeas):
         it can be computed externally and passed to the 'additional_entries'
         parameter.
 
-        The summary json file is saved within the given folder, up to folderpath.
-        Its name matches the following formatted string:
+        This method returns a summary dictionary of the GainMeas object.
+        If a folder path is given, then the output dictionary is additionally
+        serialized to a json file in the specified folder. The file name
+        matches the following formatted string:
 
         f"G-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
         """
-
-        htype.check_type(
-            folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.output_summary", 12434
-            ),
-        )
-
-        if not os.path.exists(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.output_summary", 80820)
-            )
-        elif not os.path.isdir(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("GainMeas.output_summary", 79249)
-            )
-        htype.check_type(
-            overwrite,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "GainMeas.output_summary", 86240
-            ),
-        )
 
         htype.check_type(
             additional_entries,
@@ -1273,98 +1200,68 @@ class GainMeas(SiPMMeas):
             ),
         )
 
-        if indent is not None:
-
-            htype.check_type(
-                indent,
-                int,
-                np.int64,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "GainMeas.output_summary", 12557
-                ),
-            )
-
-            if isinstance(indent, int) or isinstance(indent, np.int64):
-                if indent < 0:
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "GainMeas.output_summary", 56299
-                        )
-                    )
-
         htype.check_type(
-            verbose,
+            include_analysis_results,
             bool,
             exception_message=htype.generate_exception_message(
-                "GainMeas.output_summary", 88321
+                "GainMeas.output_summary", 60135
             ),
         )
 
-        output_filename = f"G-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
-        output_filepath = os.path.join(folderpath, output_filename)
+        # The only parameters we are checking are additional_entries
+        # and include_analysis_results, because we are making use of
+        # them in the body of this function. The rest of them are
+        # only used by the overriden base class, so they are type-
+        # and well-formedness- checked there.
 
-        if os.path.exists(output_filepath):
-            # No need to assemble the ouptut dictionary if the output
-            # filepath already exists and we are not allowed to overwrite it
-            if not overwrite:
-                if verbose:
-                    print(
-                        f"In function GainMeas.output_summary(): {output_filepath} already exists. It won't be overwritten."
-                    )
-                return
-            else:
-                if verbose:
-                    print(
-                        f"In function GainMeas.output_summary(): {output_filepath} already exists. It will be overwritten."
-                    )
-
-        output = {
-            "delivery_no": self.DeliveryNo,
-            "set_no": self.SetNo,
-            "tray_no": self.TrayNo,
-            "meas_no": self.MeasNo,
-            "strip_ID": self.StripID,
-            "meas_ID": self.MeasID,
-            # Object of type datetime is not
-            # JSON serializable, but strings are
-            "date": self.Date.strftime("%Y-%m-%d %H:%M:%S"),
-            "location": self.Location,
-            "operator": self.Operator,
-            "setup_ID": self.SetupID,
-            "system_characteristics": self.SystemCharacteristics,
-            "thermal_cycle": self.ThermalCycle,
-            "elapsed_cryo_time_min": self.ElapsedCryoTimeMin,
-            "electronic_board_number": self.ElectronicBoardNumber,
-            "electronic_board_location": self.ElectronicBoardLocation,
-            "electronic_board_socket": self.ElectronicBoardSocket,
-            "sipm_location": self.SiPMLocation,
-            "sampling_ns": self.Sampling_ns,
-            "waveform_window_mus": self.WaveformWindow_mus,
-            "cover_type": self.CoverType,
-            "operation_voltage_V": self.OperationVoltage_V,
-            "overvoltage_V": self.Overvoltage_V,
-            "PDE": self.PDE,
-            "N_events": self.NEvents,
-            "signal_unit": self.SignalUnit,
-            "status": self.Status,
+        gainmeas_additional_output = {
             "LED_voltage_V": self.__LED_voltage_V,
             "LED_frequency_kHz": self.__LED_frequency_kHz,
             "LED_pulse_shape": self.__LED_pulse_shape,
-            "LED_high_width_ns": self.__LED_high_width_ns,
-            # Object of type numpy.ndarray is not
-            # JSON serializable, but lists are
-            "charge_entries": list(self.__charge_entries),
+            "LED_high_width_ns": self.__LED_high_width_ns
         }
 
-        output.update(additional_entries)
+        if include_analysis_results:
+            analysis_results = {
+                # Object of type numpy.ndarray is not
+                # JSON serializable, but lists are
+                "charge_entries": list(self.__charge_entries)
+            }
+        else:
+            analysis_results = {
+                "charge_entries": float('nan')
+            }
 
-        with open(output_filepath, "w") as file:
-            json.dump(output, file, indent=indent)
+        gainmeas_additional_output.update(analysis_results)
+        gainmeas_additional_output.update(additional_entries)
 
-        if verbose:
-            print(
-                f"In function GainMeas.output_summary(): The output file has been written to {output_filepath}."
-            )
+        return super().output_summary(
+            additional_entries=gainmeas_additional_output,
+            folderpath=folderpath,
+            filename=f"G-{self.StripID}-{self.SiPMLocation}-"
+            f"{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-"
+            f"{self.Date.strftime('%Y-%m-%d')}.json",
+            overwrite=overwrite,
+            indent=indent,
+            verbose=verbose
+        )
+    
+    # Overrides SiPMMeas.get_title(), simply because this
+    # implementation includes information about the 
+    # overvoltage, which is a more relevant parameter in
+    # the case of gain measurements
+    def get_title(
+            self,
+            abbreviate: bool = False
+        ):
+        """This method gets the following keyword argument:
 
-        return
+        - abbreviate (bool): If it is True (resp. False), then
+        the output string is abbreviated (resp. not abbreviated).
+
+        This method returns an string which could serve as a title
+        for this SiPMMeas object. Such title contains information
+        on the ElectronicBoardSocket, StripID, SiPMLocation,
+        ThermalCycle and Date attributes of this SiPMMeas object."""
+
+        return super().get_title(abbreviate=abbreviate) + f", OV {round(10.*self.Overvoltage_V)} dV"

@@ -16,8 +16,7 @@ class Waveform:
         t_step=None,
         time=None,
         infer_t0=False,
-        signs=None,
-        signal_fraction_for_median_cutoff=0.2,
+        signs=None
     ):
         """This class aims to model a certain waveform (a curve in a 2D plane) as a function
         of the time. In practice, waveforms start at t=0. To recover its time position with
@@ -93,11 +92,6 @@ class Waveform:
                                             detected peak. (stackable)
 
         For more information on this parameter and the setting process, see Signs.setter docstring.
-        - signal_fraction_for_median_cutoff (scalar float): It must belong to the interval [0.0, 1.0].
-        This value represents the fraction of the signal which is used to compute the baseline.
-        P.e. 0.2 means that only the first 20% (in time) of the signal is used to compute the
-        baseline. For more information on this parameter, check the
-        Waveform.compute_first_peak_baseline() method docstring.
         """
 
         htype.check_type(
@@ -105,31 +99,31 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10001
+                "Waveform.__init__", 1
             ),
         )
         htype.check_type(
             signal,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10002
+                "Waveform.__init__", 2
             ),
         )
         if np.ndim(signal) != 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.__init__", 10003)
+                htype.generate_exception_message("Waveform.__init__", 3)
             )
         htype.check_type(
             signal[0],
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10004
+                "Waveform.__init__", 4
             ),
         )
 
         if t_step is None and time is None:
             raise cuex.InsufficientParameters(
-                htype.generate_exception_message("Waveform.__init__", 10005)
+                htype.generate_exception_message("Waveform.__init__", 5)
             )
         elif t_step is not None:
             # If both, time and t_step are defined, t_step configuration is used by default
@@ -138,12 +132,12 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10006
+                    "Waveform.__init__", 6
                 ),
             )
             if t_step <= 0.0:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 10007)
+                    htype.generate_exception_message("Waveform.__init__", 7)
                 )
             fUseTStep = True
         else:
@@ -152,23 +146,23 @@ class Waveform:
                 time,
                 np.ndarray,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10008
+                    "Waveform.__init__", 8
                 ),
             )
             if np.ndim(time) != 1:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 10009)
+                    htype.generate_exception_message("Waveform.__init__", 9)
                 )
             htype.check_type(
                 time[0],
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10010
+                    "Waveform.__init__", 10
                 ),
             )
             if np.shape(time) != np.shape(signal):
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 10011)
+                    htype.generate_exception_message("Waveform.__init__", 11)
                 )
             fUseTStep = False
 
@@ -177,7 +171,7 @@ class Waveform:
                 infer_t0,
                 bool,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10012
+                    "Waveform.__init__", 12
                 ),
             )
 
@@ -191,7 +185,7 @@ class Waveform:
                 signs,
                 dict,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10013
+                    "Waveform.__init__", 13
                 ),
             )
             for key in signs.keys():
@@ -202,22 +196,6 @@ class Waveform:
                 # setter from the initializer, we can set overwrite to True
                 # without worrying abour overwritting previous information.
                 self.Signs = (key, signs[key], True)  # (key, value, overwrite)
-
-        htype.check_type(
-            signal_fraction_for_median_cutoff,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 10014
-            ),
-        )
-        if (
-            signal_fraction_for_median_cutoff < 0.0
-            or signal_fraction_for_median_cutoff > 1.0
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.__init__", 10015)
-            )
 
         self.__npoints = np.shape(signal)[0]
 
@@ -240,11 +218,6 @@ class Waveform:
         # This attribute is not computed by default.
         # It is only computed by self.integrate().
         self.__integral = None
-
-        # Compute baseline by default
-        self.compute_first_peak_baseline(
-            signal_fraction_for_median_cutoff=signal_fraction_for_median_cutoff
-        )
         return
 
     # Class variables
@@ -323,7 +296,7 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.compute_first_peak_baseline", 20001
+                "Waveform.compute_first_peak_baseline", 1
             ),
         )
         if (
@@ -332,7 +305,7 @@ class Waveform:
         ):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.compute_first_peak_baseline", 20002
+                    "Waveform.compute_first_peak_baseline", 2
                 )
             )
         cutoff_idx = round(signal_fraction_for_median_cutoff * len(self.__signal))
@@ -348,7 +321,7 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "Waveform.compute_first_peak_baseline",
-                    20003,
+                    3,
                     extra_info=f"The {signal_fraction_for_median_cutoff} initial fraction of the signal is either infinite or undefined. A baseline cannot be computed.",
                 )
             )
@@ -366,12 +339,12 @@ class Waveform:
         htype.check_type(
             plot_peaks,
             bool,
-            exception_message=htype.generate_exception_message("Waveform.plot", 30001),
+            exception_message=htype.generate_exception_message("Waveform.plot", 1),
         )
         htype.check_type(
             x0,
             list,
-            exception_message=htype.generate_exception_message("Waveform.plot", 30002),
+            exception_message=htype.generate_exception_message("Waveform.plot", 2),
         )
         for elem in x0:
             htype.check_type(
@@ -379,13 +352,13 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.plot", 30003
+                    "Waveform.plot", 3
                 ),
             )
         htype.check_type(
             y0,
             list,
-            exception_message=htype.generate_exception_message("Waveform.plot", 30004),
+            exception_message=htype.generate_exception_message("Waveform.plot", 4),
         )
         for elem in y0:
             htype.check_type(
@@ -393,7 +366,7 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.plot", 30005
+                    "Waveform.plot", 5
                 ),
             )
         # ax.set_title('Temporary title')
@@ -442,11 +415,49 @@ class Waveform:
             )
         if plot_peaks:
             if "peaks_pos" in self.__signs.keys():
-                for x in self.__signs["peaks_pos"]:
-                    ax.axvline(x=x, linestyle=":", linewidth=0.5, color="black")
-            if "peaks_top" in self.__signs.keys():
-                for y in self.__signs["peaks_top"]:
-                    ax.axhline(y=y, linestyle=":", linewidth=0.5, color="black")
+
+                # If computing this amplitude at this level (plotting a single 
+                # waveform) becomes an efficiency issue at some point, we can change
+                # the way of computing the marker position for a less fancy one.
+                aux_amplitude = np.max(self.__signal)-np.min(self.__signal)
+
+                # Add some text giving the number
+                # of spotted peaks in this waveform
+                ax.text(
+                    .99,
+                    .98,
+                    f"{len(self.__signs["peaks_pos"])} p.",
+                    # Make the coordinates relative to the axes system
+                    transform=ax.transAxes,
+                    verticalalignment='top',
+                    horizontalalignment='right',
+                    color='black'
+                    if len(self.__signs["peaks_pos"]) == 1
+                    else 'red'
+                )
+
+                # Assuming that peaks_pos and peaks_top have the same length
+                for i in range(len(self.__signs["peaks_pos"])):
+
+                    ax.plot(
+                        self.__signs["peaks_pos"][i],
+                        self.__signs["peaks_top"][i] + (0.15 * aux_amplitude),
+                        marker='v',
+                        color='red',
+                        markersize=5
+                    )
+                    ax.axvline(
+                        x=self.__signs["peaks_pos"][i],
+                        linestyle=":",
+                        linewidth=0.5,
+                        color="black"
+                    )
+                    ax.axhline(
+                        y=self.__signs["peaks_top"][i],
+                        linestyle=":",
+                        linewidth=0.5,
+                        color="black"
+                    )
         for x in x0:
             ax.axvline(x=x, linestyle="-", linewidth=0.5, color="green")
         for y in y0:
@@ -546,26 +557,26 @@ class Waveform:
             tuple,
             list,
             exception_message=htype.generate_exception_message(
-                "Waveform.Signs.setter", 40001
+                "Waveform.Signs.setter", 1
             ),
         )
         if len(pack) != 3:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.Signs.setter", 40002)
+                htype.generate_exception_message("Waveform.Signs.setter", 2)
             )
         key, value, overwrite = pack  # Unpack the arguments
         htype.check_type(
             value,
             list,
             exception_message=htype.generate_exception_message(
-                "Waveform.Signs.setter", 40003
+                "Waveform.Signs.setter", 3
             ),
         )
         htype.check_type(
             overwrite,
             bool,
             exception_message=htype.generate_exception_message(
-                "Waveform.Signs.setter", 40004
+                "Waveform.Signs.setter", 4
             ),
         )
 
@@ -577,7 +588,7 @@ class Waveform:
                     element,
                     str,
                     exception_message=htype.generate_exception_message(
-                        "Waveform.Signs.setter", 40005
+                        "Waveform.Signs.setter", 5
                     ),
                 )
             fIsStackable = False
@@ -593,7 +604,7 @@ class Waveform:
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "Waveform.Signs.setter", 40006
+                        "Waveform.Signs.setter", 6
                     ),
                 )
             fIsStackable = False
@@ -604,7 +615,7 @@ class Waveform:
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "Waveform.Signs.setter", 40007
+                        "Waveform.Signs.setter", 7
                     ),
                 )
             fIsStackable = True
@@ -615,7 +626,7 @@ class Waveform:
 
         if not fIsStackable and len(value) != 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.Signs.setter", 40008)
+                htype.generate_exception_message("Waveform.Signs.setter", 8)
             )
         if not overwrite and not fIsStackable:
             if key in self.Signs.keys():
@@ -630,7 +641,9 @@ class Waveform:
 
     def integrate(self, integration_lower_lim=None, integration_upper_lim=None):
         """This method integrates the signal of this Waveform object minus its
-        baseline, which is considered to match self.__signs['first_peak_baseline].
+        baseline, which is considered to match self.__signs['first_peak_baseline'].
+        I.e. the waveform baseline must have been computed before calling this
+        method, p.e. by calling the Waveform.compute_first_peak_baseline() method.
         The integral is performed using the trapezoid method, and the resulting
         integral is loaded into the self.__integral attribute. The trapezoid
         integration is performed by numpy.trapz. This method gets the following
@@ -669,20 +682,28 @@ class Waveform:
         self.Signs = ("integration_ll", [self.__time[i_low]], True)
         self.Signs = ("integration_ul", [self.__time[i_up]], True)
 
-        self.__integral = np.trapz(
-            self.__signal[i_low : i_up + 1] - self.Signs["first_peak_baseline"],
-            x=self.__time[i_low : i_up + 1],
-        )
+        try:
+            self.__integral = np.trapz(
+                self.__signal[i_low : i_up + 1] - self.Signs["first_peak_baseline"],
+                x=self.__time[i_low : i_up + 1],
+            )
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "Waveform.integrate",
+                    1,
+                    extra_info="The baseline of the first peak must "
+                    "have been computed before calling this method.",
+                )
+            )
+
         return self.__integral
 
     def find_beginning_of_rise(self, tolerance=0.05, return_iterator=True):
-        """This method gets the following positional argument:
+        """This method gets the following keyword argument:
 
         - tolerance (scalar float): It must be positive (>0.0) and
         smaller than 1 (<1.0).
-
-        This method gets the following keyword argument:
-
         - return_iterator (scalar boolean): If True, this method
         returns the iterator value, say idx, where the rise begins.
         If False, this method returns self.__time[idx].
@@ -708,6 +729,9 @@ class Waveform:
         first point in self.__signal which exceeds
         self.__signs['first_peak_baseline'][0] + ...
         + tolerance*(signal_maximum-self.__signs['first_peak_baseline'][0]).
+        Note that the waveform baseline must have been computed
+        before calling this method, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method.
 
         As a matter of fact, the result of this method is only
         well-defined for well-defined waveforms, meaning those
@@ -720,20 +744,20 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.find_beginning_of_rise", 50001
+                "Waveform.find_beginning_of_rise", 1
             ),
         )
         if tolerance <= 0.0 or tolerance >= 1.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.find_beginning_of_rise", 50002
+                    "Waveform.find_beginning_of_rise", 2
                 )
             )
         htype.check_type(
             return_iterator,
             bool,
             exception_message=htype.generate_exception_message(
-                "Waveform.find_beginning_of_rise", 50003
+                "Waveform.find_beginning_of_rise", 3
             ),
         )
 
@@ -741,7 +765,17 @@ class Waveform:
             Waveform.filter_infs_and_nans(self.__signal, get_mask=False)
         )
 
-        aux = signal_maximum - self.__signs["first_peak_baseline"][0]
+        try:
+            aux = signal_maximum - self.__signs["first_peak_baseline"][0]
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "Waveform.find_beginning_of_rise",
+                    4,
+                    extra_info="The baseline of the first peak must "
+                    "have been computed before calling this method.",
+                )
+            )
 
         # This is a cross-check. Up to the computation of
         # first_peak_baseline, aux should be positive.
@@ -752,10 +786,13 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "Waveform.find_beginning_of_rise",
-                    50004,
+                    5,
                     extra_info="This waveform is too ill-formed. Trying to find the rise index of its first peak makes no sense.",
                 )
             )
+        
+        # If the code execution made it to this point, then
+        # self.__signs["first_peak_baseline"][0] is defined
         threshold = self.__signs["first_peak_baseline"][0] + (tolerance * aux)
 
         result_iterator = -2
@@ -783,8 +820,8 @@ class Waveform:
             # something is not working as expected.
             raise cuex.MalFunction(
                 htype.generate_exception_message(
-                    "Waveform.find_rise_idx",
-                    50005,
+                    "Waveform.find_beginning_of_rise",
+                    6,
                     extra_info="Something is not working as expected.",
                 )
             )
@@ -835,20 +872,20 @@ class Waveform:
             timearray,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "Waveform.adjust_integration_limits", 60001
+                "Waveform.adjust_integration_limits", 1
             ),
         )
         if np.ndim(timearray) != 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60002
+                    "Waveform.adjust_integration_limits", 2
                 )
             )
         htype.check_type(
             timearray[0],
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.adjust_integration_limits", 60003
+                "Waveform.adjust_integration_limits", 3
             ),
         )
         # This condition is met if the array is not sorted
@@ -857,7 +894,7 @@ class Waveform:
         ):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60004
+                    "Waveform.adjust_integration_limits", 4
                 )
             )
 
@@ -867,7 +904,7 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60005
+                    "Waveform.adjust_integration_limits", 5
                 ),
             )
             ill_candidate_ = Waveform.force_to_range(
@@ -883,7 +920,7 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.adjust_integration_limits", 60006
+                    "Waveform.adjust_integration_limits", 6
                 ),
             )
             iul_candidate_ = Waveform.force_to_range(
@@ -938,7 +975,7 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.force_to_range", 70001
+                "Waveform.force_to_range", 1
             ),
         )
         htype.check_type(
@@ -947,7 +984,7 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.force_to_range", 70002
+                "Waveform.force_to_range", 2
             ),
         )
         htype.check_type(
@@ -956,12 +993,12 @@ class Waveform:
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "Waveform.force_to_range", 70003
+                "Waveform.force_to_range", 3
             ),
         )
         if min > max:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.force_to_range", 70004)
+                htype.generate_exception_message("Waveform.force_to_range", 4)
             )
         if x < min:
             return float(min)
@@ -993,22 +1030,22 @@ class Waveform:
             input,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "Waveform.filter_infs_and_nans", 80001
+                "Waveform.filter_infs_and_nans", 1
             ),
         )
         if np.ndim(input) != 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.filter_infs_and_nans", 80002)
+                htype.generate_exception_message("Waveform.filter_infs_and_nans", 2)
             )
         if input.dtype != np.float64:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("Waveform.filter_infs_and_nans", 80003)
+                htype.generate_exception_message("Waveform.filter_infs_and_nans", 3)
             )
         htype.check_type(
             get_mask,
             bool,
             exception_message=htype.generate_exception_message(
-                "Waveform.filter_infs_and_nans", 80004
+                "Waveform.filter_infs_and_nans", 4
             ),
         )
 
@@ -1021,3 +1058,134 @@ class Waveform:
             return input[mask]
         else:
             return input[mask], mask
+        
+    # Despite not following the same conventions as the rest of the class,
+    # for the methods written below this point I am using the typing module
+    # and not calling the htype.check_type(). The reason for this is that
+    # at some point I plan to deprecate htype.check_type() and replace it
+    # with the usage of the typing module. This will make the code more
+    # efficient, standard and readable.
+    @staticmethod
+    def rebin_array(
+            samples: np.ndarray, 
+            group: int,
+            verbose: bool = False
+        ) -> np.ndarray:
+        """This function gets the following positional arguments:
+
+        - samples (unidimensional numpy array): The array to re-bin.
+        The type of its entries must be so that the np.mean() operation
+        is well-defined.
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of samples. The second condition grants that
+        there is at least two entries in the output array.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function returns an unidimensional numpy array which is
+        computed as follows. To start with, the input array samples is
+        trimmed until its length is divisible by 'group'. The division,
+        say n = len(trimmed_samples) / group, matches the number of
+        entries in the output (re-binned) array. Adjacent entries of
+        the trimmed array are grouped up into sets of 'group' entries.
+        The i-th entry of the output (re-binned) array is computed as
+        the mean of the entries in the i-th group of the trimmed array."""
+
+        if samples.ndim != 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    'Waveform.rebin()',
+                    92989,
+                    extra_info="The given array must have one dimension, "
+                    "but an array with a number of dimensions equal to "
+                    f"{samples.ndim} was given."
+                )
+            )
+
+        # Make sure that there is at least
+        # 2 points in the resulting array
+        if group < 1 or group > len(samples) / 2.:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    'Waveform.rebin()',
+                    21628,
+                    extra_info=f"The given 'group' ({group}) must be positive "
+                    "and smaller or equal to half of the length of the given "
+                    f"array (<= {len(samples) / 2.}). The second condition is "
+                    "required to make sure that there is at least two "
+                    "points in the output arrays."
+                )
+            )
+            
+        trimmed_length = len(samples)
+        fTrimmed = False
+        while trimmed_length % group != 0:
+            trimmed_length -= 1
+            fTrimmed = True
+
+        if fTrimmed:
+            if verbose: 
+                print(
+                    f"In function Waveform.rebin(): The last "
+                    f"{len(samples) - trimmed_length} points were trimmed in "
+                    f"order to rebin the input array into groups of {group} "
+                    "entries."
+                )
+
+            samples_ = samples[:trimmed_length]
+        else:
+            samples_ = samples
+
+        return np.mean(
+            samples_.reshape(
+                -1,
+                group
+            ),
+            axis=1
+        )
+    
+    def rebin(
+            self,
+            group: int,
+            verbose: bool = False
+        ) -> None:
+        """This function gets the following positional arguments:
+
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of this waveform, i.e. len(self.__signal) / 2.
+        The second condition grants that there is at least two entries
+        in the resulting Waveform.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function rebins this Waveform object, by calling the static
+        method Waveform.rebin_array() two times. First using the attribute
+        self.__signal as its first argument, and then using the attribute
+        self.__time as its first argument. The second argument of both
+        calls is the group parameter. The resulting arrays are stored
+        back into self.__signal and self.__time, respectively. For more
+        information on the rebinning process, check the documentation of
+        Waveform.rebin_array().
+
+        Note that this function affects the following attributes of self:
+        self.__npoints, self.__signal and self.__time. Also, contrary to
+        what one could think, this function does not affect self.__integral
+        nor self.__signs. P.e. one could think that the integration limits
+        or the peaks positions stored in self.__signs are iterator values
+        referred to self.__time, i.e. referred to the previous binning.
+        However, they typically are (or they should be) time values, not
+        iterator values. Therefore, they are well-defined even after
+        the rebinning."""
+
+        # Well-formedness checks are handled by Waveform.rebin_array()
+        self.__time = Waveform.rebin_array(
+            self.__time,
+            group,
+            verbose
+        )
+        self.__signal = Waveform.rebin_array(
+            self.__signal,
+            group,
+            verbose
+        )
+        self.__npoints = len(self.__time)
+
+        return

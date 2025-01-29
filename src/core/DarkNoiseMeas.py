@@ -19,7 +19,6 @@ class DarkNoiseMeas(SiPMMeas):
         *args,
         delivery_no=None,
         set_no=None,
-        tray_no=None,
         meas_no=None,
         strip_ID=None,
         meas_ID=None,
@@ -29,7 +28,6 @@ class DarkNoiseMeas(SiPMMeas):
         setup_ID=None,
         system_characteristics=None,
         thermal_cycle=None,
-        elapsed_cryo_time_min=None,
         electronic_board_number=None,
         electronic_board_location=None,
         electronic_board_socket=None,
@@ -40,7 +38,6 @@ class DarkNoiseMeas(SiPMMeas):
         overvoltage_V=None,
         PDE=None,
         status=None,
-        acquisition_time_min=None,
         threshold_mV=None,
         **kwargs,
     ):
@@ -64,11 +61,8 @@ class DarkNoiseMeas(SiPMMeas):
         - set_no (semipositive integer): Integer which identifies the set where the measured
         SiPM was included. For DUNE's particular case, this number identifies the internal
         delivery which we receive from another DUNE institution.
-        - tray_no (semipositive integer): Integer which identifies the tray where the measured
-        SiPM was included. For DUNE's particular case, this number identifies the 20-strips box
-        where the measured SiPM was included.
         - meas_no (semipositive integer): Integer which identifies the measurement within the
-        tray where the measured SiPM was included.
+        set where the measured SiPM was included.
         - strip_ID (int): Integer which identifies the SiPM strip which hosts the measured SiPM.
         - meas_ID (string): String which identifies this measurement.
         - date (string): Date of the measurement. This string must follow the following format:
@@ -79,8 +73,6 @@ class DarkNoiseMeas(SiPMMeas):
         - system_characteristics (string): Any extra information on the setup for this measurement.
         - thermal_cycle (semipositive integer): ¿How many thermal cycles have this SiPM undergone
         by the end of this measurement?
-        - elapsed_cryo_time_min (semipositive float): Elapsed time, in minutes, in cryogenic
-        conditions for this SiPM (in the current cryogenic bath) when this measurement started.
         - electronic_board_number (semipositive integer): Number which identifies the electronic
         board where the flex board was mounted on.
         - electronic_board_location (string): String which identifies the location of the used
@@ -102,10 +94,9 @@ class DarkNoiseMeas(SiPMMeas):
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
-        - acquisition_time_min (semipositive float): Time duration of the dark noise measurement.
         - threshold_mV (float): Trigger threshold which was used for acquiring the waveforms.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
-        are points_per_wvf (int), wvfs_to_read (int), separator (string), timestamp_filepath (string),
+        are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
         wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
@@ -118,22 +109,6 @@ class DarkNoiseMeas(SiPMMeas):
         not available. Thus, when requesting any attribute of this class via a getter, one should be
         prepared to handle a None value and interpret it as the unavailability of such data.
         """
-
-        self.__acquisition_time_min = None
-        if acquisition_time_min is not None:
-            htype.check_type(
-                acquisition_time_min,
-                float,
-                np.float64,
-                exception_message=htype.generate_exception_message(
-                    "DarkNoiseMeas.__init__", 58815
-                ),
-            )
-            if acquisition_time_min < 0.0:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("DarkNoiseMeas.__init__", 77855)
-                )
-            self.__acquisition_time_min = acquisition_time_min
 
         self.__threshold_mV = None
         if threshold_mV is not None:
@@ -184,11 +159,13 @@ class DarkNoiseMeas(SiPMMeas):
         self.__half_a_pe = None
         self.__one_and_a_half_pe = None
 
+        # N.B.: acquisition_time_min does not appear in
+        # this list because it comes from the WaveformSet
+        # core data. It is computed by WaveformSet.from_files().
         super().__init__(
             *args,
             delivery_no=delivery_no,
             set_no=set_no,
-            tray_no=tray_no,
             meas_no=meas_no,
             strip_ID=strip_ID,
             meas_ID=meas_ID,
@@ -198,7 +175,6 @@ class DarkNoiseMeas(SiPMMeas):
             setup_ID=setup_ID,
             system_characteristics=system_characteristics,
             thermal_cycle=thermal_cycle,
-            elapsed_cryo_time_min=elapsed_cryo_time_min,
             electronic_board_number=electronic_board_number,
             electronic_board_location=electronic_board_location,
             electronic_board_socket=electronic_board_socket,
@@ -211,10 +187,6 @@ class DarkNoiseMeas(SiPMMeas):
             status=status,
             **kwargs,
         )
-
-    @property
-    def AcquisitionTime_min(self):
-        return self.__acquisition_time_min
 
     @property
     def Threshold_mV(self):
@@ -391,9 +363,21 @@ class DarkNoiseMeas(SiPMMeas):
             aux_t += self.Waveforms[ordering_wvfs_idx[i]].T0
             times += list(aux_t)
 
-            aux_baseline = self.Waveforms[ordering_wvfs_idx[i]].Signs[
-                "first_peak_baseline"
-            ][0]
+            try:
+                aux_baseline = self.Waveforms[ordering_wvfs_idx[i]].Signs[
+                    "first_peak_baseline"
+                ][0]
+            except KeyError:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas.construct_absolute_time_peaks_map",
+                        72248,
+                        extra_info="The baseline of the first peak of the "
+                        f"{ordering_wvfs_idx[i]}-th waveform must have been "
+                        "computed before calling this method."
+                    )
+                )
+
             aux_a = [
                 self.Waveforms[ordering_wvfs_idx[i]].Signs["peaks_top"][j]
                 - aux_baseline
@@ -464,7 +448,6 @@ class DarkNoiseMeas(SiPMMeas):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
-        minimal_width_in_samples=0,
         std_no=3.0,
         timedelay_cut=0.0,
     ):
@@ -508,12 +491,6 @@ class DarkNoiseMeas(SiPMMeas):
          considered peaks are those whose prominence is bigger or equal to a
          fraction of the histogram maximum. For more information check the
          SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
-         - minimal_width_in_samples (scalar integer): It must be a semipositive
-         (>=0) integer. It is understood as the required width of a peak (in
-         samples), for it to be detected as a peak. It is given to the
-         'minimal_width_in_samples' keyword argument of
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). For more
-         information, check its docstring.
          - std_no (scalar float): It must be positive (>0.0). This parameter is
          given to the std_no keyword argument of the static method
          SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
@@ -603,20 +580,6 @@ class DarkNoiseMeas(SiPMMeas):
                 )
             )
         htype.check_type(
-            minimal_width_in_samples,
-            int,
-            np.int64,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.compute_amplitude_levels", 15669
-            ),
-        )
-        if minimal_width_in_samples < 0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DarkNoiseMeas.compute_amplitude_levels", 43512
-                )
-            )
-        htype.check_type(
             std_no,
             float,
             np.float64,
@@ -645,7 +608,7 @@ class DarkNoiseMeas(SiPMMeas):
         )
 
         if len(samples) == 0:
-            raise cuex.NoAvailableData(
+            raise cuex.RestrictiveTimedelay(
                 htype.generate_exception_message(
                     "DarkNoiseMeas.compute_amplitude_levels",
                     47289,
@@ -663,9 +626,7 @@ class DarkNoiseMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            minimal_width_in_samples=minimal_width_in_samples,
-            std_no=std_no,
-            fit_to_density=True,
+            std_no=std_no
         )
 
         # Assess which fit matches which peak
@@ -692,7 +653,7 @@ class DarkNoiseMeas(SiPMMeas):
         if self.__amplitude is None:
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
-                    "DarkNoiseMeas.get_dark_counts_number", 84301
+                    "DarkNoiseMeas.get_dark_counts_number", 84302
                 )
             )
 
@@ -1049,15 +1010,13 @@ class DarkNoiseMeas(SiPMMeas):
         say RKD1, which concerns the DarkNoiseMeas attributes, has the
         following potential keys:
 
-        "delivery_no", "set_no", "tray_no", "meas_no",
-        "strip_ID", "meas_ID", "date", "location", "operator",
-        "setup_ID", "system_characteristics", "thermal_cycle",
-        "elapsed_cryo_time_min", "electronic_board_number",
-        "electronic_board_location", "electronic_board_socket",
-        "sipm_location", "sampling_ns", "cover_type",
-        "operation_voltage_V", "overvoltage_V", "PDE",
-        "status", "acquisition_time_min", "threshold_mV" and
-        "wvfset_json_filepath".
+        "delivery_no", "set_no", "meas_no", "strip_ID",
+        "meas_ID", "date", "location", "operator", "setup_ID",
+        "system_characteristics", "thermal_cycle",
+        "electronic_board_number", "electronic_board_location", 
+        "electronic_board_socket", "sipm_location", "sampling_ns", 
+        "cover_type", "operation_voltage_V", "overvoltage_V", 
+        "PDE", "status", "threshold_mV" and "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it's is not meant to be
         read from darknoisemeas_config_json. The value for
@@ -1070,8 +1029,8 @@ class DarkNoiseMeas(SiPMMeas):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "separator", "timestamp_filepath",
-        "delta_t_wf", "set_name", "creation_dt_offset_min" and
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
+        "set_name", "creation_dt_offset_min" and
         "wvf_extra_info".
 
         Here, we do not expect a date because the date information
@@ -1108,7 +1067,6 @@ class DarkNoiseMeas(SiPMMeas):
         pks1 = {
             "delivery_no": int,
             "set_no": int,
-            "tray_no": int,
             "meas_no": int,
             "strip_ID": int,
             "meas_ID": str,
@@ -1118,7 +1076,6 @@ class DarkNoiseMeas(SiPMMeas):
             "setup_ID": str,
             "system_characteristics": str,
             "thermal_cycle": int,
-            "elapsed_cryo_time_min": float,
             "electronic_board_number": int,
             "electronic_board_location": str,
             "electronic_board_socket": int,
@@ -1129,7 +1086,6 @@ class DarkNoiseMeas(SiPMMeas):
             "overvoltage_V": float,
             "PDE": float,
             "status": str,
-            "acquisition_time_min": float,
             "threshold_mV": float,
             "wvfset_json_filepath": str,
         }
@@ -1140,7 +1096,6 @@ class DarkNoiseMeas(SiPMMeas):
             "time_resolution": float,
             "points_per_wvf": int,
             "wvfs_to_read": int,
-            "separator": str,
             "timestamp_filepath": str,
             "delta_t_wf": float,
             "set_name": str,
@@ -1415,42 +1370,56 @@ class DarkNoiseMeas(SiPMMeas):
 
     def output_summary(
         self,
-        folderpath,
         *args,
-        overwrite=False,
         additional_entries={},
+        folderpath=None,
+        include_analysis_results=True,
+        overwrite=False,
         indent=None,
-        verbose=False,
-        **kwargs,
+        verbose=False
     ):
         """This method gets the following positional argument:
 
-        - folderpath (string): Path which must point to an existing folder.
-        It is the folder where the output json file will be saved.
         - args: Extra positional arguments which are given to
         self.get_dark_count_rate_in_mHz_per_mm2.
 
         This method gets the following keyword arguments:
 
-        - overwrite (bool): This parameter only makes a difference if there
-        is already a file in the given folder path whose name matches
+        - additional_entries (dictionary): The output summary (a dictionary)
+        is updated with this dictionary, additional_entries, right before
+        being returned, or loaded to the output json file, up to the value
+        given to the 'folderpath' parameter. This update is done via the
+        'update' method of dictionaries. Hence, note that if any of the keys
+        within additional_entries.keys() already exists in the output
+        dictionary, it will be overwritten. Below, you can consult the keys
+        that will be part of the output dictionary by default.
+        - folderpath (string): If it is defined, it must be a path
+        which points to an existing folder, where an output json file
+        will be saved.
+        - include_analysis_results (bool): If this parameter is True, then 
+        self.__timedelay, self.__amplitude, self.__frame_idx,
+        self.__half_a_pe, self.__one_and_a_half_pe,
+        self.get_dark_counts_number(),
+        self.get_dark_count_rate_in_mHz_per_mm2(*args),
+        self.get_cross_talk_probability() and
+        self.get_after_pulse_probability() values are included in the output
+        dictionary under the keys "timedelay", "amplitude", "frame_idx",
+        "half_a_pe", "one_and_a_half_pe", "DC#", "DCR_mHz_per_mm2",
+        "XTP" and "APP", respectively. If this parameter
+        is False, then these keys are still included in the output dictionary,
+        but their value is set to float('nan').
+        - overwrite (bool): This parameter only makes a difference if
+        the 'folderpath' parameter is defined and if there is already
+        a file in the given folder path whose name matches
         f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json".
-        If that is the case, and overwrite is False, then this method does
-        not generate any json file. In any other case, this method generates
-        a new json file with the previously specified name in the given
-        folder. In this case, overwriting may occur.
-        - additional_entries (dictionary): The output dictionary, i.e. the
-        dictionary which is loaded into the output json file, is updated
-        with this dictionary, additional_entries, right before being loaded
-        to the output json file. This update is done via the 'update' method
-        of dictionaries. Hence, note that if any of the keys within
-        additional_entries.keys() already exists in the output dictionary,
-        it will be overwritten. Below, you can consult the keys that will
-        be part of the output dictionary by default.
-        - indent (None, non-negative integer or string): This parameter controls
-        the indentation with which the json summary-file is generated. It is
-        passed to the 'indent' parameter of json.dump. If indent is None, then
-        the most compact representation is used. If indent is a non-negative
+        In such case, and if overwrite is True, then this method overwrites
+        such file with a new json file. In such case, and if overwrite is
+        False, then this method does not generate any json file.        
+        - indent (None, non-negative integer or string): This parameter only
+        makes a difference if the 'folderpath' parameter is defined. It 
+        controls the indentation with which the json summary-file is generated.
+        It is passed to the 'indent' parameter of json.dump. If indent is None,
+        then the most compact representation is used. If indent is a non-negative
         integer, then one new line is added per each key-value pair, and indent
         is the number of spaces that are added at the very beginning of each
         new line. If indent is a string, then one new line is added per each
@@ -1458,17 +1427,16 @@ class DarkNoiseMeas(SiPMMeas):
         beginning of each new line. P.e. if indent is a string (such as "\t"),
         each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
-        - kwargs: Included so that this signature matches that of the
-        overrided method. It is not used, although it may be used in the
-        future.
-
-        The goal of this method is to produce a summary of this DarkNoiseMeas
-        object, in the form of a json file. This json file has as many fields
-        as objects of interest which should be summarized. These fields are:
+        
+        The goal of this method is to produce a summary dictionary of this
+        DarkNoiseMeas object. Additionally, this method can serialize this
+        dictionary to an output json file if the 'folderpath' parameter is
+        defined. This dictionary has as many fields as objects of interest
+        which should be summarized. For DarkNoiseMeas objects, these fields
+        are:
 
         - "delivery_no": Contains self.__delivery_no
         - "set_no": Contains self.__set_no
-        - "tray_no": Contains self.__tray_no
         - "meas_no": Contains self.__meas_no
         - "strip_ID": Contains self.StripID
         - "meas_ID": Contains self.MeasID
@@ -1478,7 +1446,6 @@ class DarkNoiseMeas(SiPMMeas):
         - "setup_ID": Contains self.SetupID
         - "system_characteristics": Contains self.SystemCharacteristics
         - "thermal_cycle": Contains self.ThermalCycle
-        - "elapsed_cryo_time_min": Contains self.ElapsedCryoTimeMin
         - "electronic_board_number": Contains self.ElectronicBoardNumber
         - "electronic_board_location": Contains self.ElectronicBoardLocation
         - "electronic_board_socket": Contains self.ElectronicBoardSocket
@@ -1492,48 +1459,36 @@ class DarkNoiseMeas(SiPMMeas):
         - "N_events": Contains self.NEvents
         - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
+        - "acquisition_time_min": Contains self.AcquisitionTime_min,
 
-        - "acquisition_time_min": Contains self.__acquisition_time_min,
         - "threshold_mV": Contains self.__threshold_mV,
-        - "timedelay": Contains self.__timedelay,
-        - "amplitude": Contains self.__amplitude,
-        - "frame_idx": Contains self.__frame_idx,
-        - "half_a_pe": Contains self.__half_a_pe,
-        - "one_and_a_half_pe": Contains self.__one_and_a_half_pe,
-        - "DC#" Contains :self.get_dark_counts_number(),
-        - "DCR_mHz_per_mm2": Contains self.get_dark_count_rate_in_mHz_per_mm2(*args),
-        - "XTP": Contains self.get_cross_talk_probability(),
-        - "APP": Contains self.get_after_pulse_probability()
+        - "timedelay": Contains self.__timedelay if
+        include_analysis_results and float('nan') otherwise,
+        - "amplitude": Contains self.__amplitude if
+        include_analysis_results and float('nan') otherwise,
+        - "frame_idx": Contains self.__frame_idx if
+        include_analysis_results and float('nan') otherwise,
+        - "half_a_pe": Contains self.__half_a_pe if
+        include_analysis_results and float('nan') otherwise,
+        - "one_and_a_half_pe": Contains self.__one_and_a_half_pe if
+        include_analysis_results and float('nan') otherwise,
+        - "DC#" Contains :self.get_dark_counts_number() if
+        include_analysis_results and float('nan') otherwise,
+        - "DCR_mHz_per_mm2": Contains
+        self.get_dark_count_rate_in_mHz_per_mm2(*args) if
+        include_analysis_results and float('nan') otherwise,
+        - "XTP": Contains self.get_cross_talk_probability() if
+        include_analysis_results and float('nan') otherwise,
+        - "APP": Contains self.get_after_pulse_probability() if
+        include_analysis_results and float('nan') otherwise.
 
-        The summary json file is saved within the given folder, up to folderpath.
-        Its name matches the following formatted string:
+        This method returns a summary dictionary of the DarkNoiseMeas
+        object. If a folder path is given, then the output dictionary
+        is additionally serialized to a json file in the specified folder.
+        The file name matches the following formatted string:
 
         f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
         """
-
-        htype.check_type(
-            folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 75697
-            ),
-        )
-
-        if not os.path.exists(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("DarkNoiseMeas.output_summary", 22733)
-            )
-        elif not os.path.isdir(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("DarkNoiseMeas.output_summary", 72052)
-            )
-        htype.check_type(
-            overwrite,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 92284
-            ),
-        )
 
         htype.check_type(
             additional_entries,
@@ -1543,109 +1498,65 @@ class DarkNoiseMeas(SiPMMeas):
             ),
         )
 
-        if indent is not None:
-
-            htype.check_type(
-                indent,
-                int,
-                np.int64,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DarkNoiseMeas.output_summary", 46082
-                ),
-            )
-
-            if isinstance(indent, int) or isinstance(indent, np.int64):
-                if indent < 0:
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "DarkNoiseMeas.output_summary", 47294
-                        )
-                    )
-
         htype.check_type(
-            verbose,
+            include_analysis_results,
             bool,
             exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.output_summary", 79529
+                "DarkNoiseMeas.output_summary", 45625
             ),
         )
 
-        output_filename = f"DN-{self.StripID}-{self.SiPMLocation}-{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-{self.Date.strftime('%Y-%m-%d')}.json"
-        output_filepath = os.path.join(folderpath, output_filename)
+        # The only parameters we are checking are additional_entries
+        # and include_analysis_results, because we are making use of
+        # them in the body of this function. The rest of them are
+        # only used by the overriden base class, so they are type-
+        # and well-formedness- checked there.
 
-        if os.path.exists(output_filepath):
-
-            # No need to assemble the ouptut dictionary if the output
-            # filepath already exists and we are not allowed to overwrite it
-            if not overwrite:
-                if verbose:
-                    print(
-                        f"In function DarkNoiseMeas.output_summary(): {output_filepath} already exists. It won't be overwritten."
-                    )
-                return
-            else:
-                if verbose:
-                    print(
-                        f"In function DarkNoiseMeas.output_summary(): {output_filepath} already exists. It will be overwritten."
-                    )
-
-        output = {
-            "delivery_no": self.DeliveryNo,
-            "set_no": self.SetNo,
-            "tray_no": self.TrayNo,
-            "meas_no": self.MeasNo,
-            "strip_ID": self.StripID,
-            "meas_ID": self.MeasID,
-            # Object of type datetime is not
-            # JSON serializable, but strings are
-            "date": self.Date.strftime("%Y-%m-%d %H:%M:%S"),
-            "location": self.Location,
-            "operator": self.Operator,
-            "setup_ID": self.SetupID,
-            "system_characteristics": self.SystemCharacteristics,
-            "thermal_cycle": self.ThermalCycle,
-            "elapsed_cryo_time_min": self.ElapsedCryoTimeMin,
-            "electronic_board_number": self.ElectronicBoardNumber,
-            "electronic_board_location": self.ElectronicBoardLocation,
-            "electronic_board_socket": self.ElectronicBoardSocket,
-            "sipm_location": self.SiPMLocation,
-            "sampling_ns": self.Sampling_ns,
-            "waveform_window_mus": self.WaveformWindow_mus,
-            "cover_type": self.CoverType,
-            "operation_voltage_V": self.OperationVoltage_V,
-            "overvoltage_V": self.Overvoltage_V,
-            "PDE": self.PDE,
-            "N_events": self.NEvents,
-            "signal_unit": self.SignalUnit,
-            "status": self.Status,
-            "acquisition_time_min": self.__acquisition_time_min,
-            "threshold_mV": self.__threshold_mV,
-            # Object of type numpy.ndarray is not
-            # JSON serializable, but lists are
-            "timedelay": list(self.__timedelay),
-            "amplitude": list(self.__amplitude),
-            # Need the casting to python-built-in int type,
-            # because np.int64 is not JSON serializable.
-            # This is actually a python open issue:
-            # https://bugs.python.org/issue24313
-            "frame_idx": [int(aux) for aux in self.__frame_idx],
-            "half_a_pe": self.__half_a_pe,
-            "one_and_a_half_pe": self.__one_and_a_half_pe,
-            "DC#": self.get_dark_counts_number(),
-            "DCR_mHz_per_mm2": self.get_dark_count_rate_in_mHz_per_mm2(*args),
-            "XTP": self.get_cross_talk_probability(),
-            "APP": self.get_after_pulse_probability(),
+        darknoisemeas_additional_output = {
+            "threshold_mV": self.__threshold_mV
         }
 
-        output.update(additional_entries)
+        if include_analysis_results:
+            analysis_results = {
+                # Object of type numpy.ndarray is not
+                # JSON serializable, but lists are
+                "timedelay": list(self.__timedelay),
+                "amplitude": list(self.__amplitude),
+                # Need the casting to python-built-in int type,
+                # because np.int64 is not JSON serializable.
+                # This is actually a python open issue:
+                # https://bugs.python.org/issue24313
+                "frame_idx": [int(aux) for aux in self.__frame_idx],
+                "half_a_pe": self.__half_a_pe,
+                "one_and_a_half_pe": self.__one_and_a_half_pe,
+                "DC#": self.get_dark_counts_number(),
+                "DCR_mHz_per_mm2": self.get_dark_count_rate_in_mHz_per_mm2(*args),
+                "XTP": self.get_cross_talk_probability(),
+                "APP": self.get_after_pulse_probability()
+            }
+        else:
+            analysis_results = {
+                "timedelay": float('nan'),
+                "amplitude": float('nan'),
+                "frame_idx": float('nan'),
+                "half_a_pe": float('nan'),
+                "one_and_a_half_pe": float('nan'),
+                "DC#": float('nan'),
+                "DCR_mHz_per_mm2": float('nan'),
+                "XTP": float('nan'),
+                "APP": float('nan')
+            }
 
-        with open(output_filepath, "w") as file:
-            json.dump(output, file, indent=indent)
+        darknoisemeas_additional_output.update(analysis_results)
+        darknoisemeas_additional_output.update(additional_entries)
 
-        if verbose:
-            print(
-                f"In function DarkNoiseMeas.output_summary(): The output file has been written to {output_filepath}."
-            )
-
-        return
+        return super().output_summary(
+            additional_entries=darknoisemeas_additional_output,
+            folderpath=folderpath,
+            filename=f"DN-{self.StripID}-{self.SiPMLocation}-"
+            f"{self.ThermalCycle}-OV{round(10.*self.Overvoltage_V)}dV-"
+            f"{self.Date.strftime('%Y-%m-%d')}.json",
+            overwrite=overwrite,
+            indent=indent,
+            verbose=verbose
+        )

@@ -2,7 +2,7 @@ import os
 import json
 import math
 from datetime import datetime
-from abc import ABC, abstractmethod
+from abc import ABC
 import numpy as np
 from scipy import signal as spsi
 from scipy import constants as spcon
@@ -21,7 +21,6 @@ class SiPMMeas(ABC):
         *args,
         delivery_no=None,
         set_no=None,
-        tray_no=None,
         meas_no=None,
         strip_ID=None,
         meas_ID=None,
@@ -31,7 +30,6 @@ class SiPMMeas(ABC):
         setup_ID=None,
         system_characteristics=None,
         thermal_cycle=None,
-        elapsed_cryo_time_min=None,
         electronic_board_number=None,
         electronic_board_location=None,
         electronic_board_socket=None,
@@ -65,11 +63,8 @@ class SiPMMeas(ABC):
         - set_no (semipositive integer): Integer which identifies the set where the measured
         SiPM was included. For DUNE's particular case, this number identifies the internal
         delivery which we receive from another DUNE institution.
-        - tray_no (semipositive integer): Integer which identifies the tray where the measured
-        SiPM was included. For DUNE's particular case, this number identifies the 20-strips box
-        where the measured SiPM was included.
         - meas_no (semipositive integer): Integer which identifies the measurement within the
-        tray where the measured SiPM was included.
+        set where the measured SiPM was included.
         - strip_ID (int): Integer which identifies the SiPM strip which hosts the measured SiPM.
         - meas_ID (string): String which identifies this measurement.
         - date (string): Date of the measurement. This string must follow the following format:
@@ -80,8 +75,6 @@ class SiPMMeas(ABC):
         - system_characteristics (string): Any extra information on the setup for this measurement.
         - thermal_cycle (semipositive integer): ¿How many thermal cycles have this SiPM undergone
         by the end of this measurement?
-        - elapsed_cryo_time_min (semipositive float): Elapsed time, in minutes, in cryogenic
-        conditions for this SiPM (in the current cryogenic bath) when this measurement started.
         - electronic_board_number (semipositive integer): Number which identifies the electronic
         board where the flex board was mounted on.
         - electronic_board_location (string): String which identifies the location of the used
@@ -104,7 +97,7 @@ class SiPMMeas(ABC):
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
-        are points_per_wvf (int), wvfs_to_read (int), separator (string), timestamp_filepath (string),
+        are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
         wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
@@ -173,21 +166,6 @@ class SiPMMeas(ABC):
                     htype.generate_exception_message("SiPMMeas.__init__", 11234)
                 )
             self.__set_no = set_no
-
-        self.__tray_no = None
-        if tray_no is not None:
-            htype.check_type(
-                tray_no,
-                int,
-                exception_message=htype.generate_exception_message(
-                    "SiPMMeas.__init__", 67388
-                ),
-            )
-            if tray_no < 0:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("SiPMMeas.__init__", 20841)
-                )
-            self.__tray_no = tray_no
 
         self.__meas_no = None
         if meas_no is not None:
@@ -295,22 +273,6 @@ class SiPMMeas(ABC):
                     htype.generate_exception_message("SiPMMeas.__init__", 89778)
                 )
             self.__thermal_cycle = thermal_cycle
-
-        self.__elapsed_cryo_time_min = None
-        if elapsed_cryo_time_min is not None:
-            htype.check_type(
-                elapsed_cryo_time_min,
-                float,
-                np.float64,
-                exception_message=htype.generate_exception_message(
-                    "SiPMMeas.__init__", 57229
-                ),
-            )
-            if elapsed_cryo_time_min < 0.0:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("SiPMMeas.__init__", 11292)
-                )
-            self.__elapsed_cryo_time_min = elapsed_cryo_time_min
 
         self.__electronic_board_number = None
         if electronic_board_number is not None:
@@ -441,10 +403,64 @@ class SiPMMeas(ABC):
                 ),
             )
             self.__status = status
-
-        self.__waveforms = WaveformSet.from_files(
-            *args, ref_datetime=self.__date, **kwargs
+        
+        # points_per_wvf must be available
+        points_per_wvf = SiPMMeas.get_value_from_dict(
+            kwargs, "points_per_wvf", none_fallback=False)
+        
+        timestamp_filepath = SiPMMeas.get_value_from_dict(
+            kwargs, "timestamp_filepath", none_fallback=True)
+        
+        delta_t_wf = SiPMMeas.get_value_from_dict(
+            kwargs, "delta_t_wf", none_fallback=True)
+        
+        creation_dt_offset_min = SiPMMeas.get_value_from_dict(
+            kwargs, "creation_dt_offset_min", none_fallback=True)
+        
+        wvf_extra_info = SiPMMeas.get_value_from_dict(
+            kwargs, "wvf_extra_info", none_fallback=True)
+            
+        # N.B.: This attribute is meant to be the time duration 
+        # of the measurement, in minutes. It is not assigned via 
+        # an input parameter, but computed out of the WaveformSet 
+        # core data (the waveforms time stamp) which is processed 
+        # by the WaveformSet.from_files class method.
+        self.__acquisition_time_min = None
+        
+        # N.B.: WaveformSet.from_files() takes a couple of keyword
+        # arguments (headers_end_identifier and data_delimiter)
+        # whose default values are "TIME," and ",", respectively.
+        # These work for the current data format and I do not 
+        # expect the data format to change. If it does, it will 
+        # be convenient to root those parameters here and up to 
+        # the full call chain, i.e. 
+        # GainMeas/DarkNoiseMeas.from_json_file() -> ...
+        # GainMeas/DarkNoiseMeas.__init__() -> ...
+        # SiPMMeas.__init__() -> WaveformSet.from_files().
+        self.__waveforms, self.__acquisition_time_min = WaveformSet.from_files(
+            *args,
+            points_per_wvf,
+            timestamp_filepath=timestamp_filepath,
+            delta_t_wf=delta_t_wf,
+            ref_datetime=self.__date,
+            creation_dt_offset_min=creation_dt_offset_min,
+            wvf_extra_info=wvf_extra_info
         )
+
+        htype.check_type(
+            self.__acquisition_time_min,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.__init__", 58815
+            ),
+        )
+
+        if self.__acquisition_time_min < 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("SiPMMeas.__init__", 77855)
+            )
+
         # The WaveformSet date is set to match the SiPMMeas date
         # Up to this point, self.__date is either None or a datetime
 
@@ -483,10 +499,6 @@ class SiPMMeas(ABC):
         return self.__set_no
 
     @property
-    def TrayNo(self):
-        return self.__tray_no
-
-    @property
     def MeasNo(self):
         return self.__meas_no
 
@@ -521,10 +533,6 @@ class SiPMMeas(ABC):
     @property
     def ThermalCycle(self):
         return self.__thermal_cycle
-
-    @property
-    def ElapsedCryoTimeMin(self):
-        return self.__elapsed_cryo_time_min
 
     @property
     def ElectronicBoardNumber(self):
@@ -590,11 +598,15 @@ class SiPMMeas(ABC):
     @property
     def Status(self):
         return self.__status
+    
+    @property
+    def AcquisitionTime_min(self):
+        return self.__acquisition_time_min
 
     @property
     def Waveforms(self):
         return self.__waveforms
-
+    
     @staticmethod
     def fit_piecewise_gaussians_to_the_n_highest_peaks(
         samples,
@@ -604,9 +616,7 @@ class SiPMMeas(ABC):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
-        minimal_width_in_samples=0,
-        std_no=3.0,
-        fit_to_density=True,
+        std_no=3.0
     ):
         """This static method gets the following optional keyword arguments:
 
@@ -621,62 +631,59 @@ class SiPMMeas(ABC):
         contain integers. Its length must comply with
         0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must belong to
         the interval [0, peaks_to_detect-1]. Let us sort the peaks_to_detect
-        detected peaks according to the iterator value for samples where they
-        occur. Then if i belongs to peaks_to_fit, the i-th detected peak will
-        be fit.
+        detected peaks according to the iterator value for the fit histogram
+        where they occur. Then if i belongs to peaks_to_fit, the i-th detected
+        peak will be fit.
         - bins_no (scalar integer): It must be positive (>0). It is the number
         of bins which are used to histogram the given samples.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
-        and smaller or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.tune_peak_height(). Check its docstring for more information.
+        and smaller or equal to 1 (<=1.0). It is given to the 'initial_percentage'
+        parameter of the static method
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
+        docstring for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
-        or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.tune_peak_height(). Check its docstring for more information.
-        - minimal_prominence_wrt_max (scalar float): It must be semipositive
-        (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
-        fraction of the maximum value of the histogram of samples. It is given
-        to the 'minimal_prominence_wrt_max' keyword argument of
-        SiPMMeas.tune_peak_height(). It sets a minimal prominence for a peak
-        to be detected, based on a fraction of the maximum value within the
-        samples histogram. I.e. the only detected peaks are those whose
-        prominence is bigger or equal to a fraction of the samples histogram
-        maximum. For more information check the SiPMMeas.tune_peak_height()
+        or equal to 1 (<=1.0). It is given to the 'percentage_step' parameter of
+        the static method SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        Check its docstring for more information.
+        - minimal_prominence_wrt_amp (scalar float): It must be semipositive
+        (>=0) and smaller or equal than 1.0 (<=1.0). It is given to the
+        'prominence' parameter of the static method
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        It sets a minimal prominence for a peak to be detected, based on a
+        fraction of the amplitude of the samples histogram. I.e. the only
+        detected peaks are those whose prominence is bigger or equal to a
+        fraction of the samples histogram amplitude. For more information
+        check the SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
         docstring.
-        - minimal_width_in_samples (scalar integer): It must be a semipositive
-        (>=0) integer. It is understood as the required width of a peak (in
-        samples), for it to be detected as a peak. It is given to the
-        'minimal_width_in_samples' keyword argument of SiPMMeas.tune_peak_height().
-        For more information check the SiPMMeas.tune_peak_height() docstring.
-        - std_no (scalar float): It must be positive (>0.0). This parameter is
-        given to the std_no keyword argument of
+        - std_no (scalar float): It must be positive (>0.0). This parameter
+        is given to the std_no keyword argument of
         SiPMMeas.piecewise_gaussian_fits(). Check its docstring for more
         information.
-        - fit_to_density (scalar boolean): It is given to the density parameter
-        of the numpy.histogram method when histogramming the input samples.
 
         This method fits one gaussian to each peak within a subset of the
-        peaks_to_detect highest peaks of the histogram of samples. Such
-        subset is defined via peaks_to_fit. This method returns the optimal
-        values for the fitting parameters, as well as the covariance matrix.
-        To do so, this method
+        peaks_to_detect first peaks of the histogram of samples. By 'first
+        peaks', we mean those which happen for smaller values of the histogram
+        array iterator. Such subset is defined via peaks_to_fit. This method
+        returns the optimal values for the fitting parameters, as well as
+        the covariance matrix. To do so, this method does the following:
 
-        1) generates an histogram using samples entries,
-        2) if fit_to_density, then it generates a probability distribution
-        function (pdf) out of such histogram. If not fit_to_density, then
-        the function considers the hits histogram of the samples entries,
-        3) then detects the peaks_to_detect highest peaks of such histogram,
-        via SiPMMeas.tune_peak_height() and scipy.signal.find_peaks(),
-        4) and targets the specified subset of the peaks_to_detect highest
-        peaks of such histogram (up to peaks_to_fit).
-        5) Then, it uses the output of SiPMMeas.tune_peak_height() to give
-        accurate seeds to SiPMMeas.piecewise_gaussian_fits(), which, in turn,
-        gives them to scipy.optimize.curve_fit(),
-        6) fits one gaussian function to each one of the targeted peaks
-        7) and returns the output of SiPMMeas.piecewise_gaussian_fits(), which
-        is made up of two lists, say popt and pcov, so that popt[i] (resp.
-        pcov[i]) is the set of optimal values (resp. covariance matrix) for the
-        fit of the i-th fit peak. For more information on such output, check
-        the SiPMMeas.piecewise_gaussian_fits() docstring."""
+        1) Generates an histogram using samples entries
+        2) Detects the peaks_to_detect first peaks of such histogram
+        via SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(), which
+        in turn makes use of scipy.signal.find_peaks()
+        3) Targets the specified subset of the peaks_to_detect first
+        peaks of such histogram (up to peaks_to_fit)
+        4) Uses the output of 
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram() to give
+        accurate seeds to SiPMMeas.piecewise_gaussian_fits(), which, in
+        turn, gives them to scipy.optimize.curve_fit()
+        5) Fits one gaussian function to each one of the targeted peaks
+        6) Returns the output of SiPMMeas.piecewise_gaussian_fits(),
+        which is made up of two lists, say popt and pcov, so that popt[i]
+        (resp. pcov[i]) is the set of optimal values (resp. covariance
+        matrix) for the fit of the i-th fit peak. For more information
+        on such output, check the SiPMMeas.piecewise_gaussian_fits()
+        docstring."""
 
         htype.check_type(
             samples,
@@ -744,16 +751,6 @@ class SiPMMeas(ABC):
                     )
             peaks_to_fit_ = peaks_to_fit
 
-        # We need at least 3 samples per gaussian
-        # fit (3 free parameters per gaussian)
-        if len(samples) < (3 * len(peaks_to_fit_)):
-            raise cuex.NoAvailableData(
-                htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
-                    34723,
-                    extra_info=f"The samples array does not have samples enough ({len(samples)}) to fit {len(peaks_to_fit_)} gaussians with 3 free parameters each.",
-                )
-            )
         htype.check_type(
             bins_no,
             int,
@@ -810,20 +807,6 @@ class SiPMMeas(ABC):
                 )
             )
         htype.check_type(
-            minimal_width_in_samples,
-            int,
-            np.int64,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 13817
-            ),
-        )
-        if minimal_width_in_samples < 0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 22781
-                )
-            )
-        htype.check_type(
             std_no,
             float,
             np.float64,
@@ -837,70 +820,84 @@ class SiPMMeas(ABC):
                     "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 23163
                 )
             )
-        htype.check_type(
-            fit_to_density,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 47288
-            ),
-        )
         y_values, bin_edges = np.histogram(
-            samples, bins=bins_no, density=fit_to_density
+            samples, bins=bins_no
         )
+
+        # We need at least 3 points per gaussian
+        # fit (3 free parameters per gaussian)
+        if len(y_values) < (3 * len(peaks_to_fit_)):
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
+                    34723,
+                    extra_info=f"The y_values array does not contain samples "
+                    f"enough ({len(samples)}) to fit {len(peaks_to_fit_)} "
+                    "gaussians with 3 free parameters each.",
+                )
+            )
 
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
         resolution = np.mean(np.diff(bin_centers))
 
-        peak_height = SiPMMeas.tune_peak_height(
-            y_values,
-            peaks_to_detect,
-            starting_fraction=starting_fraction,
-            step_fraction=step_fraction,
-            minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            minimal_width_in_samples=minimal_width_in_samples,
-        )
-        if peak_height is None:
-            raise RuntimeError(
+        found_requested_peaks, spsi_output = \
+            SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(
+                y_values,
+                peaks_to_detect,
+                minimal_prominence_wrt_max,
+                initial_percentage=starting_fraction,
+                percentage_step=step_fraction
+            )
+        
+        if not found_requested_peaks:
+            raise cuex.RequestedPeaksNotFound(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",  # SiPMMeas.tune_peak_height() might not find a suitable peak height
-                    21319,
-                    extra_info=f"SiPMMeas.tune_peak_height() failed to find a suitable peak height. Please check the data in 'y_values' and 'bin_centers' and the values of the arguments given to SiPMMeas.tune_peak_height().",
+                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
+                    21318,
+                    extra_info=f"SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()"
+                    " failed to find the requested number of peaks. Please check the data"
+                    " in 'y_values' and 'bin_centers' and the values of the arguments "
+                    "given to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().",
                 )
             )
-        peaks_idx, peaks_properties = spsi.find_peaks(
-            y_values,
-            # Tuning the height from SiPMMeas.tune_peak_height() so
-            # that only peaks_to_detect peaks are found. Also, we are
-            # adding a dummy width just so scipy.signal.find_peaks()
-            # returns the width information for the detected peaks.
-            height=peak_height,
-            width=0.0,
-            prominence=minimal_prominence_wrt_max * np.max(y_values),
-        )
+        
+        # If we reached this point it means that peaks_to_detect peaks were
+        # found, so peaks_to_fit_ is well-formed with respect to spsi_output.
+        # Also, we are using the call to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
+        # to unpack the output of scipy.signal.find_peaks(). 
+        fit_peaks_idx, fit_peaks_properties = \
+            SiPMMeas.__select_peaks_from_spsi_find_peaks_output(
+                spsi_output,
+                peaks_to_fit_
+            )
 
-        fit_peaks_idx = [
-            peaks_idx[i] for i in peaks_to_fit_
-        ]  # Filter out non-fit peaks
-        fit_peaks_properties = {
-            key: np.array([value[i] for i in peaks_to_fit_])
-            for key, value in peaks_properties.items()
-        }
-
-        # We are going to fit gaussian functions to the pieces of data which match each of the detected peaks. To do so,
-        # the output from scipy.signal.find_peaks() contains valuable information for the seeds of the fit parameters.
-
-        mean_seeds = [bin_centers[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))]
+        # We are going to fit gaussian functions to the
+        # pieces of data which match each of the detected
+        # peaks. To do so, the output from scipy.signal.find_peaks()
+        # contains valuable information for the seeds of the
+        # fit parameters.
+        mean_seeds = [
+            bin_centers[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
+        ]
 
         # The width calculated by scipy.signal.find_peaks
         # is the peak FWHM in samples. You can check so
         # in scipy documentation on how the peak width
         # and the peak prominence is computed by find_peaks().
+        # Also, it is worth noting here that
+        # SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
+        # calls scipy.signal.find_peaks(*args, width=0,
+        # rel_height=0.5, **kwargs), so we are safe asking
+        # for the peak width property here, and interpreting
+        # it as a width at half height.
         std_seeds = [
             fit_peaks_properties["widths"][i] * resolution / 2.355
             for i in range(len(fit_peaks_properties["widths"]))
         ]
 
-        scaling_seeds = [y_values[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))]
+        scaling_seeds = [
+            y_values[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
+        ]
 
         popt, pcov = SiPMMeas.piecewise_gaussian_fits(
             bin_centers,
@@ -911,6 +908,172 @@ class SiPMMeas(ABC):
             std_no=std_no,
         )
         return popt, pcov
+    
+    @staticmethod
+    def __spot_first_peaks_in_CalibrationHistogram(
+        y_values,
+        max_peaks: int,
+        prominence: float,
+        initial_percentage=0.1,
+        percentage_step=0.1
+    ):
+        """This helper method gets the positional argument:
+
+        - y_values (unidimensional numpy array, int or float):
+        The values to spot peaks on
+        - max_peaks (int): The maximum number of peaks to spot.
+        It must be a positive integer. This is not checked here,
+        it is the caller's responsibility to ensure this.
+        - prominence (float): The prominence parameter to pass
+        to the scipy.signal.find_peaks() function. Since the
+        signal is normalized, this prominence can be understood
+        as a fraction of the total amplitude of the signal. P.e.
+        setting prominence to 0.5, will prevent scipy.signal.find_peaks()
+        from spotting peaks whose prominence is less than half
+        of the total amplitude of the signal.
+
+        This helper method gets the following keyword arguments:
+
+        - initial_percentage (float): The initial percentage
+        of the y_values array to consider. It must be greater
+        than 0.0 and smaller than 1.0.
+        - percentage_step (float): The percentage step to
+        increase the signal to consider in successive calls
+        of scipy.signal.find_peaks(). It must be greater than
+        0.0 and smaller than 1.0.
+
+        This helper method is not intended for user usage.
+        It must be only called by 
+        fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        where the well-formedness checks of the input
+        parameters have been performed. This function tries 
+        to find peaks over the signal which is computed as
+
+            signal = (y_values - np.min(y_values))/np.max(y_values)
+
+        This function iteratively calls
+
+            scipy.signal.find_peaks(signal[0:points], 
+                                    prominence = prominence)
+
+        to spot, at most, max_peaks peaks. To do so, at the 
+        first iteration, points is computed as 
+        math.floor(initial_percentage * len(signal)). If the 
+        number of spotted peaks is less than max_peaks, then 
+        points is increased by 
+        math.ceil(percentage_step * len(signal)) and the 
+        scipy.signal.find_peaks() function is called again. 
+        This process is repeated until the number of spotted peaks
+        is equal to max_peaks, or until the number of points 
+        reaches len(signal). If the number of points reaches 
+        len(signal), then scipy.signal.find_peaks() is called 
+        one last time as
+
+            scipy.signal.find_peaks(signal, 
+                                    prominence = prominence)
+
+        If the last call found a number of peaks smaller than
+        max_peaks, then this function returns (False, peaks),
+        where peaks is the output of the last call to 
+        scipy.signal.find_peaks(). If the last call found a
+        number of peaks greater than or equal to max_peaks, 
+        then the function returns (True, peaks), where peaks 
+        is the output of scipy.signal.find_peaks() but 
+        truncated to the first max_peaks found peaks. For
+        more information on the second object of the returned
+        tuple, check the scipy.signal.find_peaks() documentation.
+        """
+
+        signal = (y_values - np.min(y_values)) / np.max(y_values)
+
+        fFoundMax = False
+        fReachedEnd = False
+        points = math.floor(initial_percentage * len(signal))
+
+        while not fFoundMax and not fReachedEnd:
+
+            points = min(points, len(signal))
+
+            # Adding a minimal 0 width, which constraints nothing,
+            # but which makes scipy.signal.find_peaks() return
+            # information about each peak-width at half its height.
+
+            spsi_output = spsi.find_peaks(
+                signal[0:points],
+                prominence=prominence,
+                width=0,
+                rel_height=0.5
+            )
+            
+            if len(spsi_output[0]) >= max_peaks:
+
+                # Using __select_peaks_from_spsi_find_peaks_output()
+                # to truncate the output of scipy.signal.find_peaks()
+                spsi_output = \
+                    SiPMMeas.__select_peaks_from_spsi_find_peaks_output(
+                        spsi_output,
+                        tuple(range(0, max_peaks))
+                )
+                fFoundMax = True
+
+            if points == len(signal):
+                fReachedEnd = True
+
+            points += math.ceil(percentage_step * len(signal))
+
+        if fFoundMax:
+            return (True, spsi_output)
+        else:
+            return (False, spsi_output)
+    
+    @staticmethod
+    def __select_peaks_from_spsi_find_peaks_output(
+        spsi_output,
+        peaks_to_select
+    ):
+        """This helper method gets the following positional
+        arguments:
+
+        - spsi_output (tuple of (np.ndarray, dict,): The output
+        of a call to scipy.signal.find_peaks(). No checks are
+        performed here regarding the well-formedness of this input.
+        - peaks_to_select (tuple of int): Its length must comply
+        with 0<=len(peaks_to_select)<=len(spsi_output[0]). Every
+        entry must belong to the interval [0, len(spsi_output[0])-1].
+        These checks are not performed here.
+
+        This helper method should only be called by the
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()
+        static method, where the well-formedness checks of the
+        input parameters have been performed. This function
+        gets the output of a certain call to
+        scipy.signal.find_peaks(), selects some entries from it,
+        up to the 'peaks_to_select' parameter, and returns the
+        list of selected peaks, following the same format as
+        the scipy.signal.find_peaks() output. I.e. the returned
+        output is a tuple of two elements. The first element
+        is an unidimensional numpy array which contains the
+        selected elements of the first element of the given
+        spsi_output. The second element is a dictionary which
+        contains the same keys as the second element of the
+        given spsi_output, but the values (which are
+        unidimensional numpy arrays) contain only the selected
+        elements of the values of the second element of the
+        given spsi_output.
+        """
+
+        aux = set(peaks_to_select)
+
+        first_output = [
+            spsi_output[0][i] for i in aux
+        ]
+
+        second_output = {
+            key: np.array([value[i] for i in aux])
+            for key, value in spsi_output[1].items()
+        }
+
+        return (first_output, second_output)
 
     @staticmethod
     def tune_peak_height(
@@ -921,7 +1084,10 @@ class SiPMMeas(ABC):
         minimal_prominence_wrt_max=0.0,
         minimal_width_in_samples=0,
     ):
-        """This static method gets the following mandatory positional arguments:
+        """Note: This function is currently not used. It is kept here
+        just in case it becomes useful again at some point.
+
+        This static method gets the following mandatory positional arguments:
 
         - signal (unidimensional numpy array, int or float)
         - peaks_to_detect (scalar integer)
@@ -1227,12 +1393,6 @@ class SiPMMeas(ABC):
                 -0.5 * (z - mean) * (z - mean) / (std * std)
             )
         else:
-
-            def gaussian(z, mean, std):
-                return (1.0 / (std * math.sqrt(2.0 * spcon.pi))) * math.exp(
-                    -0.5 * (z - mean) * (z - mean) / (std * std)
-                )
-
             gaussian = lambda z, mean, std: (
                 1.0 / (std * math.sqrt(2.0 * spcon.pi))
             ) * math.exp(-0.5 * (z - mean) * (z - mean) / (std * std))
@@ -1249,6 +1409,18 @@ class SiPMMeas(ABC):
             mask = x >= (mean_seeds[i] - (std_no * std_seeds[i]))
             mask *= x <= (mean_seeds[i] + (std_no * std_seeds[i]))
             fit_x, fit_y = x[mask], y[mask]
+
+            if len(fit_x) < (2 if not fWithScaling else 3):
+                raise cuex.NotEnoughFitSamples(
+                    htype.generate_exception_message(
+                        "SiPMMeas.piecewise_gaussian_fits",
+                        83500,
+                        extra_info=f"The fit_x array does not contain samples "
+                        f"enough ({len(fit_x)}) to fit a gaussian with "
+                        f"{2 if not fWithScaling else 3} free parameters.",
+                    )
+                )
+
             seeds_package = [mean_seeds[i], std_seeds[i], scaling_seeds_[i]]
             p0 = seeds_package if fWithScaling else seeds_package[:-1]
             aux_popt, aux_pcov = spopt.curve_fit(
@@ -1281,14 +1453,13 @@ class SiPMMeas(ABC):
         say RKD1, which concerns the SiPMMeas attributes, has the
         following potential keys:
 
-        "delivery_no", "set_no", "tray_no", "meas_no",
-        "strip_ID", "meas_ID", "date", "location", "operator",
-        "setup_ID", "system_characteristics", "thermal_cycle",
-        "elapsed_cryo_time_min", "electronic_board_number",
-        "electronic_board_location", "electronic_board_socket",
-        "sipm_location", "sampling_ns", "cover_type",
-        "operation_voltage_V", "overvoltage_V", "PDE",
-        "status" and "wvfset_json_filepath".
+        "delivery_no", "set_no", "meas_no", "strip_ID", 
+        "meas_ID", "date", "location", "operator", "setup_ID", 
+        "system_characteristics", "thermal_cycle", 
+        "electronic_board_number", "electronic_board_location", 
+        "electronic_board_socket", "sipm_location", "sampling_ns", 
+        "cover_type", "operation_voltage_V", "overvoltage_V", 
+        "PDE", "status" and "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it is not meant to be
         read from sipmmeas_config_json. The value for
@@ -1301,8 +1472,8 @@ class SiPMMeas(ABC):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "separator", "timestamp_filepath",
-        "delta_t_wf", "set_name", "creation_dt_offset_min" and
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
+        "set_name", "creation_dt_offset_min" and
         "wvf_extra_info".
 
         Here, we do not expect a date because the date information
@@ -1339,7 +1510,6 @@ class SiPMMeas(ABC):
         pks1 = {
             "delivery_no": int,
             "set_no": int,
-            "tray_no": int,
             "meas_no": int,
             "strip_ID": int,
             "meas_ID": str,
@@ -1349,7 +1519,6 @@ class SiPMMeas(ABC):
             "setup_ID": str,
             "system_characteristics": str,
             "thermal_cycle": int,
-            "elapsed_cryo_time_min": float,
             "electronic_board_number": int,
             "electronic_board_location": str,
             "electronic_board_socket": int,
@@ -1369,7 +1538,6 @@ class SiPMMeas(ABC):
             "time_resolution": float,
             "points_per_wvf": int,
             "wvfs_to_read": int,
-            "separator": str,
             "timestamp_filepath": str,
             "delta_t_wf": float,
             "set_name": str,
@@ -1418,44 +1586,45 @@ class SiPMMeas(ABC):
 
         return cls(input_filepath, time_resolution, **RKD1, **RKD2)
 
-    @abstractmethod
     def output_summary(
         self,
-        folderpath,
-        *args,
-        overwrite=False,
         additional_entries={},
+        folderpath=None,
+        filename=None,
+        overwrite=False,
         indent=None,
-        verbose=False,
-        **kwargs,
+        verbose=False
     ):
-        """This method gets the following positional argument:
+        """This method gets the following keyword arguments:
 
-        - folderpath (string): Path which must point to an existing folder.
-        It is the folder where the output json file will be saved.
-        - args: For use in derived-classes implementations
-
-        This method gets the following keyword arguments:
-
-        - overwrite (bool): This parameter only makes a difference if there
-        is already a file in the given folder path whose name matches
+        - additional_entries (dictionary): The output summary (a dictionary)
+        is updated with this dictionary, additional_entries, right before
+        being returned, or loaded to the output json file, up to the value
+        given to the 'folderpath' parameter. This update is done via the
+        'update' method of dictionaries. Hence, note that if any of the keys
+        within additional_entries.keys() already exists in the output
+        dictionary, it will be overwritten. Below, you can consult the keys
+        that will be part of the output dictionary by default.
+        - folderpath (string): If it is defined, it must be a path
+        which points to an existing folder, where an output json file
+        will be saved.
+        - filename (None or string): This parameter only makes a difference
+        if the 'folderpath' parameter is defined. In such case, and if the
+        'filename' parameter is defined, this is the name of the output json
+        file. If it is not defined, then the output json file will be named
         f"{self.__strip_ID}-{self.__sipm_location}-{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV-{self.__date.strftime('%Y-%m-%d')}.json".
-        If that is the case, and overwrite is False, then this method does
-        not generate any json file. In any other case, this method generates
-        a new json file with the previously specified name in the given
-        folder. In this case, overwriting may occur.
-        - additional_entries (dictionary): The output dictionary, i.e. the
-        dictionary which is loaded into the output json file, is updated
-        with this dictionary, additional_entries, right before being loaded
-        to the output json file. This update is done via the 'update' method
-        of dictionaries. Hence, note that if any of the keys within
-        additional_entries.keys() already exists in the output dictionary,
-        it will be overwritten. Below, you can consult the keys that will
-        be part of the output dictionary by default.
-        - indent (None, non-negative integer or string): This parameter controls
-        the indentation with which the json summary-file is generated. It is
-        passed to the 'indent' parameter of json.dump. If indent is None, then
-        the most compact representation is used. If indent is a non-negative
+        - overwrite (bool): This parameter only makes a difference if
+        the 'folderpath' parameter is defined and if there is already
+        a file in the given folder path whose name matches the output
+        json file name, up to the value given to the 'filename' parameter.
+        In such case, and if overwrite is True, then this method overwrites
+        such file with a new json file. In such case, and if overwrite is
+        False, then this method does not generate any json file.
+        - indent (None, non-negative integer or string): This parameter only
+        makes a difference if the 'folderpath' parameter is defined. It 
+        controls the indentation with which the json summary-file is generated.
+        It is passed to the 'indent' parameter of json.dump. If indent is None,
+        then the most compact representation is used. If indent is a non-negative
         integer, then one new line is added per each key-value pair, and indent
         is the number of spaces that are added at the very beginning of each
         new line. If indent is a string, then one new line is added per each
@@ -1463,19 +1632,15 @@ class SiPMMeas(ABC):
         beginning of each new line. P.e. if indent is a string (such as "\t"),
         each key-value pair is preceded by a tabulator in its own line.
         - verbose (bool): Whether to print functioning-related messages.
-        - kwargs: For use in derived-classes implementations.
 
-        Although this method cannot be executed, since SiPMMeas cannot be
-        instantiated and this method must be overriden in derived classes,
-        this implementation should serve as a template for its overriding
-        implementations in derived classes. The goal of this method is to
-        produce a summary of this SiPMMeas object, in the form of a json
-        file. This json file has as many fields as objects of interest which
-        should be summarized. For SiPMMeas objects, these fields are:
+        The goal of this method is to produce a summary dictionary of this
+        SiPMMeas object. Additionally, this method can serialize this dictionary
+        to an output json file if the 'folderpath' parameter is defined. This
+        dictionary has as many fields as objects of interest which should be
+        summarized. For SiPMMeas objects, these fields are:
 
         - "delivery_no": Contains self.__delivery_no
         - "set_no": Contains self.__set_no
-        - "tray_no": Contains self.__tray_no
         - "meas_no": Contains self.__meas_no
         - "strip_ID": Contains self.__strip_ID
         - "meas_ID": Contains self.__meas_ID
@@ -1485,7 +1650,6 @@ class SiPMMeas(ABC):
         - "setup_ID": Contains self.__setup_ID
         - "system_characteristics": Contains self.__system_characteristics
         - "thermal_cycle": Contains self.__thermal_cycle
-        - "elapsed_cryo_time_min": Contains self.__elapsed_cryo_time_min
         - "electronic_board_number": Contains self.__electronic_board_number
         - "electronic_board_location": Contains self.__electronic_board_location
         - "electronic_board_socket": Contains self.__electronic_board_socket
@@ -1499,36 +1663,15 @@ class SiPMMeas(ABC):
         - "N_events": Contains self.__N_events
         - "signal_unit": Contains self.__signal_unit
         - "status": Contains self.__status
+        - "acquisition_time_min": Contains self.__acquisition_time_min
 
-        The summary json file is saved within the given folder, up to folderpath.
-        Its name matches the following formatted string:
+        This method returns a summary dictionary of the SiPMMeas object.
+        If a folder path is given, then the output dictionary is additionally
+        serialized to a json file in the specified folder with the specified
+        file name. If it was not specified, then the default file name is
 
         f"{self.__strip_ID}-{self.__sipm_location}-{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV-{self.__date.strftime('%Y-%m-%d')}.json"
         """
-
-        htype.check_type(
-            folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.output_summary", 84477
-            ),
-        )
-
-        if not os.path.exists(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("SiPMMeas.output_summary", 62875)
-            )
-        elif not os.path.isdir(folderpath):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("SiPMMeas.output_summary", 64055)
-            )
-        htype.check_type(
-            overwrite,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "SiPMMeas.output_summary", 99583
-            ),
-        )
 
         htype.check_type(
             additional_entries,
@@ -1537,26 +1680,77 @@ class SiPMMeas(ABC):
                 "SiPMMeas.output_summary", 15693
             ),
         )
+        
+        fOutputJSON = False
 
-        if indent is not None:
+        if folderpath is not None:
 
             htype.check_type(
-                indent,
-                int,
-                np.int64,
+                folderpath,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "SiPMMeas.output_summary", 87057
+                    "SiPMMeas.output_summary", 84477
                 ),
             )
 
-            if isinstance(indent, int) or isinstance(indent, np.int64):
-                if indent < 0:
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "SiPMMeas.output_summary", 68241
+            if not os.path.exists(folderpath):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message("SiPMMeas.output_summary", 62875)
+                )
+            elif not os.path.isdir(folderpath):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message("SiPMMeas.output_summary", 64055)
+                )
+            
+            fOutputJSON = True
+
+            if filename is not None:
+
+                htype.check_type(
+                    filename,
+                    str,
+                    exception_message=htype.generate_exception_message(
+                        "SiPMMeas.output_summary", 84055
+                    ),
+                )
+
+                output_filepath = os.path.join(folderpath, filename)
+
+            else:
+
+                aux = f"{self.__strip_ID}-{self.__sipm_location}-"
+                f"{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV"
+                f"-{self.__date.strftime('%Y-%m-%d')}.json"
+
+                output_filepath = os.path.join(folderpath, aux)
+        
+            htype.check_type(
+                overwrite,
+                bool,
+                exception_message=htype.generate_exception_message(
+                    "SiPMMeas.output_summary", 99583
+                ),
+            )
+
+            if indent is not None:
+
+                htype.check_type(
+                    indent,
+                    int,
+                    np.int64,
+                    str,
+                    exception_message=htype.generate_exception_message(
+                        "SiPMMeas.output_summary", 87057
+                    ),
+                )
+
+                if isinstance(indent, int) or isinstance(indent, np.int64):
+                    if indent < 0:
+                        raise cuex.InvalidParameterDefinition(
+                            htype.generate_exception_message(
+                                "SiPMMeas.output_summary", 68241
+                            )
                         )
-                    )
 
         htype.check_type(
             verbose,
@@ -1566,29 +1760,9 @@ class SiPMMeas(ABC):
             ),
         )
 
-        output_filename = f"{self.__strip_ID}-{self.__sipm_location}-{self.__thermal_cycle}-OV{round(10.*self.__overvoltage_V)}dV-{self.__date.strftime('%Y-%m-%d')}.json"
-        output_filepath = os.path.join(folderpath, output_filename)
-
-        if os.path.exists(output_filepath):
-            # No need to assemble the ouptut dictionary if the output
-            # filepath already exists and we are not allowed to overwrite it
-            if not overwrite:
-
-                if verbose:
-                    print(
-                        f"In function SiPMMeas.output_summary(): {output_filepath} already exists. It won't be overwritten."
-                    )
-                return
-            else:
-                if verbose:
-                    print(
-                        f"In function SiPMMeas.output_summary(): {output_filepath} already exists. It will be overwritten."
-                    )
-
         output = {
             "delivery_no": self.__delivery_no,
             "set_no": self.__set_no,
-            "tray_no": self.__tray_no,
             "meas_no": self.__meas_no,
             "strip_ID": self.__strip_ID,
             "meas_ID": self.__meas_ID,
@@ -1600,7 +1774,6 @@ class SiPMMeas(ABC):
             "setup_ID": self.__setup_ID,
             "system_characteristics": self.__system_characteristics,
             "thermal_cycle": self.__thermal_cycle,
-            "elapsed_cryo_time_min": self.__elapsed_cryo_time_min,
             "electronic_board_number": self.__electronic_board_number,
             "electronic_board_location": self.__electronic_board_location,
             "electronic_board_socket": self.__electronic_board_socket,
@@ -1614,16 +1787,137 @@ class SiPMMeas(ABC):
             "N_events": self.__N_events,
             "signal_unit": self.__signal_unit,
             "status": self.__status,
+            "acquisition_time_min": self.__acquisition_time_min
         }
 
         output.update(additional_entries)
 
-        with open(output_filepath, "w") as file:
-            json.dump(output, file, indent=indent)
+        if fOutputJSON:
 
-        if verbose:
-            print(
-                f"In function SiPMMeas.output_summary(): The output file has been written to {output_filepath}."
-            )
+            if os.path.exists(output_filepath):
+                if not overwrite:
+                    fOutputJSON = False
+                    if verbose:
+                        print(
+                            f"In function SiPMMeas.output_summary(): "
+                            f"{output_filepath} already exists. It won't be overwritten."
+                        )
+                else:
+                    if verbose:
+                        print(
+                            f"In function SiPMMeas.output_summary(): "
+                            f"{output_filepath} already exists. It will be overwritten."
+                        )
+
+        # The value of fOutputJSON might have changed
+        # in the previous if-block of code. This is
+        # why we need to re-check it here
+        if fOutputJSON:
+
+            with open(output_filepath, "w") as file:
+                json.dump(output, file, indent=indent)
+
+            if verbose:
+                print(
+                    f"In function SiPMMeas.output_summary(): The output file has been written to {output_filepath}."
+                )
+
+        return output
+
+    @staticmethod
+    def get_value_from_dict(dictionary, key, none_fallback=False):
+        """This static method gets the following arguments:
+
+        - dictionary (dict)
+        - key (object)
+        - none_fallback (bool): This parameter only makes a 
+        difference if key does not match any of the keys in
+        the given dictionary. If that's the case, and if
+        none_fallback is True, then this method returns None.
+        If none_fallback is False, then this method raises a
+        KeyError.
+
+        This method returns dictionary[key] if the given key
+        exists in the given dictionary. If it does not, the
+        behaviour depends on the value of none_fallback."""
+
+        htype.check_type(
+            dictionary,
+            dict,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.get_value_from_dict", 57329
+            ),
+        )
+
+        htype.check_type(
+            none_fallback,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.get_value_from_dict", 46243
+            ),
+        )
+
+        try:
+            return dictionary[key]
+        except KeyError:
+            if none_fallback:
+                return None
+            else:
+                raise KeyError(
+                    "In function SiPMMeas.get_value_from_dict(): "
+                    f"The key {key} does not exist in the given dictionary."
+                )
+            
+    # Despite not following the same conventions as the rest of the class,
+    # for the methods written below this point I am using the typing module
+    # and not calling the htype.check_type(). The reason for this is that
+    # at some point I plan to deprecate htype.check_type() and replace it
+    # with the usage of the typing module. This will make the code more
+    # efficient, standard and readable.
+    def rebin(
+            self,
+            group: int,
+            verbose: bool = False
+        ) -> None:
+        """This function gets the following positional arguments:
+
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of every waveform in the __waveforms attribute
+        of this SiPMMeas object. The second condition grants that, for
+        every Waveform object, there is at least two entries in the
+        resulting Waveform.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function rebins every Waveform object in the __waveforms
+        attribute of this SiPMMeas object. To do so, this method calls the
+        WaveformSet.rebin() method of the __waveforms WaveformSet. For
+        more information on the rebinning process, check the documentation
+        of such WaveformSet method. Note that this method modifies (inplace)
+        the values of the NPoints, Time and Signal attributes of every
+        considered Waveform object. Also, the __sampling_ns attribute of
+        this SiPMMeas object is updated to the new sampling time of the
+        rebinned waveforms."""
+
+        self.__waveforms.rebin(group, verbose)
+        self.__sampling_ns *= group
 
         return
+    
+    def get_title(
+            self,
+            abbreviate: bool = False
+        ):
+        """This method gets the following keyword argument:
+
+        - abbreviate (bool): If it is True (resp. False), then
+        the output string is abbreviated (resp. not abbreviated).
+
+        This method returns an string which could serve as a title
+        for this SiPMMeas object. Such title contains information
+        on the ElectronicBoardSocket, StripID, SiPMLocation,
+        ThermalCycle and Date attributes of this SiPMMeas object."""
+
+        if not abbreviate:
+            return f"Socket {self.ElectronicBoardSocket}, SiPM {self.StripID}-{self.SiPMLocation}, T.C. {self.ThermalCycle}, {self.Date.strftime('%Y-%m-%d %H:%M:%S')}"
+        else:
+            return f"S. {self.ElectronicBoardSocket}, {self.StripID}-{self.SiPMLocation}, T.C. {self.ThermalCycle}, {self.Date.strftime('%Y-%m-%d')}"

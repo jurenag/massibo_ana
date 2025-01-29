@@ -43,7 +43,7 @@ class WaveformSet(OneTypeRTL):
 
         if len(waveforms) < 1:
             raise cuex.NoAvailableData(
-                htype.generate_exception_message("WaveformSet.__init__", 10001)
+                htype.generate_exception_message("WaveformSet.__init__", 1)
             )
 
         for i in range(len(waveforms)):
@@ -51,7 +51,7 @@ class WaveformSet(OneTypeRTL):
                 waveforms[i],
                 Waveform,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.__init__", 10002
+                    "WaveformSet.__init__", 2
                 ),
             )
         if set_name is not None:
@@ -59,7 +59,7 @@ class WaveformSet(OneTypeRTL):
                 set_name,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.__init__", 10003
+                    "WaveformSet.__init__", 3
                 ),
             )
             self.__set_name_is_available = True
@@ -68,7 +68,7 @@ class WaveformSet(OneTypeRTL):
                 ref_datetime,
                 dt.datetime,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.__init__", 10004
+                    "WaveformSet.__init__", 4
                 ),
             )
             self.__ref_datetime_is_available = True
@@ -97,14 +97,14 @@ class WaveformSet(OneTypeRTL):
             return self.__ref_datetime
         else:
             raise cuex.NoAvailableData(
-                htype.generate_exception_message("WaveformSet.RefDatetime", 20001)
+                htype.generate_exception_message("WaveformSet.RefDatetime", 1)
             )
 
     @property
     def SetTimeWindow(self):
         return self.__set_time_window
 
-    def recompute_first_peak_baseline_of_the_whole_wvfset(
+    def compute_first_peak_baseline(
         self, signal_fraction_for_median_cutoff=0.2
     ):
         """This method gets the following optional keyword argument:
@@ -137,7 +137,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset", 30001
+                "WaveformSet.compute_first_peak_baseline", 1
             ),
         )
         if (
@@ -146,8 +146,8 @@ class WaveformSet(OneTypeRTL):
         ):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.recompute_first_peak_baseline_of_the_whole_wvfset",
-                    30002,
+                    "WaveformSet.compute_first_peak_baseline",
+                    2,
                 )
             )
         for wvf in self:
@@ -164,23 +164,28 @@ class WaveformSet(OneTypeRTL):
         than amplitude_range[1] (resp. integral_range[1]). The amplitude
         is computed as the maximum value of the signal minus its
         baseline, i.e. for a waveform wvf, its
-        wvf.Signs['first_peak_baseline'][0].
+        wvf.Signs['first_peak_baseline'][0]. Note that the baseline
+        of every waveform must have been computed before calling this
+        method, p.e. by calling the Waveform.compute_first_peak_baseline()
+        method, on a waveform basis.
 
-        Either amplitude_range or integral_range must be defined. If
-        both are defined, then integral_range is ignored. If
-        amplitude_range is defined, then amplitude_range[0]
-        (resp. amplitude_range[1]) is interpreted as the minimum
-        (resp. maximum) value of the amplitude range. If integral_range
-        is defined and amplitude_range is not, then integral_range[0]
-        (resp. integral_range[1]) is interpreted as the minimum (resp.
-        maximum) value of the integral range.
-
-        Once an amplitude (resp. integral) range is defined, the mean
+        If both, amplitude_range and integral_range are defined, are
+        defined, then integral_range is ignored. If amplitude_range is
+        defined, then amplitude_range[0] (resp. amplitude_range[1]) is
+        interpreted as the minimum (resp. maximum) value of the amplitude
+        range. If integral_range is defined and amplitude_range is not,
+        then integral_range[0] (resp. integral_range[1]) is interpreted
+        as the minimum (resp. maximum) value of the integral range.
+        If an amplitude (resp. integral) range is defined, the mean
         waveform of all of the waveforms whose amplitude (resp. integral)
-        fall into such range is computed. A necessary requirement for
-        this computation to be performed is that all of the waveforms
-        within this WaveformSet object have matching x-values, i.e.
-        that self.__time is the same for all of the waveforms.
+        fall into such range is computed. If none of them are defined,
+        then every waveform within this WaveformSet object is considered
+        for the computation of the mean waveform.
+        
+        A necessary requirement for this computation to be performed is
+        that all of the waveforms within this WaveformSet object have
+        matching x-values, i.e. that self.__time is the same for all of
+        the waveforms.
 
         When calling this method, this waveform set must contain at least
         one waveform. If not, this method raises a cuex.NoAvailableData
@@ -190,22 +195,27 @@ class WaveformSet(OneTypeRTL):
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    40001,
+                    1,
                     extra_info="There must be at least one waveform in this waveform set.",
                 )
             )
-        fAmplitudeIsDefined = False
+        
+        # fMode equal to 0 means that every waveform will be considered.
+        # fMode equal to 1 means that the amplitude range will be considered.
+        # fMode equal to 2 means that the integral range will be considered.
+        fMode = 0
+
         if amplitude_range is not None:
             htype.check_type(
                 amplitude_range,
                 list,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.mean_waveform", 40002
+                    "WaveformSet.mean_waveform", 2
                 ),
             )
             if len(amplitude_range) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.mean_waveform", 40003)
+                    htype.generate_exception_message("WaveformSet.mean_waveform", 3)
                 )
             for i in range(len(amplitude_range)):
                 htype.check_type(
@@ -213,28 +223,28 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.mean_waveform", 40004
+                        "WaveformSet.mean_waveform", 4
                     ),
                 )
             if amplitude_range[0] >= amplitude_range[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.mean_waveform", 40005)
+                    htype.generate_exception_message("WaveformSet.mean_waveform", 5)
                 )
-            fAmplitudeIsDefined = True
+            fMode = 1
 
-        if not fAmplitudeIsDefined:
+        if fMode != 1:
             if integral_range is not None:
                 htype.check_type(
                     integral_range,
                     list,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.mean_waveform", 40006
+                        "WaveformSet.mean_waveform", 6
                     ),
                 )
                 if len(integral_range) != 2:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.mean_waveform", 40007
+                            "WaveformSet.mean_waveform", 7
                         )
                     )
                 for i in range(len(integral_range)):
@@ -243,28 +253,22 @@ class WaveformSet(OneTypeRTL):
                         float,
                         np.float64,
                         exception_message=htype.generate_exception_message(
-                            "WaveformSet.mean_waveform", 40008
+                            "WaveformSet.mean_waveform", 8
                         ),
                     )
                 if integral_range[0] >= integral_range[1]:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.mean_waveform", 40009
+                            "WaveformSet.mean_waveform", 9
                         )
                     )
-            else:
-                raise cuex.NoAvailableData(
-                    htype.generate_exception_message(
-                        "WaveformSet.mean_waveform",
-                        40010,
-                        extra_info=f"Either amplitude_range or integral_range must be defined.",
-                    )
-                )
+                fMode = 2
+
         if len(self) < 1:
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    40011,
+                    10,
                     extra_info=f"There are no waveforms in this waveform set.",
                 )
             )
@@ -274,23 +278,39 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.mean_waveform",
-                        40012,
+                        11,
                         extra_info=f"The {i}-th waveform time array does not match that of the 0-th waveform within the waveform set.",
                     )
                 )
         filtered_wvfs_idx = []
 
-        if fAmplitudeIsDefined:
+        if fMode == 0:
+            filtered_wvfs_idx = list(range(len(self)))
+
+        elif fMode == 1:
             for i in range(len(self)):
-                ith_amplitude = (
-                    np.max(self[i].Signal) - self[i].Signs["first_peak_baseline"]
-                )
+                try:
+                    ith_amplitude = (
+                        np.max(self[i].Signal) - self[i].Signs["first_peak_baseline"][0]
+                    )
+                except KeyError:
+                    raise cuex.NoAvailableData(
+                        htype.generate_exception_message(
+                            "WaveformSet.mean_waveform",
+                            12,
+                            extra_info="The baseline of the first peak of the "
+                            f"{i}-th waveform must have been computed before "
+                            "calling this method."
+                        )
+                    )
+
                 if (
                     ith_amplitude >= amplitude_range[0]
                     and ith_amplitude <= amplitude_range[1]
                 ):
                     filtered_wvfs_idx.append(i)
-        else:
+
+        else: # fMode == 2
             for i in range(len(self)):
                 # If self[i] had not been integrated previously,
                 # then self[i].Integral will be None
@@ -309,25 +329,38 @@ class WaveformSet(OneTypeRTL):
                     raise cuex.NoAvailableData(
                         htype.generate_exception_message(
                             "WaveformSet.mean_waveform",
-                            40013,
+                            13,
                             extra_info=f"The integral of the {i}-th waveform could not be retrieved.",
                         )
                     )
+
         if len(filtered_wvfs_idx) == 0:
             raise cuex.NoAvailableData(
                 htype.generate_exception_message(
                     "WaveformSet.mean_waveform",
-                    40014,
-                    extra_info=f"There are no waveforms which comply with the given {'amplitude' if fAmplitudeIsDefined else 'integral'} range.",
+                    14,
+                    # Since we already checked that len(self) > 0,
+                    # len(filtered_wvfs_idx) can only be zero if fMode is 1 or 2
+                    extra_info=f"There are no waveforms which comply with the given {'amplitude' if (fMode == 1) else 'integral'} range.",
                 )
             )
-
-        # We have made sure that there's at
-        # least one waveform in this waveform set
-        sum = copy.copy(self[filtered_wvfs_idx[0]].Signal)
-        for i in range(1, len(filtered_wvfs_idx)):
-            sum += self[filtered_wvfs_idx[i]].Signal
-        return sum / len(filtered_wvfs_idx)
+        
+        try:
+            return np.mean(
+                [
+                    self[idx].Signal - self[idx].Signs['first_peak_baseline']
+                    for idx in filtered_wvfs_idx
+                ],
+                axis=0
+            )
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "WaveformSet.mean_waveform",
+                    15,
+                    extra_info="The baseline of the first peak of every waveform must have been computed before calling this method."
+                )
+            )
 
     def plot(
         self,
@@ -335,6 +368,7 @@ class WaveformSet(OneTypeRTL):
         plot_peaks=True,
         randomize=False,
         fig_title=None,
+        title_fontsize=12,
         mode="grid",
         nrows=2,
         ncols=2,
@@ -343,6 +377,9 @@ class WaveformSet(OneTypeRTL):
         wvf_linewidth=1.0,
         x0=[],
         y0=[],
+        fig_width = None,
+        fig_height = None,
+        show_plots = True
     ):
         """This method gets the following keyword arguments:
 
@@ -365,9 +402,11 @@ class WaveformSet(OneTypeRTL):
         with randomize set to True, then this function plots wfts_to_plot
         randomly chosen waveforms from the set.
         - fig_title (string): The title of the figure.
+        - title_fontsize (positive integer or float): Font size of the
+        figure title.
         - mode (string): It must be either 'grid' or 'superposition'. Any
         other input will be understood as 'grid'. If it matches 'grid',
-        then each waveform is plot in an exlcusive pair of axes, i.e. one
+        then each waveform is plot in an exclusive pair of axes, i.e. one
         waveform per pair of axes. Those axes make up a 2D-grid of
         nrows*ncols axes, where there are nrows rows and ncols columns.
         If mode matches 'superposition', then each waveform is plotted
@@ -389,20 +428,35 @@ class WaveformSet(OneTypeRTL):
         - x0 (resp. y0) (list of floats): It is given to the x0 (resp. y0)
         keyword argument of Waveform.plot(). Each selected waveform is
         plotted along with a set of vertical (resp. horizontal) lines at
-        the positions given by the entries in this list."""
+        the positions given by the entries in this list.
+        - fig_width (resp. fig_height) (None or positive float): If both
+        parameters are defined at the same time, then they are given, as
+        (fig_width, fig_height), to the 'figsize' parameter of the 
+        matplotlib.pyplot.subplots() function for every produced canvas
+        regardless the mode (either 'grid' or 'superposition'). If only
+        one of them is defined, both are ignored.
+        - show_plots (bool): Whether to show the plots or not.
+
+        This method returns a list of matplotlib.figure.Figure objects.
+        This list contains every figure (canvas) produced by this method,
+        up to the given input parameters. I.e. if mode is 'grid', then
+        such list will potentially contain more than one figure. If mode
+        is 'superposition', then the list will contain only one figure.
+
+        """
 
         htype.check_type(
             plot_peaks,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50001
+                "WaveformSet.plot", 1
             ),
         )
         htype.check_type(
             randomize,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50002
+                "WaveformSet.plot", 2
             ),
         )
         if wvfs_to_plot is None:
@@ -410,7 +464,7 @@ class WaveformSet(OneTypeRTL):
         elif type(wvfs_to_plot) == int:
             if wvfs_to_plot < 1 or wvfs_to_plot > self.__len__():
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50003)
+                    htype.generate_exception_message("WaveformSet.plot", 3)
                 )
             if randomize:
                 wvfs_indices = tuple(
@@ -425,31 +479,46 @@ class WaveformSet(OneTypeRTL):
                     int,
                     np.int64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50004
+                        "WaveformSet.plot", 4
                     ),
                 )
                 if wvfs_to_plot[i] < 0 or wvfs_to_plot[i] >= self.__len__():
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.plot", 50005)
+                        htype.generate_exception_message("WaveformSet.plot", 5)
                     )
             wvfs_indices = tuple(set(wvfs_to_plot))  # Purge matching entries
         else:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50006)
+                htype.generate_exception_message("WaveformSet.plot", 6)
             )
         if fig_title is not None:
             htype.check_type(
                 fig_title,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50007
+                    "WaveformSet.plot", 7
                 ),
+            )
+
+        htype.check_type(
+            title_fontsize,
+            int,
+            np.int64,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 8
+            ),
+        )
+        if title_fontsize <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.plot", 9)
             )
         htype.check_type(
             mode,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50008
+                "WaveformSet.plot", 10
             ),
         )
         htype.check_type(
@@ -457,36 +526,36 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50009
+                "WaveformSet.plot", 11
             ),
         )
         if nrows < 2:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50010)
+                htype.generate_exception_message("WaveformSet.plot", 12)
             )
         htype.check_type(
             ncols,
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50011
+                "WaveformSet.plot", 13
             ),
         )
         if ncols < 2:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50012)
+                htype.generate_exception_message("WaveformSet.plot", 14)
             )
         if xlim is not None:
             htype.check_type(
                 xlim,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50013
+                    "WaveformSet.plot", 15
                 ),
             )
             if len(xlim) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50014)
+                    htype.generate_exception_message("WaveformSet.plot", 16)
                 )
             for aux in xlim:
                 htype.check_type(
@@ -494,24 +563,24 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50015
+                        "WaveformSet.plot", 17
                     ),
                 )
             if xlim[0] >= xlim[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50016)
+                    htype.generate_exception_message("WaveformSet.plot", 18)
                 )
         if ylim is not None:
             htype.check_type(
                 ylim,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50017
+                    "WaveformSet.plot", 19
                 ),
             )
             if len(ylim) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50018)
+                    htype.generate_exception_message("WaveformSet.plot", 20)
                 )
             for aux in ylim:
                 htype.check_type(
@@ -519,30 +588,30 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 50019
+                        "WaveformSet.plot", 21
                     ),
                 )
             if ylim[0] >= ylim[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 50020)
+                    htype.generate_exception_message("WaveformSet.plot", 22)
                 )
         htype.check_type(
             wvf_linewidth,
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50021
+                "WaveformSet.plot", 23
             ),
         )
         if wvf_linewidth <= 0.0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.plot", 50022)
+                htype.generate_exception_message("WaveformSet.plot", 24)
             )
         htype.check_type(
             x0,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50023
+                "WaveformSet.plot", 25
             ),
         )
         for elem in x0:
@@ -551,14 +620,14 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50024
+                    "WaveformSet.plot", 26
                 ),
             )
         htype.check_type(
             y0,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 50025
+                "WaveformSet.plot", 27
             ),
         )
         for elem in y0:
@@ -567,16 +636,63 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 50026
+                    "WaveformSet.plot", 28
                 ),
             )
+
+        fSetFigSize = False
+        if fig_width is not None:
+            htype.check_type(
+                fig_width,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.plot", 29
+                ),
+            )
+            if fig_width <= 0.0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.plot", 30)
+                )
+            
+            # Only check fig_height if fig_width is well-defined
+            if fig_height is not None:
+                htype.check_type(
+                    fig_height,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.plot", 31
+                    ),
+                )
+                if fig_height <= 0.0:
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message(
+                            "WaveformSet.plot", 32)
+                    )
+                fSetFigSize = True
+
+        htype.check_type(
+            show_plots,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 33
+            ),
+        )        
+
+        output = []
 
         if mode != "superposition":  # Grid plot is default
             counter = 0
             how_many_canvases = int(math.ceil(len(wvfs_indices) / (nrows * ncols)))
             for i in range(how_many_canvases):
                 index_generator = WaveformSet.index_generator(nrows, ncols)
-                fig, axs = plt.subplots(nrows=nrows, ncols=ncols)
+                fig, axs = plt.subplots(
+                    nrows=nrows, 
+                    ncols=ncols,
+                    figsize=(fig_width, fig_height) if fSetFigSize else None
+                )
                 for j in range(nrows * ncols):
                     iterator = next(index_generator)
                     try:
@@ -604,13 +720,20 @@ class WaveformSet(OneTypeRTL):
                     except IndexError:
                         break
                     counter += 1
-                fig.suptitle(fig_title)
+                fig.suptitle(
+                    fig_title,
+                    fontsize=title_fontsize
+                )
                 fig.tight_layout()
-                plt.show(block=False)
-                input("Press any key to iterate to next canvas...")
+                if show_plots:
+                    plt.show(block=False)
+                    input("Press any key to iterate to next canvas...")
                 plt.close()
+                output.append(fig)
         else:
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(
+                figsize=(fig_width, fig_height) if fSetFigSize else None
+            )
             for i in wvfs_indices:
                 self.Members[i].plot(
                     ax,
@@ -621,11 +744,17 @@ class WaveformSet(OneTypeRTL):
                     x0=x0,
                     y0=y0,
                 )
-            fig.suptitle(fig_title)
-            plt.show(block=False)
-            input("Press any key to exit")
+            fig.suptitle(
+                fig_title,
+                fontsize=title_fontsize
+            )
+            if show_plots:
+                plt.show(block=False)
+                input("Press any key to exit")
             plt.close()
-        return
+            output.append(fig)
+            
+        return output
 
     @staticmethod
     def set_custom_labels_visibility(ax, ax_i, ax_j, nrows):
@@ -653,39 +782,39 @@ class WaveformSet(OneTypeRTL):
             ax_i,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.set_custom_labels_visibility", 60001
+                "WaveformSet.set_custom_labels_visibility", 1
             ),
         )
         htype.check_type(
             ax_j,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.set_custom_labels_visibility", 60002
+                "WaveformSet.set_custom_labels_visibility", 2
             ),
         )
         htype.check_type(
             nrows,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.set_custom_labels_visibility", 60003
+                "WaveformSet.set_custom_labels_visibility", 3
             ),
         )
         if nrows < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.set_custom_labels_visibility", 60004
+                    "WaveformSet.set_custom_labels_visibility", 4
                 )
             )
         if ax_i < 0 or ax_i >= nrows:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.set_custom_labels_visibility", 60005
+                    "WaveformSet.set_custom_labels_visibility", 5
                 )
             )
         if ax_j < 0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.set_custom_labels_visibility", 60006
+                    "WaveformSet.set_custom_labels_visibility", 6
                 )
             )
         if ax_j > 0:
@@ -714,26 +843,26 @@ class WaveformSet(OneTypeRTL):
             i_max,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_random_indices", 70001
+                "WaveformSet.get_random_indices", 1
             ),
         )
         if i_max < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.get_random_indices", 70002
+                    "WaveformSet.get_random_indices", 2
                 )
             )
         htype.check_type(
             how_many_samples,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_random_indices", 70003
+                "WaveformSet.get_random_indices", 3
             ),
         )
         if how_many_samples < 0 or how_many_samples > i_max:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.get_random_indices", 70004
+                    "WaveformSet.get_random_indices", 4
                 )
             )
 
@@ -762,23 +891,23 @@ class WaveformSet(OneTypeRTL):
             i_max,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.index_generator", 80001
+                "WaveformSet.index_generator", 1
             ),
         )
         if i_max < 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.index_generator", 80002)
+                htype.generate_exception_message("WaveformSet.index_generator", 2)
             )
         htype.check_type(
             i_max,
             int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.index_generator", 80003
+                "WaveformSet.index_generator", 3
             ),
         )
         if j_max < 1:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.index_generator", 80004)
+                htype.generate_exception_message("WaveformSet.index_generator", 4)
             )
         if i_max == 1:
             return WaveformSet.unidimensional_index_generator(j_max)
@@ -802,10 +931,10 @@ class WaveformSet(OneTypeRTL):
         cls,
         input_filepath,
         time_resolution,
-        points_per_wvf=None,
-        wvfs_to_read=None,
-        separator=None,
+        points_per_wvf,
         timestamp_filepath=None,
+        headers_end_identifier="TIME,",
+        data_delimiter=",",
         delta_t_wf=None,
         set_name=None,
         ref_datetime=None,
@@ -813,104 +942,117 @@ class WaveformSet(OneTypeRTL):
         wvf_extra_info=None,
     ):
         """This class method is meant to be an alternative initializer.
-        It creates a WaveformSet out of a plain-text file which stores
-        waveforms. Optionally, this initializer could make use of another
-        file which stores the timestamp of the waveforms. This class
+        It creates a WaveformSet out of an ASCII or binary (in the 
+        Tektronix WFM format) input file. Optionally, in the case of 
+        an ASCII input file, this initializer could make use of another 
+        file which stores the timestamp of the waveforms. This class 
         method gets the following mandatory positional arguments:
 
-        -  input_filepath (string): File from which to read the waveforms,
-        where there's one entry per row. I.e. one waveform datapoint per
-        file row. The format of this file should comply with some rules
-        depending on the value of points_per_wvf and separator. Refer to
-        the documentation of such parameters for more information.
+        - input_filepath (string): File from which to read the waveforms.
+        It is given to the WaveformSet.read_wvfs() method. Its extension
+        must match either '.csv', '.txt', '.dat' or '.wfm'. For more
+        information, check the WaveformSet.read_wvfs() method documentation.
         - time_resolution (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
+        It must be a positive float.
+        - points_per_wvf (int): The expected number of points per 
+        waveform in the input filepath. It must be a positive integer.
+        It is given to the 'points_per_wvf' positional argument of the
+        WaveformSet.read_wvfs() method.
 
         This method also takes the following optional keyword arguments:
 
-        - points_per_wvf (int): If points_per_wvf is not None, then it is
-        considered to be the expected number of points per waveform in the
-        input filepath. In this case, the argument given to separator is
-        ignored. Also, in this case, every entry within input_filepath
-        must be broadcastable to float. No other strings are allowed as
-        entries in the input file.
-        - wvfs_to_read (int): This parameter only makes a difference if
-        points_per_wvf is not None and timestamp_filepath is None. For this
-        particular case, providing this argument speeds up the reading process.
-        It is the expected number of waveforms within the input filepath.
-        Assume input_filepath hosts N waveforms. Then, if wvfs_to_read<N, only
-        the first wvfs_to_read waveforms of input_filepath are read. If
-        wvfs_to_read>=N, all of the waveforms within input_filepath are read.
-        If it is not provided, this number is inferred from the input file.
-        - separator (string): If points_per_wvf is None and separator is not
-        None, then this is the expected separator between waveforms. What
-        this means is that when this function tries to read a certain row
-        of input_filepath and encounters an string equal to separator (without
-        taking into consideration the newline character), this function will
-        assume that the previous waveform has ended and the row that come next
-        is the first datapoint of the following waveform. When this parameter
-        applies, it is assumed that every entry of the input file must be
-        either broadcastable to float or equal to separator. Also, the first
-        and last entries within the input file cannot be separators, and
-        two separators cannot be next to each other.
-        - timestamp_filepath (string): File path to the file which hosts a
-        a time stamp of the waveforms which are hosted in input_filepath. The
-        i-th entry of this file is considered to be the initial time of
-        ocurrence of the i-th waveform measured with respect to the initial
-        time of ocurrence of the (i-1)-th waveform. If timestamp_filepath
-        is not None, it is assumed that all of the entries in the timestamp
-        are broadcastable to an strictly positive float.
-        - delta_t_wf (float): This parameter makes a difference only if timestamp
-        filepath is not available. In this case, this is considered to be the
-        time step in between two consecutive waveforms. This is helpful for
-        reading waveform sets which were measured using a trigger on a periodic
-        external signal. Then, delta_t_wf can be set to the period of such external
-        signal without needing to provide a complete text file with a time stamp.
+        - timestamp_filepath (string): It is given to the 'timestamp_filepath'
+        parameter of WaveformSet.read_wvfs(). This parameter only makes a 
+        difference if the input file is ASCII. It is the file path to the 
+        file which hosts an ASCII time stamp (its extension must match either 
+        '.txt', '.csv' or '.dat') of the waveforms which are hosted in 
+        the file whose path is given by input_filepath. The i-th entry of 
+        this file is considered to be the initial time of ocurrence of the 
+        i-th waveform measured with respect to the initial time of ocurrence 
+        of the (i-1)-th waveform. It is assumed that all of the entries in 
+        the timestamp are broadcastable to an strictly positive float.
+        - headers_end_identifier (string): This parameter is given to the 
+        'headers_end_identifier' parameter of the WaveformSet.read_wvfs()
+        method. It is a string which is used to find the end of the headers
+        in the input file, in case an ASCII file is provided. For more 
+        information, check the documentation of the 'headers_end_identifier'
+        parameter of the WaveformSet.read_wvfs().
+        - data_delimiter (string): This parameter is given to the 
+        'data_delimiter' parameter of the WaveformSet.read_wvfs() method.
+        For more information, check such parameter documentation in the 
+        WaveformSet.read_wvfs() docstring.
+        - delta_t_wf (float): It is given to the delta_t_wf parameter of
+        WaveformSet.read_wvfs(). This parameter makes a difference only 
+        if the input file is ASCII and the timestamp filepath is not available. 
+        In this case, this is considered to be the time increment in 
+        between the triggers of two consecutive waveforms. This is helpful 
+        for reading waveform sets which were measured using a trigger on 
+        a periodic external signal. Then, delta_t_wf can be set to the period 
+        of such external signal without needing to provide a complete text 
+        file with a time stamp. It must be a positive float.
         - set_name (string): It is passed to cls.__init__ as set_name.
         - ref_datetime (datetime): It is passed to cls.__init__ as
-        ref_datetime. This parameter is thus interpreted as the reference
-        time from which the waveforms initial time are measured. If it is
-        not provided, it is set to the creation datetime of the file whose
-        path is input_filepath.
-        - creation_dt_offset_min (float): This parameter only makes a
-        difference if ref_datetime is None. In such case, the ref_datetime
-        of the created WaveformSet is the creation datetime of the input file
-        PLUS the provided creation_df_offset. creation_df_offset is assumed
-        to be a quantity in minutes.
-        - wvf_extra_info (string): Path to a json file. This file is read to a
-        dictionary, which is then passed to the __signs attribute of every Waveform
-        object in the WaveformSet. For more information on which keys should you
-        use when building the json file, see the Waveform class documentation.
+        ref_datetime. This parameter is interpreted as the reference
+        time from which the waveforms initial time are measured. If it 
+        is not provided, it is set to the creation datetime of the file 
+        whose path is input_filepath.
+        - creation_dt_offset_min (float): It is assumed to be a quantity
+        in minutes. If ref_datetime is None (resp. not None), then the 
+        ref_datetime of the created WaveformSet is the creation datetime 
+        of the input file (resp. the given reference datetime) plus the 
+        provided creation_df_offset.
+        - wvf_extra_info (string): Path to a json file. This file is read to 
+        a dictionary, which is then passed to the __signs attribute of every 
+        Waveform object in the WaveformSet. For more information on which keys 
+        should you use when building the json file, see the Waveform class 
+        documentation.
 
-        At least one of [points_per_wvf, separator] must be different from None.
-        In any other case, there's no information enough to read the waveforms
-        from the input file. Also, at least one of [timestamp_filepath, delta_t_wf]
-        must be different from None. In other case, there's no enough information
-        to write the keys of the goal dictionary.
-
-        It is strongly advised to check that input files given to this function
-        comply with the specified format before running this class method.
-
-        This class method returns a WaveformSet Each entry of the dictionary
-        represents a waveform. The key is the t0 of the waveform, measured
-        with respect to the initial time of the FIRST waveform, while the
-        value is a list of floats which are the signal-datapoints of the
-        waveform.
+        For the case of an ASCII input file, at least one of [timestamp_filepath, 
+        delta_t_wf] must be different from None. In other case, there's not 
+        enough information to write the keys of the goal dictionary.
+        This class method returns a WaveformSet and the acquisition time of
+        such waveform set, in minutes. To do so, it assumes that the acquisition
+        time gotten from WaveformSet.read_wvfs() is expressed in seconds.
         """
 
+        # Although this parameter is later passed to the
+        # read_wvfs() method, it is better checked here
+        # because it will be used by os.path.getctime()
+        # if ref_datetime is None.
         htype.check_type(
             input_filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.from_files", 90001
+                "WaveformSet.from_files", 1
             ),
         )
+        if not os.path.isfile(input_filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "WaveformSet.from_files",
+                    2,
+                    extra_info=f"Path {input_filepath} does not exist or is not a file.",
+                )
+            )
+        htype.check_type(
+            time_resolution,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.from_files", 3
+            ),
+        )
+        if time_resolution <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.from_files", 4)
+            )
         if set_name is not None:
             htype.check_type(
                 set_name,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90002
+                    "WaveformSet.from_files", 5
                 ),
             )
         if ref_datetime is not None:
@@ -918,7 +1060,7 @@ class WaveformSet(OneTypeRTL):
                 ref_datetime,
                 dt.datetime,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90003
+                    "WaveformSet.from_files", 6
                 ),
             )
             ref_datetime_ = ref_datetime
@@ -934,7 +1076,7 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90004
+                    "WaveformSet.from_files", 7
                 ),
             )
             # Offset creation datetime
@@ -949,7 +1091,7 @@ class WaveformSet(OneTypeRTL):
                 wvf_extra_info,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.from_files", 90005
+                    "WaveformSet.from_files", 8
                 ),
             )
             with open(wvf_extra_info, "r") as file:
@@ -957,570 +1099,598 @@ class WaveformSet(OneTypeRTL):
         else:
             extra_info_ = None
 
-        # The rest of the parameters are type-checked and handled by WaveformSet.read_wvfs
-        waveforms_dict = WaveformSet.read_wvfs(
+        timestamps, waveforms, additional_dict = WaveformSet.read_wvfs(
             input_filepath,
-            points_per_wvf=points_per_wvf,
-            wvfs_to_read=wvfs_to_read,
-            separator=separator,
+            points_per_wvf,
             timestamp_filepath=timestamp_filepath,
+            headers_end_identifier=headers_end_identifier,
+            data_delimiter=data_delimiter,
             delta_t_wf=delta_t_wf,
         )
 
         waveforms_pack = []
-        for key in waveforms_dict.keys():
-            signal_holder = np.array(waveforms_dict[key])
+
+        for i in range(len(timestamps)):
+            signal_holder = waveforms[i * points_per_wvf:(i + 1) * points_per_wvf]
             waveform_holder = Waveform(
-                key, signal_holder, t_step=time_resolution, signs=extra_info_
+                timestamps[i],
+                signal_holder,
+                t_step=time_resolution,
+                signs=extra_info_,
             )
             waveforms_pack.append(waveform_holder)
-        return cls(*waveforms_pack, set_name=set_name, ref_datetime=ref_datetime_)
+
+        # Assuming that acquisition_time is expressed in seconds
+        return cls(
+            *waveforms_pack, 
+            set_name=set_name, 
+            ref_datetime=ref_datetime_), additional_dict["acquisition_time"] / 60.
 
     @staticmethod
     def read_wvfs(
         input_filepath,
-        points_per_wvf=None,
-        wvfs_to_read=None,
-        separator=None,
+        points_per_wvf,
         timestamp_filepath=None,
+        headers_end_identifier="TIME,",
+        data_delimiter=",",
         delta_t_wf=None,
     ):
         """This method takes the following mandatory positional argument:
 
-        -  input_filepath (string): File from which to read the waveforms,
-        where there's one entry per row. I.e. one waveform datapoint per
-        file row. The format of this file should comply with some rules
-        depending on the value of points_per_wvf and separator. Refer to
-        the documentation of such parameters for more information.
+        -  input_filepath (string): File from which to read the waveforms.
+        If its extension matches either '.txt', '.csv' or '.dat', it will 
+        be interpreted as an ASCII file. If its extension matches '.wfm',
+        it will be interpreted as a binary file in the Tektronix WFM format.
+        If any other extension is found, an exception is raised. 
+        - points_per_wvf (int): The expected number of points per 
+        waveform in the input filepath. It must be a positive integer.
 
         This method also takes the following optional keyword arguments:
 
-        - points_per_wvf (int): If points_per_wvf is not None, then it is
-        considered to be the expected number of points per waveform in the
-        input filepath. In this case, the argument given to separator is
-        ignored. Also, in this case, every entry within input_filepath
-        must be broadcastable to float. No other strings are allowed as
-        entries in the input file.
-        - wvfs_to_read (int): This parameter only makes a difference if
-        points_per_wvf is not None and timestamp_filepath is None. For this
-        particular case, providing this argument speeds up the reading process.
-        It is the expected number of waveforms within the input filepath.
-        Assume input_filepath hosts N waveforms. Then, if wvfs_to_read<N, only
-        the first wvfs_to_read waveforms of input_filepath are read. If
-        wvfs_to_read>=N, all of the waveforms within input_filepath are read.
-        If it is not provided, this number is inferred from the input file.
-        - separator (string): If points_per_wvf is None and separator is not
-        None, then this is the expected separator between waveforms. What
-        this means is that when this function tries to read a certain row
-        of input_filepath and encounters an string equal to separator (without
-        taking into consideration the newline character), this function will
-        assume that the previous waveform has ended and the row that come next
-        is the first datapoint of the following waveform. When this parameter
-        applies, it is assumed that every entry of the input file must be
-        either broadcastable to float or equal to separator. Also, the first
-        and last entries within the input file cannot be separators, and
-        two separators cannot be next to each other.
-        - timestamp_filepath (string): File path to the file which hosts a
-        a time stamp of the waveforms which are hosted in input_filepath. The
-        i-th entry of this file is considered to be the initial time of
+        - timestamp_filepath (string): This parameter only makes a difference
+        if the input file is ASCII. File path to the file which hosts a
+        an ASCII time stamp (its extension must match either '.txt', '.csv' 
+        or '.dat') of the waveforms which are hosted in input_filepath. 
+        The i-th entry of this file is considered to be the initial time of
         ocurrence of the i-th waveform measured with respect to the initial
-        time of ocurrence of the (i-1)-th waveform. If timestamp_filepath
-        is not None, it is assumed that all of the entries in the timestamp
-        are broadcastable to an strictly positive float.
-        - delta_t_wf (float): This parameter makes a difference only if timestamp
-        filepath is not available. In this case, this is considered to be the
-        delta_t_wf in between two consecutive waveforms. This is helpful for
-        reading waveform sets which were measured using a trigger on a periodic
-        external signal. Then, delta_t_wf can be set to the period of such external
-        signal without needing to provide a complete text file with a time stamp.
+        time of ocurrence of the (i-1)-th waveform. It is assumed that all 
+        of the entries in the timestamp are broadcastable to an strictly 
+        positive float. For more information on the expected format for this
+        file, check the WaveformSet._extract_core_data() method documentation
+        for the case of file_type_code equal to 1.
+        - headers_end_identifier (string): This parameter only makes a
+        difference if the input file is ASCII. In such case, this parameter 
+        is given to the 'identifier' parameter of the 
+        DataPreprocessor.find_skiprows() method. This method is used to
+        find the line in which the headers end in the input file, i.e. the
+        number of rows which should be skipped by the 
+        WaveformSet._extract_core_data() method. Additionally, if the
+        timestamp_filepath parameter is defined, then headers_end_identifier 
+        is also used by DataPreprocessor.find_skiprows() to find a suitable 
+        skip-rows value for the time stamp file.
+        - data_delimiter (string): This parameter only makes a
+        difference if the input file is ASCII. This parameter is given to 
+        the 'data_delimiter' parameter of the WaveformSet._extract_core_data()
+        method for the case of ASCII input files (waveforms input file and
+        time stamp file, if applicable). In turn, such method gives it to
+        to numpy.loadtxt() as delimiter. It is used to separate entries of 
+        the different columns of the input files.
+        - delta_t_wf (float): This parameter makes a difference only if the
+        input file is ASCII and the timestamp filepath is not available. In 
+        this case, this is considered to be the time increment in between 
+        the triggers of two consecutive waveforms. This is helpful for 
+        reading waveform sets which were measured using a trigger on a 
+        periodic external signal. Then, delta_t_wf can be set to the period 
+        of such external signal without needing to provide one time stamp 
+        per waveform. It must be a positive float.
 
-        At least one of [points_per_wvf, separator] must be different from None.
-        In any other case, there's no information enough to read the waveforms
-        from the input file. Also, at least one of [timestamp_filepath, delta_t_wf]
-        must be different from None. In other case, there's no enough information
-        to write the keys of the goal dictionary.
+        For the case of an ASCII input file, at least one of [timestamp_filepath, 
+        delta_t_wf] must be different from None. In other case, there's not 
+        enough information to write the keys of the goal dictionary.
+        This class method returns a WaveformSet.
 
-        It is strongly advised to check that input files given to this function
-        comply with the specified format before running this static method.
+        This function returns three parameters, in the following order:
 
-        This function returns a dictionary. Each entry of the dictionary
-        represents a waveform. The key is the t0 of the waveform, measured
-        with respect to the initial time of the FIRST waveform, while the
-        value is a list of floats which are the signal-datapoints of the
-        waveform.
+        - An unidimensional numpy array with the timestamps of the waveforms,
+        where the i-th entry is the time increment of the i-th waveform trigger
+        with respect to the first waveform trigger.
+        - An unidimensional numpy array with the concatenation of the
+        waveforms
+        - A dictionary which contains two entries:
+            - 'average_delta_t_wf': The average of the time differences 
+            between consecutive triggers in the waveforms dataset.
+            - 'acquisition_time': The time difference between the last 
+            trigger and the first trigger of the waveforms dataset.
         """
 
+        # input_filepath is checked in the WaveformSet.from_files() method
+
+        _, extension = os.path.splitext(input_filepath)
+
+        if extension not in (".txt", ".csv", ".dat", ".wfm"):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.read_wvfs", 1)
+            )
+
+        fIsBinary = False
+        if extension == ".wfm":
+            fIsBinary = True
+
         htype.check_type(
-            input_filepath,
-            str,
+            points_per_wvf,
+            int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs", 100001
+                "WaveformSet.read_wvfs", 2
             ),
         )
-        fUseNumPoints = False
-        if points_per_wvf is not None:
-            htype.check_type(
-                points_per_wvf,
-                int,
-                exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_wvfs", 100002
-                ),
+        if points_per_wvf < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.read_wvfs", 3)
             )
-            if points_per_wvf < 1:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.read_wvfs", 100003)
-                )
-            fUseNumPoints = True
-
-        if not fUseNumPoints:  # In this case, separator must be available
-            if separator is None:
-                raise cuex.InsufficientParameters(
-                    htype.generate_exception_message("WaveformSet.read_wvfs", 100004)
-                )
-            htype.check_type(
-                separator,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_wvfs", 100005
-                ),
-            )
-            if len(separator) < 1:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.read_wvfs", 100006)
-                )
 
         fUseTStamp = False
-        if timestamp_filepath is not None:
+        if not fIsBinary:
+            if timestamp_filepath is not None:
+                htype.check_type(
+                    timestamp_filepath,
+                    str,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 4
+                    ),
+                )
+                if not os.path.isfile(timestamp_filepath):
+                    raise FileNotFoundError(
+                        htype.generate_exception_message(
+                            "WaveformSet.read_wvfs",
+                            5,
+                            extra_info=f"Path {timestamp_filepath} does not exist or is not a file.",
+                        )
+                    )
+
+                _, ts_extension = os.path.splitext(timestamp_filepath)
+
+                if ts_extension not in (".txt", ".csv", ".dat"):
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message("WaveformSet.read_wvfs", 6)
+                    )
+
+                fUseTStamp = True
+
+            if not fUseTStamp:  # In this case, delta_t_wf must be available
+                if delta_t_wf is None:
+                    raise cuex.InsufficientParameters(
+                        htype.generate_exception_message("WaveformSet.read_wvfs", 7)
+                    )
+                htype.check_type(
+                    delta_t_wf,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 8
+                    ),
+                )
+                if delta_t_wf <= 0.0:
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message("WaveformSet.read_wvfs", 9)
+                    )
+
+        # These parameters are only used in the ASCII case
+        if not fIsBinary:   
+
             htype.check_type(
-                timestamp_filepath,
+                headers_end_identifier,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_wvfs", 100007
+                    "WaveformSet.read_wvfs", 10
                 ),
             )
-            fUseTStamp = True
-
-        if not fUseTStamp:  # In this case, delta_t_wf must be available
-            if delta_t_wf is None:
-                raise cuex.InsufficientParameters(
-                    htype.generate_exception_message("WaveformSet.read_wvfs", 100008)
-                )
             htype.check_type(
-                delta_t_wf,
-                float,
-                np.float64,
+                data_delimiter,
+                str,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_wvfs", 100009
+                    "WaveformSet.read_wvfs", 11
                 ),
             )
-            if delta_t_wf <= 0.0:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.read_wvfs", 100010)
-                )
 
-        # wvfs_to_read is type-checked and handled by WaveformSet.read_wvfs_with_ppw_without_timestamp, if applicable
+        if not fIsBinary:
 
-        if fUseNumPoints and fUseTStamp:
-            return WaveformSet.read_wvfs_with_ppw_with_timestamp(
-                input_filepath, points_per_wvf, timestamp_filepath
-            )
-        elif fUseNumPoints and not fUseTStamp:
-            return WaveformSet.read_wvfs_with_ppw_without_timestamp(
-                input_filepath, points_per_wvf, delta_t_wf, wvfs_to_read=wvfs_to_read
-            )
-        elif not fUseNumPoints and fUseTStamp:
-            return WaveformSet.read_wvfs_with_separator_with_timestamp(
-                input_filepath, separator, timestamp_filepath
-            )
-        else:
-            return WaveformSet.read_wvfs_with_separator_without_timestamp(
-                input_filepath, separator, delta_t_wf
+            headers_endline = DataPreprocessor.find_skiprows(
+                input_filepath, 
+                headers_end_identifier,
             )
 
-    @staticmethod
-    def read_wvfs_with_ppw_with_timestamp(
-        input_filepath, points_per_wvf, timestamp_filepath
-    ):
-        """This static method is meant to be called from read_wvfs(). Refer to its docstring for
-        more information."""
-
-        htype.check_type(
-            input_filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_ppw_with_timestamp", 110001
-            ),
-        )
-
-        htype.check_type(
-            points_per_wvf,
-            int,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_ppw_with_timestamp", 110002
-            ),
-        )
-        if points_per_wvf < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_ppw_with_timestamp", 110003
-                )
+            waveforms = WaveformSet._extract_core_data(
+                input_filepath,
+                0,
+                skiprows=headers_endline,
+                data_delimiter=data_delimiter,
             )
 
-        htype.check_type(
-            timestamp_filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_ppw_with_timestamp", 110004
-            ),
-        )
-        running_dict = {}
-        with open(timestamp_filepath, "r") as ts_file:
-            with open(input_filepath, "r") as wf_file:
-                key = ts_file.readline()
-                key = 0.0  # Throw away first entry in the time stamp
-                WaveformSet.read_next_wvf_to_dict(
-                    running_dict, wf_file, key, points_per_wvf=points_per_wvf
-                )
-
-                for ts_line in ts_file:
-                    # Assuming every entry in the time stamp
-                    # is measured with respect to the ocurrence
-                    # of the immediately previous waveform.
-                    key = key + float(ts_line.strip())
-
-                    WaveformSet.read_next_wvf_to_dict(
-                        running_dict, wf_file, key, points_per_wvf=points_per_wvf
-                    )
-        return running_dict
-
-    @staticmethod
-    def read_wvfs_with_ppw_without_timestamp(
-        input_filepath, points_per_wvf, delta_t_wf, wvfs_to_read=None
-    ):
-        """This static method is meant to be called from read_wvfs(). Refer to its docstring for
-        more information."""
-
-        htype.check_type(
-            input_filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120001
-            ),
-        )
-        htype.check_type(
-            points_per_wvf,
-            int,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120002
-            ),
-        )
-        if points_per_wvf < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120003
-                )
-            )
-        htype.check_type(
-            delta_t_wf,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120004
-            ),
-        )
-        if delta_t_wf <= 0.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120005
-                )
-            )
-        if wvfs_to_read is not None:
-            htype.check_type(
-                wvfs_to_read,
-                int,
-                exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120006
-                ),
-            )
-            if wvfs_to_read < 0:
+            if len(waveforms) % points_per_wvf != 0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.read_wvfs_with_ppw_without_timestamp", 120007
+                        "WaveformSet.read_wvfs", 
+                        12,
+                        extra_info=f"The number of data-points in the concatenation "
+                        f"of waveforms ({len(waveforms)}) must be a multiple of "
+                        f"points_per_wvf ({points_per_wvf}).",
                     )
                 )
-            wvfs_to_read_ = wvfs_to_read
+            
+            waveforms_no = int(len(waveforms) // points_per_wvf)
+
+            if fUseTStamp:
+
+                headers_endline = DataPreprocessor.find_skiprows(
+                    timestamp_filepath,
+                    headers_end_identifier,
+                )
+
+                timestamps, additional_dict = \
+                    WaveformSet._extract_core_data(
+                        timestamp_filepath,
+                        1,
+                        skiprows=headers_endline,
+                        data_delimiter=data_delimiter,
+                    )
+
+                # In WaveformSet._extract_core_data(), it is
+                # assumed that the i-th entry of the time stamp
+                # is the time increment of the i-th waveform trigger
+                # with respect to the (i-1)-th waveform trigger.
+                # However, what WaveformSet.read_wvfs() should
+                # return is the time increment of the i-th waveform
+                # trigger with respect to the first waveform trigger.
+                timestamps = np.cumsum(timestamps)
+
+            else:
+                timestamps = np.arange(
+                    0., 
+                    waveforms_no * delta_t_wf,
+                    delta_t_wf,
+                    )
+                
+                additional_dict = {
+                    "average_delta_t_wf": delta_t_wf,
+                    "acquisition_time": waveforms_no * delta_t_wf,
+                }
         else:
-            how_many_lines = WaveformSet.line_counter(input_filepath)
-            wvfs_to_read_ = int(math.ceil(how_many_lines / points_per_wvf))
 
-        running_dict = {}
-        with open(input_filepath, "r") as file:
-            running_t = 0.0
-            for i in range(wvfs_to_read_):
-                WaveformSet.read_next_wvf_to_dict(
-                    running_dict, file, running_t, points_per_wvf=points_per_wvf
+            parameters, supplementary_extraction = (
+                DataPreprocessor._extract_tek_wfm_metadata(input_filepath)
+            )
+            tek_wfm_metadata = parameters | supplementary_extraction
+
+            timestamps, waveforms, additional_dict = \
+                WaveformSet._extract_core_data(
+                    input_filepath,
+                    2,
+                    tek_wfm_metadata=tek_wfm_metadata,
                 )
-                running_t += delta_t_wf
-        return running_dict
+            
+            timestamps = np.cumsum(timestamps)
+
+        return timestamps, waveforms, additional_dict
 
     @staticmethod
-    def read_wvfs_with_separator_with_timestamp(
-        input_filepath, separator, timestamp_filepath
+    def _extract_core_data(
+        filepath,
+        file_type_code,
+        skiprows=0,
+        data_delimiter=",",
+        tek_wfm_metadata=None,
     ):
-        """This static method is meant to be called from read_wvfs(). Refer to its docstring for
-        more information."""
+        """This static method is a helper method which should only be called 
+        by the WaveformSet.read_wvfs() method. It gets the following mandatory 
+        positional argument:
+
+        - filepath (string): Path to the file whose data will be extracted.
+
+        - file_type_code (scalar integer): It must be either 0, 1 or 2.
+        This integer indicates the type of file which should be processed.
+        0 matches an ASCII waveform dataset, 1 matches an ASCII timestamp
+        and 2 matches a binary (Tektronix WFM file format).
+
+        This function also gets the following optional keyword arguments:
+
+        - skiprows (integer scalar): This parameter is only used for the
+        case of ASCII input files, i.e. either file_type_code is 0 or 1.
+        It indicates the number of rows to skip in the input file in order
+        to access the core data. It must be a semi-positive integer.
+
+        - data_delimiter (string): This parameter is only used for the case
+        of ASCII input files, i.e. either file_type_code is 0 or 1. In such
+        case, it is given to numpy.loadtxt() as delimiter, which in turn,
+        uses it to separate entries of the different columns of the input file.
+
+        - tek_wfm_metadata (None or dictionary): This parameter is only used
+        for the case of binary input files, i.e. file_type_code is 2. In such 
+        case, it must be defined. It is a dictionary containing the metadata 
+        of the provided input file. It must be the union of the two dictionaries 
+        returned by DataPreprocessor._extract_tek_wfm_metadata(). For more 
+        information on the keys which these dictionaries should contain, check 
+        such method documentation.
+
+        If file_type_code is 0, then this method returns an unidimensional
+        numpy array which contains the waveform dataset. I.e. this array is
+        the result of concatenating all of the waveforms in the input file.
+        If file_type_code is 1, then this method returns a unidimensional 
+        numpy array which contains the time stamp of the waveforms. If 
+        file_type_code is 2, then this method returns two unidimensional 
+        numpy arrays. The first one contains the time stamp of the waveforms. 
+        The second one contains the concatenation of the waveforms. If 
+        file_type_code is 1 or 2, then this method returns an additional 
+        dictionary which contains two entries. The first one is saved under 
+        the key 'average_delta_t_wf' and is the average of the time differences 
+        between consecutive triggers in the waveforms dataset. The second one 
+        is saved under the key 'acquisition_time' and is the acquisition time 
+        of the waveform dataset which is stored in the provided input file. 
+        By acquisition time we refer to the time difference between the last 
+        trigger and the first trigger of the waveforms dataset stored in the 
+        provided filepath. It is assumed that the i-th entry of the time 
+        stamp is time increment of the i-th waveform trigger with respect to 
+        the (i-1)-th waveform trigger. Therefore, the acquisition time is 
+        computed as the sum of all of the entries of the time stamp."""
+
+        # filepath and data_delimiter are checked in the WaveformSet.read_wvfs() method
 
         htype.check_type(
-            input_filepath,
-            str,
+            file_type_code,
+            int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_separator_with_timestamp", 130001
+                "WaveformSet._extract_core_data", 1
             ),
         )
-        htype.check_type(
-            separator,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_separator_with_timestamp", 130002
-            ),
-        )
-        if len(separator) < 1:
+        if file_type_code < 0 or file_type_code > 2:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_separator_with_timestamp", 130003
+                    "WaveformSet._extract_core_data", 2
                 )
             )
         htype.check_type(
-            timestamp_filepath,
-            str,
+            skiprows,
+            int,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_separator_with_timestamp", 130004
+                "WaveformSet._extract_core_data", 3
             ),
         )
-        running_dict = {}
-        with open(timestamp_filepath, "r") as ts_file:
-            with open(input_filepath, "r") as wf_file:
-                key = ts_file.readline()
-                key = 0.0  # Throw away first entry in the time stamp
-                WaveformSet.read_next_wvf_to_dict(
-                    running_dict, wf_file, key, separator=separator
+        if skiprows < 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet._extract_core_data", 4
                 )
-                for ts_line in ts_file:
-                    # Assuming every entry in the time stamp
-                    # is measured with respect to the ocurrence
-                    # of the immediately previous waveform.
-                    key = key + float(ts_line.strip())
+            )
+        if file_type_code > 1:
+            htype.check_type(
+                tek_wfm_metadata,
+                dict,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet._extract_core_data", 5
+                ),
+            )
 
-                    WaveformSet.read_next_wvf_to_dict(
-                        running_dict, wf_file, key, separator=separator
+        result = None
+        additional_dict = {}
+
+        if file_type_code < 2:  # ASCII input
+
+            data = np.loadtxt(
+                filepath, 
+                delimiter=data_delimiter, 
+                skiprows=skiprows)
+
+            if np.ndim(data) < 2 or np.shape(data)[1] < 2:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "WaveformSet._extract_core_data",
+                        6,
+                        extra_info="Input ASCII data must have at least two columns.",
                     )
-        return running_dict
+                )
+            # Either voltage entries or a timestamp,
+            # we remove the rest of the data and
+            # preserve the second column
+            data = data[:, 1]
+
+            if file_type_code == 0:
+                result = (data,)
+
+            else:  # file_type_code == 1
+                # Assuming that the acquisition time of the
+                # last waveform is negligible with respect
+                # to the time difference between triggers
+                additional_dict["acquisition_time"] = np.sum(data)
+                additional_dict["average_delta_t_wf"] = additional_dict["acquisition_time"] / (
+                    data.shape[0] - 1
+                )
+
+                result = (data, additional_dict)
+
+        else:  # Binary input
+
+            timestamp, waveforms = WaveformSet.extract_tek_wfm_coredata(
+                filepath, tek_wfm_metadata
+            )
+
+            # Concatenate waveforms in a 1D-array
+            waveforms = waveforms.flatten(
+                order="F"
+            )
+
+            # Assuming that the acquisition time of the
+            # last waveform is negligible with respect
+            # to the time difference between triggers
+            additional_dict["acquisition_time"] = np.sum(timestamp)
+
+            # The time stamp, as returned by
+            # WaveformSet.extract_tek_wfm_coredata(),
+            # contains as many entries as waveforms in
+            # in the FastFrame set. The first one is null.
+            additional_dict["average_delta_t_wf"] = additional_dict["acquisition_time"] / (
+                timestamp.shape[0] - 1
+            )
+
+            result = (timestamp, waveforms, additional_dict)
+
+        return result
 
     @staticmethod
-    def read_wvfs_with_separator_without_timestamp(
-        input_filepath, separator, delta_t_wf
-    ):
-        """This static method is meant to be called from read_wvfs(). Refer to its docstring for
-        more information."""
+    def extract_tek_wfm_coredata(filepath, metadata):
+        """This static method gets the following mandatory positional arguments:
 
-        htype.check_type(
-            input_filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_separator_without_timestamp", 140001
-            ),
-        )
-        htype.check_type(
-            separator,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_separator_without_timestamp", 140002
-            ),
-        )
-        if len(separator) < 1:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_separator_without_timestamp", 140003
-                )
-            )
-        htype.check_type(
-            delta_t_wf,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_wvfs_with_separator_without_timestamp", 140004
-            ),
-        )
-        if delta_t_wf <= 0.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "WaveformSet.read_wvfs_with_separator_without_timestamp", 140005
-                )
-            )
-        running_dict = {}
-        with open(input_filepath, "r") as wf_file:
-            key = 0.0
-            while WaveformSet.read_next_wvf_to_dict(
-                running_dict, wf_file, key, separator=separator
-            ):
-                key += delta_t_wf
-        return running_dict
+        - filepath (string): Path to the binary file (Tektronix WFM file format),
+        which must host a FastFrame set and whose core data should be extracted.
+        DataPreprocessor._extract_tek_wfm_metadata() should have previously checked
+        that, indeed, the input file hosts a FastFrame set. It is a check based
+        on the 4-bytes integer which you can find at offset 78 of the WFM file.
+        - metadata (dictionary): It is a dictionary which contains meta-data of
+        the input file which is necessary to extract the core data. It should
+        contain the union of the two dictionaries returned by
+        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
+        the data contained in such dictionaries, check such method documentation.
 
-    @staticmethod
-    def line_counter(filepath):
-        """This function counts the number of lines in a file whose path is given by filepath."""
+        This method returns two arrays. The first one is an unidimensional array
+        of length M, which stores timestamp information. The second one is a
+        bidimensional array which stores the waveforms of the FastFrame set of
+        the given input file. Say such array has shape NxM: then N is the number
+        of (user-accesible) points per waveform, while M is the number of
+        waveforms. The waveform entries in such array are already expressed in
+        the vertical units which are extracted to the key 'Vertical Units' by
+        DataPreprocessor._extract_tek_wfm_metadata(). In this context, the i-th
+        entry of the first array returned by this function gives the time
+        difference, in seconds, between the trigger of the i-th waveform and
+        the trigger of the (i-1)-th waveform. The first entry, which is undefined
+        up to the given definition, is manually set to zero."""
 
         htype.check_type(
             filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.line_counter", 51381
+                "WaveformSet.extract_tek_wfm_coredata", 82855
             ),
         )
-
-        with open(filepath, "r") as file:
-            counter = 0
-            for line in file:
-                counter += 1
-        return counter
-
-    @staticmethod
-    def read_next_wvf_to_dict(
-        running_dict, open_file, new_key, points_per_wvf=None, separator=None
-    ):
-        """This function gets the following mandatory keyword arguments:
-
-        - running_dict (dictionary): Waveforms container, so that the key for each
-        entry is the initial time of a waveform, and its value, is a list of float
-        entries which are the signal-datapoints of the waveform.
-        - open_file (object of type <class '_io.TextIOWrapper'>, i.e. as returned by
-        open(filepath, 'r')): Already opened file from which the waveform will be read.
-        - new_key (float): Key of the entry that's going to be added to the running
-        dictionary.
-
-        It also gets the following keyword arguments:
-
-        - points_per_wvf (int): Number of rows/entries that should be read from the open
-        file.
-        - separator (string): If points_per_wvf is None and separator is not None, then
-        this is the expected separator between waveforms. What this means is that when
-        this function tries to read a certain row of input_filepath and encounters an
-        string equal to separator (without taking into consideration the newline character),
-        this function will assume that the previous waveform has ended and the row that
-        come next is the first datapoint of the following waveform.
-
-        This function receives a file, which is already opened in read mode, and reads
-        the following waveform. The file is expected to contain one float value per row.
-        points_per_wvf and separator cannot be None at the same time. If points_per_wvf
-        is not None, then this function assumes that the following waveform is made up
-        of the following points_per_wvf entries in the file. If points_per_wvf is None
-        and separator is not None, then this function assumes that the following waveform
-        is made up of every entry that it encounters in the input file until it finds a
-        line which matches the separator. Either way, this function all of the float
-        entries in a list, and adds it to running_dict under the key new_key. This function
-        returns a boolean scalar, that is True if there are more lines to read in the file,
-        and False if the file has been already completely flushed.
-        """
-
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "WaveformSet.extract_tek_wfm_coredata",
+                    58749,
+                    extra_info=f"Path {filepath} does not exist or is not a file.",
+                )
+            )
+        else:
+            _, extension = os.path.splitext(filepath)
+            if extension != ".wfm":
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.extract_tek_wfm_coredata",
+                        21667,
+                        extra_info=f"The extension of the input file must match '.wfm'.",
+                    )
+                )
         htype.check_type(
-            running_dict,
+            metadata,
             dict,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.read_next_wvf_to_dict", 150001
-            ),
-        )
-        htype.check_type(
-            new_key,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.read_next_wvf_to_dict", 150002
+                "WaveformSet.extract_tek_wfm_coredata", 35772
             ),
         )
 
-        fUseNumPoints = False
-        if points_per_wvf is not None:
-            htype.check_type(
-                points_per_wvf,
-                int,
-                exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_next_wvf_to_dict", 150003
-                ),
+        # Fraction of the sample time
+        # from the trigger time stamp
+        # to the next sample.
+        first_sample_delay = np.empty((metadata["FastFrame Count"],), dtype=np.double)
+
+        # The fraction of the second
+        # when the trigger occurred.
+        triggers_second_fractions = np.empty(
+            (metadata["FastFrame Count"],), dtype=np.double
+        )
+
+        # GMT (in seconds from the epoch)
+        # when the trigger occurred.
+        gmt_in_seconds = np.empty((metadata["FastFrame Count"],), dtype=np.double)
+
+        first_sample_delay[0] = metadata["tfrac[0]"]  # Add info of the first frame
+        triggers_second_fractions[0] = metadata["tdatefrac[0]"]
+        gmt_in_seconds[0] = metadata["tdate[0]"]
+
+        # For FastFrame, we've got a chunk of metadata['FastFrame Count']*54
+        # bytes which store WfmUpdateSpec and WfmCurveSpec objects, containing
+        # data on the timestamp and the number of points of each frame.
+
+        with open(filepath, "rb") as file:  # Binary read mode
+            _ = file.read(838)  # Throw away the header bytes (838 bytes)
+
+            # WUS stands for Waveform Update Specification. WUS objects count on a 4 bytes
+            # unsigned long, a 8 bytes double, another 8 bytes double and a 4 bytes long.
+
+            # Structure of the output array of np.fromfile
+            # The first element of each tuple is the name
+            # of the field, whereas the second element is the
+            # data type of each field
+            dtype = [
+                ("_", "i4"),
+                ("first_sample_delay", "f8"),
+                ("trigger_second_fraction", "f8"),
+                ("gmt_in_seconds", "i4"),
+            ]
+
+            # Within the same 'with' context,
+            # np.fromfile continues the reading
+            # process as of the already-read
+            # 838 bytes. Also, we are taking into
+            # account that the time information
+            # of the first frame was already read.
+            data = np.fromfile(
+                file, dtype=dtype, count=(metadata["FastFrame Count"] - 1)
             )
-            if points_per_wvf < 1:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message(
-                        "WaveformSet.read_next_wvf_to_dict", 150004
-                    )
-                )
-            fUseNumPoints = True
 
-        if not fUseNumPoints:
-            if separator is None:
-                raise cuex.InsufficientParameters(
-                    htype.generate_exception_message(
-                        "WaveformSet.read_next_wvf_to_dict", 150005
-                    )
-                )
-            htype.check_type(
-                separator,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "WaveformSet.read_next_wvf_to_dict", 150006
-                ),
+            # Merge first frame trigger
+            # info. with info. from the
+            # the rest of the frames.
+            first_sample_delay[1:] = data["first_sample_delay"]
+            triggers_second_fractions[1:] = data["trigger_second_fraction"]
+            gmt_in_seconds[1:] = data["gmt_in_seconds"]
+
+            # N.B. For binary gain measurements (with external trigger),
+            # it was observed that all of the entries of
+            # triggers_second_fractions, and gmt_in_seconds are null at this point.
+
+            # Read waveforms
+            waveforms = np.memmap(
+                file,
+                dtype=metadata["samples_datatype"],
+                mode="r",
+                offset=metadata["curve_buffer_offset"],
+                # Shape of the returned array
+                # Running along second dimension
+                # gives different waveforms
+                shape=(metadata["samples_no"], metadata["FastFrame Count"]),
+                order="F",
             )
-            if len(separator) < 1:
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message(
-                        "WaveformSet.read_next_wvf_to_dict", 150007
-                    )
-                )
 
-        fThereAreMoreLines = True
-        new_value = []
-        if fUseNumPoints:
-            for i in range(points_per_wvf):
-                line = open_file.readline()
-                try:
-                    new_value.append(float(line.strip()))
+        # While the numbers in gmt_in_seconds are O(9)
+        # The fractions of seconds are O(-1). Summing
+        # the fractions of the second to the GMT could
+        # result in losing the second fraction info. due
+        # to rounding error. It's better to shift the
+        # time origin to the first trigger, then add the
+        # seconds fractions.
+        seconds_from_first_trigger = gmt_in_seconds - gmt_in_seconds[0]
+        timestamp = seconds_from_first_trigger + triggers_second_fractions
 
-                # This is what happens when you read the
-                # last line of the file, which is "''",
-                # and try to convert it into a float.
-                except ValueError:
-                    fThereAreMoreLines = False
+        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
 
-                    # If we have reached the end of
-                    # the file and not even one entry
-                    # has been added to new_value,
-                    # there's no reason to add an empty
-                    # waveform to the dictionary.
-                    if len(new_value) == 0:
-                        return fThereAreMoreLines
-                    else:
-                        break
+        # Filter out the oscilloscope interpolation samples
+        waveforms = waveforms[
+            metadata["pre-values_no"] : metadata["samples_no"]
+            - metadata["post-values_no"],
+            :,
+        ]
 
-        else:
-            # Try getting the first entry,
-            # but there may be not even one
-            # entry. Also, I am assuming that
-            # the first entry won't be a separator.
-            try:
-                new_candidate = float((open_file.readline()).strip())
-            except ValueError:
-                return False
-            while True:
-                new_value.append(new_candidate)
-                new_candidate = (open_file.readline()).strip()
-                if new_candidate == separator:
-                    break
-                elif new_candidate == "":  # File has ended
-                    fThereAreMoreLines = False
-                    break
-                else:
-                    new_candidate = float(new_candidate)
-        running_dict[new_key] = new_value
-        return fThereAreMoreLines
+        # 2D array of waveforms, in vertical units
+        waveforms = (waveforms * metadata["vscale"]) + metadata["voffset"]
+        return timestamp, waveforms
 
     @staticmethod
     def swap(x, y):
@@ -1545,7 +1715,7 @@ class WaveformSet(OneTypeRTL):
             list_of_scalars,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.bubble_sort", 160001
+                "WaveformSet.bubble_sort", 1
             ),
         )
         for elem in list_of_scalars:
@@ -1556,14 +1726,14 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.bubble_sort", 160002
+                    "WaveformSet.bubble_sort", 2
                 ),
             )
         htype.check_type(
             sort_increasingly,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.bubble_sort", 160003
+                "WaveformSet.bubble_sort", 3
             ),
         )
         samples_ = list_of_scalars
@@ -1597,7 +1767,7 @@ class WaveformSet(OneTypeRTL):
             wvfs_to_erase,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.purge", 170001
+                "WaveformSet.purge", 1
             ),
         )
         for elem in wvfs_to_erase:
@@ -1606,18 +1776,18 @@ class WaveformSet(OneTypeRTL):
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.purge", 170002
+                    "WaveformSet.purge", 2
                 ),
             )
             if elem < 0:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.plot", 170003)
+                    htype.generate_exception_message("WaveformSet.plot", 3)
                 )
         htype.check_type(
             ask_for_confirmation,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.purge", 170004
+                "WaveformSet.purge", 4
             ),
         )
         wvfs_to_erase_ = list(set(wvfs_to_erase))  # Remove redundancy
@@ -1715,14 +1885,14 @@ class WaveformSet(OneTypeRTL):
 
         if not callable(filter_function):
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.filter", 180001)
+                htype.generate_exception_message("WaveformSet.filter", 1)
             )
         signature = inspect.signature(filter_function)
         if len(signature.parameters) < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180002,
+                    2,
                     extra_info="The signature of the given filter must have one argument at least.",
                 )
             )
@@ -1730,7 +1900,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180003,
+                    3,
                     extra_info="The name of the first parameter of the signature of the given filter must be 'waveform'.",
                 )
             )
@@ -1738,7 +1908,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180004,
+                    4,
                     extra_info="The type of the first parameter of the signature of the given filter must be hinted as Waveform.",
                 )
             )
@@ -1746,7 +1916,7 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    180005,
+                    5,
                     extra_info="The return type of the given filter must be hinted as bool.",
                 )
             )
@@ -1754,21 +1924,21 @@ class WaveformSet(OneTypeRTL):
             return_idcs,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.filter", 180006
+                "WaveformSet.filter", 6
             ),
         )
         htype.check_type(
             purge,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.filter", 180007
+                "WaveformSet.filter", 7
             ),
         )
         htype.check_type(
             ask_for_confirmation,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.filter", 180008
+                "WaveformSet.filter", 8
             ),
         )
         mask, wvfs_to_erase = [], []
@@ -1782,7 +1952,7 @@ class WaveformSet(OneTypeRTL):
                     np.bool_,
                     exception_message=htype.generate_exception_message(
                         "WaveformSet.filter",
-                        180009,
+                        9,
                         extra_info="The filter function is not behaving as expected.",
                     ),
                 )
@@ -1797,7 +1967,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.filter",
-                        180010,
+                        10,
                         extra_info="Either the number of provided positional arguments do not match the expected one, or you gave some keyword argument which was not defined in the signature of the given filter_function.",
                     )
                 )
@@ -1844,7 +2014,11 @@ class WaveformSet(OneTypeRTL):
         - threshold_from_baseline (bool): If False, then the
         given threshold is understood as an absolute threshold.
         If else, then the given threshold is understood as an
-        offset of wvf.Signs['first_peak_baseline'][0].
+        offset of wvf.Signs['first_peak_baseline'][0]. In this
+        case, note that the baseline of every waveform must
+        have been previously computed, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method, on a
+        waveform basis.
 
         - rise (bool): For more information, check the
         documentation below.
@@ -1893,7 +2067,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190001
+                "WaveformSet.threshold_filter", 1
             ),
         )
         htype.check_type(
@@ -1901,28 +2075,28 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190002
+                "WaveformSet.threshold_filter", 2
             ),
         )
         htype.check_type(
             threshold_from_baseline,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190003
+                "WaveformSet.threshold_filter", 3
             ),
         )
         htype.check_type(
             rise,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190004
+                "WaveformSet.threshold_filter", 4
             ),
         )
         htype.check_type(
             filter_out,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.threshold_filter", 190005
+                "WaveformSet.threshold_filter", 5
             ),
         )
         fUseISubrange = False
@@ -1931,19 +2105,19 @@ class WaveformSet(OneTypeRTL):
                 i_subrange,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.threshold_filter", 190006
+                    "WaveformSet.threshold_filter", 6
                 ),
             )
             if len(i_subrange) != 2:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.filter", 190007)
+                    htype.generate_exception_message("WaveformSet.filter", 7)
                 )
             htype.check_type(
                 i_subrange[0],
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.threshold_filter", 190008
+                    "WaveformSet.threshold_filter", 8
                 ),
             )
             htype.check_type(
@@ -1951,7 +2125,7 @@ class WaveformSet(OneTypeRTL):
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.threshold_filter", 190009
+                    "WaveformSet.threshold_filter", 9
                 ),
             )
 
@@ -1962,11 +2136,11 @@ class WaveformSet(OneTypeRTL):
                 or i_subrange[1] > len(waveform.Time) - 1
             ):
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.filter", 190010)
+                    htype.generate_exception_message("WaveformSet.filter", 10)
                 )
             if i_subrange[0] >= i_subrange[1]:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("WaveformSet.filter", 190011)
+                    htype.generate_exception_message("WaveformSet.filter", 11)
                 )
             fUseISubrange = True
 
@@ -1979,19 +2153,19 @@ class WaveformSet(OneTypeRTL):
                     subrange,
                     tuple,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.threshold_filter", 190012
+                        "WaveformSet.threshold_filter", 12
                     ),
                 )
                 if len(subrange) != 2:
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.filter", 190013)
+                        htype.generate_exception_message("WaveformSet.filter", 13)
                     )
                 htype.check_type(
                     subrange[0],
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.threshold_filter", 190014
+                        "WaveformSet.threshold_filter", 14
                     ),
                 )
                 htype.check_type(
@@ -1999,7 +2173,7 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.threshold_filter", 190015
+                        "WaveformSet.threshold_filter", 15
                     ),
                 )
 
@@ -2012,11 +2186,11 @@ class WaveformSet(OneTypeRTL):
                     or subrange[1] > aux_max
                 ):
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.filter", 190016)
+                        htype.generate_exception_message("WaveformSet.filter", 16)
                     )
                 if subrange[0] >= subrange[1]:
                     raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message("WaveformSet.filter", 190017)
+                        htype.generate_exception_message("WaveformSet.filter", 17)
                     )
                 # Use subrange only if not fUseISubrange
                 # AND subrange is properly defined
@@ -2037,14 +2211,23 @@ class WaveformSet(OneTypeRTL):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet.filter",
-                    190018,
+                    18,
                     extra_info="The waveform signal resolution is not fine enough. Please provide a wider range for parsing.",
                 )
             )
         threshold_ = threshold
         if threshold_from_baseline:
-            threshold_ += waveform.Signs["first_peak_baseline"][0]
-
+            try:
+                threshold_ += waveform.Signs["first_peak_baseline"][0]
+            except KeyError:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "WaveformSet.threshold_filter",
+                        19,
+                        extra_info="The baseline of the first peak must "
+                        "have been computed before calling this method."
+                    )
+                )
         if rise:
             result = (
                 np.max(waveform.Signal[i_low : i_up + 1]) >= threshold_
@@ -2145,7 +2328,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200001
+                "WaveformSet.correlation_filter", 1
             ),
         )
         htype.check_type(
@@ -2153,32 +2336,32 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200002
+                "WaveformSet.correlation_filter", 2
             ),
         )
         htype.check_type(
             model_y,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200003
+                "WaveformSet.correlation_filter", 3
             ),
         )
         if model_y.dtype != np.float64:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200004
+                    "WaveformSet.correlation_filter", 4
                 )
             )
         if model_y.ndim != 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200005
+                    "WaveformSet.correlation_filter", 5
                 )
             )
         if len(model_y) != len(waveform.Time):
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200006
+                    "WaveformSet.correlation_filter", 6
                 )
             )
         htype.check_type(
@@ -2186,13 +2369,13 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200007
+                "WaveformSet.correlation_filter", 7
             ),
         )
         if i0 < 0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200008
+                    "WaveformSet.correlation_filter", 8
                 )
             )
         fUseDeltaT = False
@@ -2202,13 +2385,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.correlation_filter", 200009
+                    "WaveformSet.correlation_filter", 9
                 ),
             )
             if delta_t <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.correlation_filter", 200010
+                        "WaveformSet.correlation_filter", 10
                     )
                 )
             fUseDeltaT = True
@@ -2217,7 +2400,7 @@ class WaveformSet(OneTypeRTL):
             also_return_correlation,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.correlation_filter", 200011
+                "WaveformSet.correlation_filter", 11
             ),
         )
         if fUseDeltaT:
@@ -2228,7 +2411,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.correlation_filter",
-                        200012,
+                        12,
                         extra_info="The given delta_t is not big enough (compared to the waveform time resolution) so as to give at least two different points for the integral.",
                     )
                 )
@@ -2294,7 +2477,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210001
+                "WaveformSet.integral_filter", 1
             ),
         )
         htype.check_type(
@@ -2302,7 +2485,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210002
+                "WaveformSet.integral_filter", 2
             ),
         )
         htype.check_type(
@@ -2310,12 +2493,12 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210003
+                "WaveformSet.integral_filter", 3
             ),
         )
         if i0 < 0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.integral_filter", 210004)
+                htype.generate_exception_message("WaveformSet.integral_filter", 4)
             )
         fUseDeltaT = False
         if delta_t is not None:
@@ -2324,13 +2507,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.integral_filter", 210005
+                    "WaveformSet.integral_filter", 5
                 ),
             )
             if delta_t <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.integral_filter", 210006
+                        "WaveformSet.integral_filter", 6
                     )
                 )
             fUseDeltaT = True
@@ -2339,7 +2522,7 @@ class WaveformSet(OneTypeRTL):
             also_return_integral,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integral_filter", 210007
+                "WaveformSet.integral_filter", 7
             ),
         )
         if not fUseDeltaT:
@@ -2386,7 +2569,7 @@ class WaveformSet(OneTypeRTL):
             waveform,
             Waveform,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.peaks_no_filter", 220001
+                "WaveformSet.peaks_no_filter", 1
             ),
         )
         htype.check_type(
@@ -2394,14 +2577,14 @@ class WaveformSet(OneTypeRTL):
             int,
             np.int64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.peaks_no_filter", 220002
+                "WaveformSet.peaks_no_filter", 2
             ),
         )
         htype.check_type(
             filter_out_below,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.peaks_no_filter", 220003
+                "WaveformSet.peaks_no_filter", 3
             ),
         )
         if filter_out_below:
@@ -2430,7 +2613,7 @@ class WaveformSet(OneTypeRTL):
             idcs_to_exclude,
             list,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.exclude_these_indices", 230001
+                "WaveformSet.exclude_these_indices", 1
             ),
         )
         for elem in idcs_to_exclude:
@@ -2439,13 +2622,13 @@ class WaveformSet(OneTypeRTL):
                 int,
                 np.int64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.exclude_these_indices", 230002
+                    "WaveformSet.exclude_these_indices", 2
                 ),
             )
             if elem < 0 or elem >= len(self):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.exclude_these_indices", 230003
+                        "WaveformSet.exclude_these_indices", 3
                     )
                 )
         idcs_to_exclude_ = list(set(idcs_to_exclude))  # Remove redundancy
@@ -2494,24 +2677,39 @@ class WaveformSet(OneTypeRTL):
         get_dispersion is True, then the returned dictionary
         contains the 'dispersion' key, whose value is the
         difference between the maximal baseline and the
-        minimal baseline."""
+        minimal baseline.
+        
+        Note that the baselines of the waveforms must have
+        been previously computed, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method, on a
+        waveform basis."""
 
         htype.check_type(
             get_std,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_average_baseline", 240001
+                "WaveformSet.get_average_baseline", 1
             ),
         )
         htype.check_type(
             get_dispersion,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.get_average_baseline", 240002
+                "WaveformSet.get_average_baseline", 2
             ),
         )
 
-        baselines = np.array([wvf.Signs["first_peak_baseline"][0] for wvf in self])
+        try:
+            baselines = np.array([wvf.Signs["first_peak_baseline"][0] for wvf in self])
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "WaveformSet.get_average_baseline",
+                    3,
+                    extra_info="The baseline of the first peak of every "
+                    "waveform have been computed before calling this method."
+                )
+            )
 
         if get_std == False and get_dispersion == False:
             return np.mean(baselines)
@@ -2520,7 +2718,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.NoAvailableData(
                     htype.generate_exception_message(
                         "WaveformSet.get_average_baseline",
-                        240003,
+                        4,
                         extra_info=f"There are not enough waveforms in this waveform set to compute the standard deviation or the disperion of its baselines.",
                     )
                 )
@@ -2540,32 +2738,73 @@ class WaveformSet(OneTypeRTL):
         the properties of the peaks spotted in the i-th waveform of this waveform
         set, as given by the second parameter returned by scipy.signal.find_peaks.
 
-        - kwargs: These keyword arguments are passed to scipy.signal.find_peaks.
+        - kwargs: Every keyword argument, except for the 'height' one (if defined),
+        are given to scipy.signal.find_peaks as they are. For the case of the
+        'height' keyword argument, if it is defined, then it is checked to be 
+        a scalar integer/float. In that case, for each waveform in this waveform
+        set, say wvf, the 'height' keyword argument of 
+        scipy.signal.find_peaks(wvf.Signal, **kwargs) is set to
+        wvf.Signs['first_peak_baseline'][0] + h, where h is the value of the
+        'height' keyword argument given to this method. This means that the
+        minimal height for a peak to be considered so is measured with respect
+        to the baseline of each waveform. Note that, in this case, the baseline
+        of every waveform must have been previously computed, p.e. by calling
+        the Waveform.compute_first_peak_baseline() method, on a waveform basis.
 
-        This method analyzes this waveform set: it uses scipy.signal.find_peaks to spot
-        the peaks in every waveform in the WaveformSet. For each waveform, wvf, the peaks
-        that have been spotted in it are added to the 'peaks_pos' and 'peaks_top' entries
-        of the wvf.Signs dictionary. When this method is called, the information contained
-        in wvf.Signs['peaks_pos'] and wvf.Signs['peaks_top'], for every wvf, is overriden.
-        The return value of this method may vary depending on the value given to the
-        return_peak_properties parameter."""
+        This method analyzes this waveform set: it uses scipy.signal.find_peaks to
+        spot the peaks in every waveform in the WaveformSet. For each waveform, wvf,
+        the peaks that have been spotted in it are added to the 'peaks_pos' and
+        'peaks_top' entries of the wvf.Signs dictionary. When this method is called,
+        the information contained in wvf.Signs['peaks_pos'] and wvf.Signs['peaks_top'],
+        for every wvf, is overriden. The return value of this method may vary depending
+        on the value given to the return_peak_properties parameter."""
 
         htype.check_type(
             return_peak_properties,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.find_peaks", 250001
+                "WaveformSet.find_peaks", 1
             ),
         )
+
+        fUseHeight = False
+        if "height" in kwargs:
+            htype.check_type(
+                kwargs["height"],
+                int,
+                float,
+                np.int64,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.find_peaks", 2
+                ),
+            )
+            fUseHeight = True
+            height = kwargs["height"]
+            del kwargs["height"]
+
         if not return_peak_properties:
             for wvf in self:
 
                 wvf.Signs = ("peaks_pos", [], True)  # Erasing previous info.
                 wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
 
-                peaks_idx, _ = spsi.find_peaks(
-                    wvf.Signal, **kwargs
-                )  # Peak finding algorithm
+                try:
+                    peaks_idx, _ = spsi.find_peaks(
+                        wvf.Signal,
+                        height=None if not fUseHeight 
+                            else wvf.Signs["first_peak_baseline"][0] + height,
+                        **kwargs
+                    )  # Peak finding algorithm
+                except KeyError:
+                    raise cuex.NoAvailableData(
+                        htype.generate_exception_message(
+                            "WaveformSet.find_peaks",
+                            3,
+                            extra_info="The baseline of the first peak of every "
+                            "waveform have been computed before calling this method."
+                        )
+                    )
 
                 for idx in peaks_idx:
                     wvf.Signs = (
@@ -2586,9 +2825,23 @@ class WaveformSet(OneTypeRTL):
                 wvf.Signs = ("peaks_pos", [], True)  # Erasing previous info.
                 wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
 
-                peaks_idx, properties = spsi.find_peaks(
-                    wvf.Signal, **kwargs
-                )  # Peak finding algorithm
+                try:
+                    peaks_idx, properties = spsi.find_peaks(
+                        wvf.Signal,
+                        height=None if not fUseHeight
+                        else wvf.Signs["first_peak_baseline"][0] + height,
+                        **kwargs
+                    )  # Peak finding algorithm
+                except KeyError:
+                    raise cuex.NoAvailableData(
+                        htype.generate_exception_message(
+                            "WaveformSet.find_peaks",
+                            4,
+                            extra_info="The baseline of the first peak of every "
+                            "waveform have been computed before calling this method."
+                        )
+                    )
+
                 result.append(properties)
 
                 for idx in peaks_idx:
@@ -2653,7 +2906,7 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integrate", 260001
+                "WaveformSet.integrate", 1
             ),
         )
         htype.check_type(
@@ -2661,12 +2914,12 @@ class WaveformSet(OneTypeRTL):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.integrate", 260002
+                "WaveformSet.integrate", 2
             ),
         )
         if system_amplification_factor <= 0.0:
             raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.integrate", 260003)
+                htype.generate_exception_message("WaveformSet.integrate", 3)
             )
 
         # integration_lower_lim and integration_upper_lim
@@ -2705,13 +2958,13 @@ class WaveformSet(OneTypeRTL):
             sign,
             str,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.check_homogeneity_of_sign_through_set", 52547
+                "WaveformSet.check_homogeneity_of_sign_through_set", 1
             ),
         )
         if not sign in Waveform.stackable_aks + Waveform.nonstackable_aks:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "WaveformSet.check_homogeneity_of_sign_through_set", 87272
+                    "WaveformSet.check_homogeneity_of_sign_through_set", 2
                 )
             )
         result = True
@@ -2738,3 +2991,100 @@ class WaveformSet(OneTypeRTL):
             )
         return result
     
+    # Despite not following the same conventions as the rest of the class,
+    # for the methods written below this point I am using the typing module
+    # and not calling the htype.check_type(). The reason for this is that
+    # at some point I plan to deprecate htype.check_type() and replace it
+    # with the usage of the typing module. This will make the code more
+    # efficient, standard and readable.
+    def rebin(
+            self,
+            group: int,
+            verbose: bool = False
+        ) -> None:
+        """This function gets the following positional arguments:
+
+        - group (integer): It must be positive and smaller or equal to
+        half of the length of every waveform in this WaveformSet. The
+        second condition grants that, for every Waveform object, there
+        is at least two entries in the resulting Waveform.
+        - verbose (bool): Whether to print functioning related messages.
+        
+        This function rebins every Waveform object in this WaveformSet.
+        To do so, for every Waveform object wvf in this WaveformSet, this
+        function calls wvf.rebin() with the same group parameter. For more
+        information on the rebinning process, check the documentation of
+        such Waveform method. Note that this function modifies (inplace)
+        the values of the NPoints, Time and Signal attributes of every
+        Waveform object."""
+
+        # The well-formedness checks are handled
+        # by the Waveform.rebin() method.
+
+        for wvf in self:
+            wvf.rebin(group, verbose)
+
+        return
+    
+    def find_mean_beginning_of_raise(
+        self,
+        signal_fraction_for_median_cutoff=0.2,
+        tolerance=0.05,
+        return_iterator=True
+    ):
+        
+        """This method gets the following optional keyword arguments:
+
+        - signal_fraction_for_median_cutoff (scalar float): It must belong
+        to the interval [0.0, 1.0]. This value represents the fraction of the
+        signal of the mean waveform which is used to compute its baseline. P.e.
+        0.2 means that, for each waveform, only its first 20% (in time) of the
+        signal is used to compute the baseline.
+        - tolerance (scalar float): It must be positive (>0.0) and
+        smaller than 1 (<1.0). It is given to the 'tolerance' parameter of the
+        Waveform.find_beginning_of_raise() method, on a waveform basis. For more
+        information, check the documentation of such method.
+        - return_iterator (scalar boolean): If True, this method returns the
+        iterator value, say idx, where the rise of the mean waveform begins.
+        If False, this method returns mean_waveform.Time[idx], where mean_waveform
+        is the mean waveform of this WaveformSet.
+
+        This method computes the beginning of the rise of the mean waveform of
+        this WaveformSet. To do so, first, the mean waveform is computed by calling
+        the WaveformSet.mean_waveform() method. Every waveform within this WaveformSet
+        is used to compute the mean waveform, i.e. no filtering is applied. Then, the
+        first-peak baseline of the mean waveform is computed by calling the
+        Waveform.compute_first_peak_baseline() method. Finally, the beginning of
+        the rise of the mean waveform is computed by calling the
+        Waveform.find_beginning_of_raise() method over the mean waveform.
+        """
+
+        # First, find the mean waveform of this WaveformSet.
+        # No filtering is applied (not an amplitude one
+        # nor an integral one). I.e. all of the waveforms
+        # in the set are taken into account for the mean
+        mean_waveform = Waveform(
+            0.0,
+            self.mean_waveform(
+                amplitude_range=None,
+                integral_range=None
+            ),
+            # WaveformSet.mean_waveform() would have
+            # thrown an exception if the time array
+            # for every Waveform is not the same
+            time = self[0].Time
+        )
+
+        # Then, compute the first peak baseline of the mean waveform
+        mean_waveform.compute_first_peak_baseline(
+            signal_fraction_for_median_cutoff = signal_fraction_for_median_cutoff
+        )
+
+        # Then, find the beginning of the rise of the mean waveform
+        result = mean_waveform.find_beginning_of_rise(
+            tolerance=tolerance,
+            return_iterator=return_iterator
+        )
+
+        return result
+

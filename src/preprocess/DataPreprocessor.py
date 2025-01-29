@@ -142,12 +142,9 @@ class DataPreprocessor:
 
         self.__timestamp_candidates = {}
 
-        self.__num_files = 0  # Number of files in the provided folderpath
-
         for filename in os.listdir(self.__input_folderpath):
             filepath = os.path.join(self.__input_folderpath, filename)
             if os.path.isfile(filepath):
-                self.__num_files += 1
                 if (
                     self.__gain_base in filename
                     and self.__darknoise_base not in filename
@@ -279,23 +276,70 @@ class DataPreprocessor:
     def BinaryDarkNoiseCandidates(self):
         return self.__bin_darknoise_candidates
 
-    @property
-    def NumFiles(self):
-        return self.__num_files
+    @staticmethod
+    def check_well_formedness_of_input_folderpath(
+        folderpath, 
+        container_folderpath=None
+    ):
+        """This helper method gets the following positional argument:
+        
+        - folderpath (string): The folderpath to be checked
+        
+        And the following optional keyword argument:
+        
+        - container_folderpath (string): If it is not None, then folder
+        pointed to by folderpath is checked to be contained within the
+        folder pointed to by container_folderpath.
+
+        This method checks that folderpath is a string and that it points 
+        to an existing directory. Additionally, if container_folderpath 
+        is not None, then it checks that the folder pointed to by folderpath 
+        is contained within the folder pointed to by container_folderpath."""
+
+        htype.check_type(
+            folderpath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.check_well_formedness_of_input_folderpath", 
+                45200
+            ),
+        )
+
+        if not os.path.isdir(folderpath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.check_well_formedness_of_input_folderpath",
+                    91371,
+                    extra_info=f"Path {folderpath} does not exist or is not a directory.",
+                )
+            )
+
+        # In this case, the well-formedness of container_folderpath is
+        # checked by DataPreprocessor.path_is_contained_in_dir()
+        if container_folderpath is not None:
+            if not DataPreprocessor.path_is_contained_in_dir(
+                folderpath, container_folderpath
+            ):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.check_well_formedness_of_input_folderpath",
+                        86735,
+                        extra_info=f"{folderpath} is not contained within {container_folderpath}.",
+                    )
+                )
+        return
 
     def generate_meas_config_files(
         self,
         root_directory,
         load_folderpath,
         aux_folderpath,
-        backup_folderpath,
         data_folderpath,
         wvf_skiprows_identifier="TIME,",
-        ts_skiprows_identifier="X:",
-        data_delimiter=",",
         path_to_json_default_values=None,
         sipms_per_strip=None,
         strips_ids=None,
+        ask_for_inference_confirmation=True,
         verbose=True,
     ):
         """This method gets the following mandatory positional arguments:
@@ -309,51 +353,42 @@ class DataPreprocessor:
         - aux_folderpath (string): Path to a folder where the WaveformSet and
         Waveform json configuration files will be saved. It must be contained,
         at an arbitrary depth, within the root directory.
-        - backup_folderpath (string): A backup of the raw input data, regardless
-        if it's a binary or an ASCII measurement file, will be saved in this
-        folder. It must be contained, at an arbitrary depth, within the root
-        directory.
-        - data_folderpath (string): Clean data files (following the unified format
-        of one column with no headers), regardless its original format, will be
-        saved in this folder. Time stamp data files, if applicable, will be also
-        saved in this folder, following the same format.  It must be contained,
-        at an arbitrary depth, within the root directory.
+        - data_folderpath (string): Raw data files regardless its original 
+        format, will be saved in this folder. Time stamp data files, if applicable, 
+        will be also saved in this folder. It must be contained, at an arbitrary 
+        depth, within the root directory.
 
         This method gets the following optional keyword arguments:
 
         - wvf_skiprows_identifier (string): This parameter only makes a difference
-        for ASCII input files. It is given to DataPreprocessor.process_file()
+        for ASCII input files. It is given to DataPreprocessor.get_metadata()
         as skiprows_identifier for the case where files hosting ASCII waveform
-        sets are processed. Check DataPreprocessor.process_file docstring for
+        sets are processed. Check DataPreprocessor.get_metadata() docstring for
         more information on this parameter.
-        - ts_skiprows_identifier (string): This parameter only makes a difference
-        for dark noise ASCII measurements. It is given to
-        DataPreprocessor.process_file() as skiprows_identifier for the case where
-        files hosting ASCII time stamps are processed. Check
-        DataPreprocessor.process_file docstring for more information on this
-        parameter.
-        - data_delimiter (string): This parameter only makes a difference for
-        ASCII measurements. It is given to DataPreprocessor.process_file() as
-        data_delimiter. It is used to separate entries of the different columns
-        of the ASCII input data files.
         - path_to_json_default_values (string): If it is not none, it should be
         the path to a json file from which some default values may be read.
         - sipms_per_strip (positive integer): The number of SiPMs per strip. If
         it is not None, the electronic_board_socket and sipm_location fields will
         be inferred. To do so, for each type of measurement (namely ascii gain,
-        ascii dark noise, binary gain and binary dark noise), the candidates
-        are sorted according to its keys (p.e. for ascii gain measurements,
-        they are sorted according to the keys of self.__ascii_gain_candidates)
-        associating an iterator value i>=0 to each candidate, so that the
-        electronic_board_socket value is inferred as (i//sipms_per_strip)+1 and
-        the sipm_location value is inferred as (i%sipms_per_strip)+1.
+        ascii dark noise, binary gain and binary dark noise), each candidate is
+        assigned an electronic_board_socket (resp. sipm_location) value which is
+        computed as (i//sipms_per_strip)+1 (resp. (i%sipms_per_strip)+1), where i
+        is the key of such candidate within the corresponding dictionary, i.e.
+        self.__ascii_gain_candidates for ASCII gain measurements, 
+        self.__bin_gain_candidates for binary gain measurements and so on.
         - strips_ids (list of integers): Its value only makes a difference if
         sipms_per_strip is defined. In such case (and if it is defined), then for
-        each type of measurement, strips_ids[i] is assumed to be the strip_ID
-        field for the k-th measurement candidate, where k takes values from
-        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1. To this end, it is required
-        that the number of candidates for whichever type of measurement is a
-        multiple of sipms_per_strip.
+        each type of measurement, every measurement whose key takes a value from
+        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1, is assumed to belong
+        to the strip with ID strips_ids[i], i.e. the strip_ID field for such
+        measurement will be set to strips_ids[i]. To this end, it is required
+        that no measurement key is greater or equal to len(strips_ids)*sipms_per_strip.
+        - ask_for_inference_confirmation (boolean): This parameter only makes
+        a difference if sipms_per_strip is not None. In that case, then this
+        parameter determines whether the user is asked for confirmation before
+        the fields 'electronic_board_socket' and 'sipm_location' are inferred.
+        This is also applied to the 'strip_ID' field if the strips_ids parameter
+        is also defined.
         - verbose (boolean): Whether to print functioning-related messages.
 
         This method iterates over self.__ascii_gain_candidates,
@@ -375,7 +410,6 @@ class DataPreprocessor:
             - creation_dt_offset_min (float),
             - delivery_no (int),
             - set_no (int),
-            - tray_no (int),
             - meas_no (int),
             - strip_ID (int),
             - meas_ID (str),
@@ -385,7 +419,6 @@ class DataPreprocessor:
             - setup_ID (str),
             - system_characteristics (str),
             - thermal_cycle (int),
-            - elapsed_cryo_time_min (float),
             - electronic_board_number (int),
             - electronic_board_location (str),
             - electronic_board_socket (int),
@@ -403,147 +436,34 @@ class DataPreprocessor:
 
         is taken from the json file given to path_to_json_default_values, if
         it is available there and the values comply with the expected types.
-        The user is interactively a interactively asked for the fields which
-        could not be retrieved from the given json file."""
+        The user is interactively asked for the fields which could not be 
+        retrieved from the given json file."""
 
-        htype.check_type(
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             root_directory,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 44391
-            ),
+            container_folderpath=None
         )
-        if not os.path.isdir(root_directory):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    61665,
-                    extra_info=f"Path {root_directory} does not exist or is not a directory.",
-                )
-            )
-        htype.check_type(
+
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             load_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 47131
-            ),
+            container_folderpath=root_directory
         )
-        if not os.path.isdir(load_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    44692,
-                    extra_info=f"Path {load_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            load_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    24323,
-                    extra_info=f"{load_folderpath} is not contained within {root_directory}.",
-                )
-            )
-        htype.check_type(
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             aux_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 96001
-            ),
+            container_folderpath=root_directory
         )
-        if not os.path.isdir(aux_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    54053,
-                    extra_info=f"Path {aux_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            aux_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    79077,
-                    extra_info=f"{aux_folderpath} is not contained within {root_directory}.",
-                )
-            )
-        htype.check_type(
-            backup_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 31414
-            ),
-        )
-        if not os.path.isdir(backup_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    74660,
-                    extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
-                )
-            )
-
-        if not DataPreprocessor.path_is_contained_in_dir(
-            backup_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    74514,
-                    extra_info=f"{backup_folderpath} is not contained within {root_directory}.",
-                )
-            )
-        htype.check_type(
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
             data_folderpath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 46722
-            ),
+            container_folderpath=root_directory
         )
-        if not os.path.isdir(data_folderpath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.generate_meas_config_files",
-                    21355,
-                    extra_info=f"Path {data_folderpath} does not exist or is not a directory.",
-                )
-            )
 
-        if not DataPreprocessor.path_is_contained_in_dir(
-            data_folderpath, root_directory
-        ):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    84451,
-                    extra_info=f"{data_folderpath} is not contained within {root_directory}.",
-                )
-            )
         htype.check_type(
             wvf_skiprows_identifier,
             str,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.generate_meas_config_files", 42451
-            ),
-        )
-        htype.check_type(
-            ts_skiprows_identifier,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 42451
-            ),
-        )
-        htype.check_type(
-            data_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.generate_meas_config_files", 79439
             ),
         )
         fReadDefaultsFromFile = False
@@ -595,38 +515,41 @@ class DataPreprocessor:
                             "DataPreprocessor.generate_meas_config_files", 61191
                         ),
                     )
-                p1 = len(self.ASCIIGainCandidates) % sipms_per_strip != 0
-                p2 = len(self.ASCIIDarkNoiseCandidates) % sipms_per_strip != 0
-                p3 = len(self.BinaryGainCandidates) % sipms_per_strip != 0
-                p4 = len(self.BinaryDarkNoiseCandidates) % sipms_per_strip != 0
+
+                p1 = False
+                if len(self.ASCIIGainCandidates) > 0:
+                    p1 = max(list(self.ASCIIGainCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+
+                p2 = False
+                if len(self.ASCIIDarkNoiseCandidates) > 0:
+                    p2 = max(list(self.ASCIIDarkNoiseCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+
+                p3 = False
+                if len(self.BinaryGainCandidates) > 0:    
+                    p3 = max(list(self.BinaryGainCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+
+                p4 = False
+                if len(self.BinaryDarkNoiseCandidates) > 0:
+                    p4 = max(list(self.BinaryDarkNoiseCandidates.keys())) >= len(strips_ids) * sipms_per_strip
 
                 if p1 or p2 or p3 or p4:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
                             "DataPreprocessor.generate_meas_config_files",
                             39450,
-                            extra_info=f"The number of candidates for at least one type of measurement is not a multiple of {sipms_per_strip}. The provided strip IDs cannot be automatically assigned to the candidates.",
+                            extra_info=f"The number of candidates for at least one type of measurement is bigger or equal to len(strips_ids) * sipms_per_strip (={len(strips_ids) * sipms_per_strip}). The provided strip IDs cannot be automatically assigned to the candidates.",
                         )
                     )
-                max_candidates = max(
-                    len(self.ASCIIGainCandidates),
-                    len(self.ASCIIDarkNoiseCandidates),
-                    len(self.BinaryGainCandidates),
-                    len(self.BinaryDarkNoiseCandidates),
-                )
-
-                if len(strips_ids) < (
-                    max_candidates / sipms_per_strip
-                ):  # max_candidates is a multiple of sipms_per_strip
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "DataPreprocessor.generate_meas_config_files",
-                            55152,
-                            extra_info=f"For at least one type of measurement, the number of provided strip IDs is not enough for all of the given candidates. The provided strip IDs cannot be automatically assigned to the candidates.",
-                        )
-                    )
+                
                 fAssignStripID = True
 
+        htype.check_type(
+            ask_for_inference_confirmation,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.generate_meas_config_files", 67213
+            ),
+        )
         htype.check_type(
             verbose,
             bool,
@@ -660,10 +583,15 @@ class DataPreprocessor:
                 DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
             )
 
-        # In the case of ASCII files, our oscilloscope always outputs
-        # the number of samples, i.e. points_per_wvf, so we won't need
-        # a separator in such case. For the case of binary files, the
-        # read process does not need a separator either.
+        # Deprecation note: The 'separator' field is not needed 
+        # anymore, and so, its support in the WaveformSet reading
+        # methods has been removed. The 'separator' field was used
+        # in the past to separate the last signal sample of the i-th
+        # waveform from the first signal sample of the (i+1)-th 
+        # waveform. In the case of ASCII files, our oscilloscope 
+        # always outputs the number of samples, i.e. points_per_wvf, 
+        # so we won't need a separator in such case. For the case of 
+        # binary files, the read process does not need a separator either.
         queried_wvfset_fields = {  #'separator':str,
             "set_name": str,
             "creation_dt_offset_min": float,
@@ -685,7 +613,6 @@ class DataPreprocessor:
         queried_sipmmeas_fields = {
             "delivery_no": int,
             "set_no": int,
-            "tray_no": int,
             "meas_no": int,
             "strip_ID": int,
             "meas_ID": str,
@@ -695,7 +622,6 @@ class DataPreprocessor:
             "setup_ID": str,
             "system_characteristics": str,
             "thermal_cycle": int,
-            "elapsed_cryo_time_min": float,
             "electronic_board_number": int,
             "electronic_board_location": str,
             "electronic_board_socket": int,
@@ -725,19 +651,25 @@ class DataPreprocessor:
                 del queried_sipmmeas_fields["strip_ID"]
 
             if not fAssignStripID:
-                if not DataPreprocessor.yes_no_translator(
-                    input(
-                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the filepaths ordering and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
-                    )
-                ):
-                    return
+                if ask_for_inference_confirmation:
+                    if not DataPreprocessor.yes_no_translator(
+                        input(
+                            f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
+                        )
+                    ):
+                        return
+                else:
+                    print(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter.")
             else:
-                if not DataPreprocessor.yes_no_translator(
-                    input(
-                        f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the filepaths ordering and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
-                    )
-                ):
-                    return
+                if ask_for_inference_confirmation:
+                    if not DataPreprocessor.yes_no_translator(
+                        input(
+                            f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
+                        )
+                    ):
+                        return
+                else:
+                    print(f"In function DataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters.")
 
         read_sipmmeas_fields_from_file = {}
         if fReadDefaultsFromFile:
@@ -874,23 +806,17 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.ASCIIGainCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.ASCIIGainCandidates[key],
                 *translator.keys(),
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
                 is_ASCII=True,
-                contains_timestamp=False,
                 skiprows_identifier=wvf_skiprows_identifier,
                 parameters_delimiter=",",
-                data_delimiter=data_delimiter,
                 casting_functions=tuple(
                     [translator[key][0] for key in translator.keys()]
-                ),
+                )
             )
 
             print(
@@ -911,7 +837,6 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
                     translator["FastFrame Count"][1]: aux["FastFrame Count"],
@@ -926,13 +851,13 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_gainmeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_gainmeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
 
             aux_gainmeas_dict.update(
@@ -941,51 +866,25 @@ class DataPreprocessor:
                 )
             )
 
-            # Up to this point, the 'LED_frequency_kHz'
-            # field must be available in
-            # aux_gainmeas_dict. Either it has
-            # been read from a json file, it has
-            # been queried-once or it has been
-            # queried for this particular measurement.
-            aux_wvfset_dict.update(
-                {
-                    translator["average_delta_t_wf"][1]: (
-                        1.0 / (1000.0 * aux_gainmeas_dict["LED_frequency_kHz"])
-                    )
-                }
-            )
-
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
             # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
 
-            _, extension = os.path.splitext(
-                aux["raw_filepath"]
-            )  # Preserve the original extension
-            new_raw_filename = output_filepath_base + "_raw_gain" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+            _, extension = os.path.splitext(self.ASCIIGainCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_gain" + extension)
+            
+            shutil.move(
+                self.ASCIIGainCandidates[key], 
+                new_raw_filepath
             )
 
-            _, extension = os.path.splitext(
-                aux["processed_filepath"]
-            )  # Preserve the original extension
-            new_processed_filename = (
-                output_filepath_base + "_processed_gain" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
-
-            # The name of the processed filepath has changed,
-            # so we must correct it in aux_wvfset_dict
             aux_wvfset_dict.update(
                 {
                     "wvf_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
+                        new_raw_filepath, start=root_directory
                     )
                 }
             )
@@ -993,65 +892,47 @@ class DataPreprocessor:
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
             )
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-            aux_wvf_dict = {
-                key: value[0] for (key, value) in aux_wvf_dict.items()
-            }  # Transform back to scalars to preserve
-            # proper functioning of this method
+
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
+
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
             )
+
             wvfset_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvfset.json"
             )
+
             DataPreprocessor.generate_json_file(aux_wvfset_dict, wvfset_output_filepath)
 
             aux_gainmeas_dict["wvfset_json_filepath"] = os.path.relpath(
                 wvfset_output_filepath, start=root_directory
             )
+
             gainmeas_output_filepath = os.path.join(
                 load_folderpath, output_filepath_base + "_gainmeas.json"
             )
+
             DataPreprocessor.generate_json_file(
                 aux_gainmeas_dict, gainmeas_output_filepath
             )
 
         for i, key in enumerate(sorted(self.ASCIIDarkNoiseCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.ASCIIDarkNoiseCandidates[key],
                 *translator.keys(),
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
                 is_ASCII=True,
-                contains_timestamp=False,
                 skiprows_identifier=wvf_skiprows_identifier,
                 parameters_delimiter=",",
-                data_delimiter=data_delimiter,
                 casting_functions=tuple(
                     [translator[key][0] for key in translator.keys()]
-                ),
-            )
-
-            aux_2 = DataPreprocessor.process_file(
-                self.TimeStampCandidates[key],  # Process the time stamps as well
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
-                get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=10,
-                verbose=verbose,
-                is_ASCII=True,
-                contains_timestamp=True,  # Extracts the acquisition time to aux_2['acquisition_time']
-                skiprows_identifier=ts_skiprows_identifier,
-                data_delimiter=data_delimiter,
+                )
             )
 
             print(
@@ -1064,6 +945,7 @@ class DataPreprocessor:
                     translator["Vertical Units"][1]: aux["Vertical Units"],
                 }
             )
+
             aux_wvf_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvf_fields, default_dict=aux_wvf_dict
@@ -1072,15 +954,14 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
-                    translator["FastFrame Count"][1]: aux["FastFrame Count"],
-                    "timestamp_filepath": aux_2["processed_filepath"],
-                    translator["average_delta_t_wf"][1]: aux_2["average_delta_t_wf"],
+                    # Extracting this value, although it is not
+                    # strictly necessary for the Dark Noise case.
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"]
                 }
-            )  # Extracting this value, although it is not
-            # strictly necessary for the Dark Noise case.
+            )  
+
             aux_wvfset_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvfset_fields, default_dict=aux_wvfset_dict
@@ -1090,22 +971,14 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_darknoisemeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_darknoisemeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
-
-            # The acquisition time is not queried.
-            # Here, I am assuming that the time
-            # stamp unit is the second.
-            # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update(
-                {translator["acquisition_time"][1]: aux_2["acquisition_time"] / 60.0}
-            )
 
             aux_darknoisemeas_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
@@ -1117,62 +990,46 @@ class DataPreprocessor:
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
 
-            _, extension = os.path.splitext(aux["raw_filepath"])
-            new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+            _, extension = os.path.splitext(self.ASCIIDarkNoiseCandidates[key])
+            _, ts_extension = os.path.splitext(self.TimeStampCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_darknoise" + extension)
+            
+            new_raw_ts_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_ts_darknoise" + ts_extension)  
+
+            shutil.move(
+                self.ASCIIDarkNoiseCandidates[key], 
+                new_raw_filepath
             )
 
-            _, extension = os.path.splitext(aux["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_darknoise" + extension
+            shutil.move(
+                self.TimeStampCandidates[key], 
+                new_raw_ts_filepath
             )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
+
             aux_wvfset_dict.update(
                 {
                     "wvf_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
-                }
-            )
-
-            _, extension = os.path.splitext(aux_2["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_ts_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux_2["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
-
-            # The name of the processed timestamp filepath has changed,
-            # so we must correct it in aux_wvfset_dict
-            aux_wvfset_dict.update(
-                {
+                        new_raw_filepath, start=root_directory
+                    ),
                     "timestamp_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
+                        new_raw_ts_filepath, start=root_directory
+                    ),
                 }
             )
 
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
             )
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
 
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
 
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
@@ -1210,24 +1067,12 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.BinaryGainCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.BinaryGainCandidates[key],
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
-                is_ASCII=False,
-                # Even though this is a gain-case,
-                # we need to process the time stamp
-                # to extract the 'delta_t_wf' field.
-                contains_timestamp=True,
+                is_ASCII=False
             )
-
-            os.remove(
-                aux["processed_ts_filepath"]
-            )  # We do not want to keep the processed timestamp file though
 
             print(
                 f"Let us retrieve some information for the waveform set in {self.BinaryGainCandidates[key]}"
@@ -1239,6 +1084,7 @@ class DataPreprocessor:
                     translator["Vertical Units"][1]: aux["Vertical Units"],
                 }
             )
+
             aux_wvf_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvf_fields, default_dict=aux_wvf_dict
@@ -1247,13 +1093,12 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
-                    translator["FastFrame Count"][1]: aux["FastFrame Count"],
-                    translator["average_delta_t_wf"][1]: aux["average_delta_t_wf"],
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"]
                 }
             )
+
             aux_wvfset_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvfset_fields, default_dict=aux_wvfset_dict
@@ -1263,13 +1108,13 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_gainmeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_gainmeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
 
             aux_gainmeas_dict.update(
@@ -1278,47 +1123,25 @@ class DataPreprocessor:
                 )
             )
 
-            # For our particular setup, an 'empty timestamp'
-            # is actually full of null entries. The way of
-            # computing 'delta_t_wf' by
-            # DataPreprocessor.process_core_data makes
-            # 'delta_t_wf' be 0.0 in this case.
-            if aux_wvfset_dict[translator["average_delta_t_wf"][1]] == 0.0:
-
-                # Compute 'delta_t_wf' as
-                # for the ASCII gain case.
-                aux_wvfset_dict.update(
-                    {
-                        translator["average_delta_t_wf"][1]: (
-                            1.0 / (1000.0 * aux_gainmeas_dict["LED_frequency_kHz"])
-                        )
-                    }
-                )
-
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
             # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
             output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
 
-            _, extension = os.path.splitext(aux["raw_filepath"])
-            new_raw_filename = output_filepath_base + "_raw_gain" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+            _, extension = os.path.splitext(self.BinaryGainCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_gain" + extension)
+            
+            shutil.move(
+                self.BinaryGainCandidates[key], 
+                new_raw_filepath
             )
 
-            _, extension = os.path.splitext(aux["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_gain" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
             aux_wvfset_dict.update(
                 {
                     "wvf_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
+                        new_raw_filepath, start=root_directory
                     )
                 }
             )
@@ -1326,17 +1149,16 @@ class DataPreprocessor:
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvf.json"
             )
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
 
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
             )
+
             wvfset_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_gain_wvfset.json"
             )
@@ -1354,16 +1176,11 @@ class DataPreprocessor:
 
         for i, key in enumerate(sorted(self.BinaryDarkNoiseCandidates.keys())):
 
-            aux = DataPreprocessor.process_file(
+            aux = DataPreprocessor.get_metadata(
                 self.BinaryDarkNoiseCandidates[key],
-                destination_folderpath=data_folderpath,
-                backup_folderpath=backup_folderpath,
                 get_creation_date=False,
-                overwrite_files=False,
-                ndecimals=18,
                 verbose=verbose,
-                is_ASCII=False,
-                contains_timestamp=True,
+                is_ASCII=False
             )
 
             print(
@@ -1376,6 +1193,7 @@ class DataPreprocessor:
                     translator["Vertical Units"][1]: aux["Vertical Units"],
                 }
             )
+
             aux_wvf_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
                     queried_wvf_fields, default_dict=aux_wvf_dict
@@ -1384,14 +1202,9 @@ class DataPreprocessor:
 
             aux_wvfset_dict.update(
                 {
-                    "wvf_filepath": aux["processed_filepath"],
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
                     translator["FastFrame Count"][1]: aux["FastFrame Count"],
-                    "timestamp_filepath": aux["processed_ts_filepath"],
-                    # Extracting this value is not necessary
-                    # for the Dark Noise case.
-                    translator["average_delta_t_wf"][1]: aux["average_delta_t_wf"],
                 }
             )
 
@@ -1404,22 +1217,14 @@ class DataPreprocessor:
             if fInferrFields:
                 aux_darknoisemeas_dict.update(
                     {
-                        "electronic_board_socket": (i // sipms_per_strip) + 1,
-                        "sipm_location": (i % sipms_per_strip) + 1,
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
                     }
                 )
                 if fAssignStripID:
                     aux_darknoisemeas_dict.update(
-                        {"strip_ID": strips_ids[i // sipms_per_strip]}
+                        {"strip_ID": strips_ids[key // sipms_per_strip]}
                     )
-
-            # The acquisition time is not queried.
-            # Here, I am assuming that the time
-            # stamp unit is the second.
-            # It is computed from the time stamp.
-            aux_darknoisemeas_dict.update(
-                {translator["acquisition_time"][1]: aux["acquisition_time"] / 60.0}
-            )
 
             aux_darknoisemeas_dict.update(
                 DataPreprocessor.query_fields_in_dictionary(
@@ -1431,44 +1236,21 @@ class DataPreprocessor:
             # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
             # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
 
-            _, extension = os.path.splitext(aux["raw_filepath"])
-            new_raw_filename = output_filepath_base + "_raw_darknoise" + extension
-            _ = DataPreprocessor.rename_file(
-                aux["raw_filepath"], new_raw_filename, overwrite=True, verbose=verbose
+            _, extension = os.path.splitext(self.BinaryDarkNoiseCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_darknoise" + extension)
+            
+            shutil.move(
+                self.BinaryDarkNoiseCandidates[key], 
+                new_raw_filepath
             )
 
-            _, extension = os.path.splitext(aux["processed_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
             aux_wvfset_dict.update(
                 {
                     "wvf_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
-                    )
-                }
-            )
-
-            _, extension = os.path.splitext(aux["processed_ts_filepath"])
-            new_processed_filename = (
-                output_filepath_base + "_processed_ts_darknoise" + extension
-            )
-            new_processed_filepath = DataPreprocessor.rename_file(
-                aux["processed_ts_filepath"],
-                new_processed_filename,
-                overwrite=True,
-                verbose=verbose,
-            )
-            aux_wvfset_dict.update(
-                {
-                    "timestamp_filepath": os.path.relpath(
-                        new_processed_filepath, start=root_directory
+                        new_raw_filepath, start=root_directory
                     )
                 }
             )
@@ -1476,27 +1258,30 @@ class DataPreprocessor:
             wvf_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvf.json"
             )
-            aux_wvf_dict = {
-                key: [value] for (key, value) in aux_wvf_dict.items()
-            }  # Waveform.Signs.setter inputs must be lists
-            DataPreprocessor.generate_json_file(aux_wvf_dict, wvf_output_filepath)
-            # Transform back to scalars to preserve
-            # proper functioning of this method
-            aux_wvf_dict = {key: value[0] for (key, value) in aux_wvf_dict.items()}
+
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
+
             aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
                 wvf_output_filepath, start=root_directory
             )
+
             wvfset_output_filepath = os.path.join(
                 aux_folderpath, output_filepath_base + "_darknoise_wvfset.json"
             )
+
             DataPreprocessor.generate_json_file(aux_wvfset_dict, wvfset_output_filepath)
 
             aux_darknoisemeas_dict["wvfset_json_filepath"] = os.path.relpath(
                 wvfset_output_filepath, start=root_directory
             )
+
             darknoisemeas_output_filepath = os.path.join(
                 load_folderpath, output_filepath_base + "_darknoisemeas.json"
             )
+            
             DataPreprocessor.generate_json_file(
                 aux_darknoisemeas_dict, darknoisemeas_output_filepath
             )
@@ -1773,7 +1558,7 @@ class DataPreprocessor:
             return -1
 
     @staticmethod
-    def parse_headers(
+    def _parse_headers(
         filepath,
         *identifiers,
         identifier_delimiter=",",
@@ -1781,7 +1566,10 @@ class DataPreprocessor:
         headers_end_identifier=None,
         return_skiprows=True,
     ):
-        """This static method gets the following compulsory positional arguments:
+        """This static method is a helper method which must only be called
+        by DataPreprocessor.get_metadata(), where the well-formedness checks
+        of the input parameters have been performed. This method gets the 
+        following compulsory positional arguments:
 
         - filepath (string): Path to the file which will be parsed.
 
@@ -1820,60 +1608,13 @@ class DataPreprocessor:
         'result' dictionary.
         """
 
-        htype.check_type(
-            filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.parse_headers", 41251
-            ),
-        )
-        for i in range(len(identifiers)):
-            htype.check_type(
-                identifiers[i],
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.parse_headers", 27001
-                ),
-            )
-        htype.check_type(
-            identifier_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.parse_headers", 76281
-            ),
-        )
-        casting_functions_ = [lambda x: x for y in identifiers]
-        if casting_functions is not None:
-            htype.check_type(
-                casting_functions,
-                tuple,
-                list,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.parse_headers", 38100
-                ),
-            )
-            for i in range(len(casting_functions)):
-                if not callable(casting_functions[i]):
-                    raise cuex.InvalidParameterDefinition(
-                        htype.generate_exception_message(
-                            "DataPreprocessor.parse_headers", 13721
-                        )
-                    )
-            if len(casting_functions) != len(identifiers):
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.parse_headers", 38293
-                    )
-                )
-            casting_functions_ = casting_functions
-
         headers_endline = -1
         if headers_end_identifier is not None:
             htype.check_type(
                 headers_end_identifier,
                 str,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.parse_headers", 17819
+                    "DataPreprocessor._parse_headers", 17819
                 ),
             )
             headers_endline = DataPreprocessor.find_skiprows(
@@ -1893,7 +1634,7 @@ class DataPreprocessor:
                     if line.startswith(identifiers[i]):
                         aux = line.strip().split(identifier_delimiter)[-1]
                         if aux != "":
-                            result[identifiers[i]] = casting_functions_[i](aux)
+                            result[identifiers[i]] = casting_functions[i](aux)
                             # Stop the search (the while loop)
                             # only if a value was successfully
                             # added to result
@@ -1930,9 +1671,10 @@ class DataPreprocessor:
         return "".join(filtered_alphabetic_characters)
 
     @staticmethod
-    def extract_tek_wfm_metadata(filepath):
-        """This static method has a fixed purposed and is not tunable via input
-        parameters. This method gets the following mandatory positional argument:
+    def _extract_tek_wfm_metadata(filepath):
+        """This helper static method has a fixed purposed and is not tunable via 
+        input parameters. This method gets the following mandatory positional 
+        argument:
 
         - filepath (str): Path to a binary file which is interpreted to have the
         Tektronix WFM file format. Its extension must be equal to '.wfm'.
@@ -1941,7 +1683,7 @@ class DataPreprocessor:
         contain the metadata for the stored fast frames by the Tektronix oscilloscope
         (See the Tektronix Reference Waveform File Format Instructions). This method
         performs some consistency checks and then returns two dictionaries which host
-        meta-data for the FastFrame set which is stored in the provided filepaht. The
+        meta-data for the FastFrame set which is stored in the provided filepath. The
         first returned dictionary comprises the following key-value pairs:
 
             - 'Horizontal Units' (resp. 'Vertical Units') (string): Indicates the
@@ -1980,13 +1722,13 @@ class DataPreprocessor:
             filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.extract_tek_wfm_metadata", 48219
+                "DataPreprocessor._extract_tek_wfm_metadata", 48219
             ),
         )
         if not os.path.isfile(filepath):
             raise FileNotFoundError(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     11539,
                     extra_info=f"Path {filepath} does not exist or is not a file.",
                 )
@@ -1996,7 +1738,7 @@ class DataPreprocessor:
             if extension != ".wfm":
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "DataPreprocessor.extract_tek_wfm_metadata",
+                        "DataPreprocessor._extract_tek_wfm_metadata",
                         42881,
                         extra_info=f"The extension of the input file must match '.wfm'.",
                     )
@@ -2007,7 +1749,7 @@ class DataPreprocessor:
         if len(header_bytes) != 838:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     47199,
                     extra_info="WFM header comprise 838 bytes. A different value was given.",
                 )
@@ -2051,7 +1793,7 @@ class DataPreprocessor:
         if data_buffer["record_type"] != 2:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     67112,
                     extra_info="For normal YT waveforms, the record type must be 2.",
                 )
@@ -2064,7 +1806,7 @@ class DataPreprocessor:
         if data_buffer["imp_dim_count"] != 1:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     10925,
                     extra_info="For normal YT waveforms, the number of implicit dimensions must be 1.",
                 )
@@ -2077,7 +1819,7 @@ class DataPreprocessor:
         if data_buffer["exp_dim_count"] != 1:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     48108,
                     extra_info="For normal YT waveforms, the number of explicit dimensions must be 1.",
                 )
@@ -2090,7 +1832,7 @@ class DataPreprocessor:
         if data_buffer["exp_dim_1_type"] != 0:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     48108,
                     extra_info="This value must be 0, which matches the case of 'EXPLICIT_SAMPLE'.",
                 )
@@ -2103,7 +1845,7 @@ class DataPreprocessor:
         if data_buffer["time_base_1"] != 0:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     48108,
                     extra_info="This value must be 0, which matches the case of 'BASE_TIME'.",
                 )
@@ -2114,13 +1856,9 @@ class DataPreprocessor:
             bo + "I", header_bytes, offset=78
         )[0]
         if data_buffer["fastframe"] != 1:
-            print(
-                f"In extract_tek_wfm_metadata(), data_buffer['fastframe']={data_buffer['fastframe']}"
-            )
-            print(f"In extract_tek_wfm_metadata(), filepath={filepath}")
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     30182,
                     extra_info="This value must be 1, which matches the case of a FastFrame set.",
                 )
@@ -2278,7 +2016,7 @@ class DataPreprocessor:
         else:
             raise cuex.WfmReadException(
                 htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_metadata",
+                    "DataPreprocessor._extract_tek_wfm_metadata",
                     21230,
                     extra_info="The data-type code is not consistent with the read bytes-per-sample.",
                 )
@@ -2324,192 +2062,50 @@ class DataPreprocessor:
 
         # For now, the only reason for this dictionary splitting is simply to make the first returned
         # dictionary resemble that of the ASCII case, i.e. the one returned by
-        # DataPreprocessor.parse_headers(). This might not be the optimal way and may vary in the future.
+        # DataPreprocessor._parse_headers(). This might not be the optimal way and may vary in the future.
 
         return main_extraction, supplementary_extraction
 
     @staticmethod
-    def get_raw_and_processed_filepaths(
-        input_filepath,
-        raw_prelabel="raw_",
-        processed_prelabel="processed_",
-        raw_folderpath=None,
-        processed_folderpath=None,
-    ):
-        """This static methods the following mandatory positional argument:
-
-        - input_filepath (string)
-
-        It also gets the following optional keyword arguments:
-
-        - raw_prelabel (string)
-        - processed_prelabel (string)
-        - raw_folderpath (None or string)
-        - processed_folderpath (None or string)
-
-        This static method gets the path to a certain input file, input_filepath,
-        and returns two strings, say raw_filepath and processed_filepath.
-        raw_filepath (resp. processed_filepath) is the path to a file whose name
-        matches raw_prelabel (processed_prelabel) plus the name of the input file.
-        If raw_folderpath (processed_folderpath) is None, then the folder path of
-        raw_filepath (processed_filepath) matches that of the input file. If
-        raw_folderpath (processed_folderpath) is defined, then the folder path of
-        raw_filepath (processed_filepath) matches raw_folderpath (processed_folderpath).
-        Also, if the file name of the input file already starts with raw_prelabel,
-        then raw_prelabel is not added to raw_filepath."""
-
-        htype.check_type(
-            input_filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.get_raw_and_processed_filepaths", 68321
-            ),
-        )
-        htype.check_type(
-            raw_prelabel,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.get_raw_and_processed_filepaths", 16667
-            ),
-        )
-        htype.check_type(
-            processed_prelabel,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.get_raw_and_processed_filepaths", 18435
-            ),
-        )
-        fMoveRawFile = False
-        if raw_folderpath is not None:
-            htype.check_type(
-                raw_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.get_raw_and_processed_filepaths", 91793
-                ),
-            )
-            if not os.path.isdir(raw_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.get_raw_and_processed_filepaths",
-                        93171,
-                        extra_info=f"Path {raw_folderpath} does not exist or is not a directory.",
-                    )
-                )
-            fMoveRawFile = True
-
-        fMoveProcessedFile = False
-        if processed_folderpath is not None:
-            htype.check_type(
-                processed_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.get_raw_and_processed_filepaths", 99171
-                ),
-            )
-            if not os.path.isdir(processed_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.get_raw_and_processed_filepaths",
-                        90490,
-                        extra_info=f"Path {processed_folderpath} does not exist or is not a directory.",
-                    )
-                )
-            fMoveProcessedFile = True
-
-        folderpath, filename = os.path.split(input_filepath)
-
-        raw_folderpath_ = raw_folderpath if fMoveRawFile else folderpath
-        processed_folderpath_ = (
-            processed_folderpath if fMoveProcessedFile else folderpath
-        )
-
-        raw_filename = (
-            filename if filename.startswith(raw_prelabel) else raw_prelabel + filename
-        )
-        processed_filename = processed_prelabel + filename
-
-        raw_filepath = os.path.join(raw_folderpath_, raw_filename)
-        processed_filepath = os.path.join(processed_folderpath_, processed_filename)
-
-        return raw_filepath, processed_filepath
-
-    @staticmethod
-    def process_file(
+    def get_metadata(
         filepath,
         *parameters_identifiers,
-        destination_folderpath=None,
-        backup_folderpath=None,
         get_creation_date=False,
-        overwrite_files=False,
-        ndecimals=18,
         verbose=True,
         is_ASCII=True,
-        contains_timestamp=False,
         skiprows_identifier="TIME,",
         parameters_delimiter=",",
-        data_delimiter=",",
-        casting_functions=None,
+        casting_functions=None
     ):
         """This static method gets the following mandatory positional argument:
 
-        - filepath (string): Path to the file which will be processed.
+        - filepath (string): Path to the file whose meta-data will be retrieved.
 
         This function gets the following optional positional arguments:
 
         - parameters_identifiers (tuple of strings): These parameters only make
         a difference if is_ASCII is True. In such case, they are given to
-        DataPreprocessor.parse_headers() as identifiers. Each one is considered
+        DataPreprocessor._parse_headers() as identifiers. Each one is considered
         to be the string which precedes the value of a parameter of interest
         within the input file headers.
 
         This function also gets the following optional keyword arguments:
-
-        - destination_folderpath (None or string): If it is defined, then the
-        processed file(s) are removed from the input-filepath folder and moved
-        to the folder whose path matches destination_folderpath.
-
-        - backup_folderpath (None or string): If it is defined, then the backup
-        of the input file is moved to the folder whose path matches backup_folderpath.
 
         - get_creation_date (bool): If True, the creation date of the input file
         is added to the resulting dictionary under the key 'creation_date'. The
         associated value is an string which follows the format 'YYYY-MM-DD HH:MM:SS'.
         If False, no extra entry is added to the resulting dictionary.
 
-        - overwrite_files (boolean): If it set to True (resp. False), the goal files,
-        i.e. the raw and processed files, will (resp. won't) be overwritten if they
-        already exist.
-
-        - ndecimals (int): Number of decimals to use to save the real values to the
-        processed file(s). Scientific notation is assumed.
-
         - verbose (boolean): Whether to print functioning-related messages.
 
         - is_ASCII (bool): Indicates whether the input file should be interpreted
         as an ASCII file, or as a binary file (in the Tektronix .WFM file format).
-        This parameter, together with contains_timestamp, determines how the input
-        file needs to be processed.
-
-        - contains_timestamp (bool): If contains_timestamp is True, then two
-        additional entries are added to the resulting dictionary. First, the average
-        of the time difference between consecutive triggers is added under the key
-        'average_delta_t_wf'. Second, the time difference between the last trigger
-        and the first trigger of the waveforms dataset stored in the provided
-        filepath, which is added under the key 'acquisition_time'. In such case,
-        the way of computing such entry is different depending on is_ASCII. If
-        is_ASCII is True, then it is assumed that the provided filepath points
-        to an ASCII timestamp file, whose second column hosts the time stamp of
-        the set of triggers of the waveform set, where the i-th time stamp should
-        be understood as a time increment with respect to the (i-1)-th time stamp.
-        In this context, the acquistion time is computed as the sum of all of the
-        entries in the second column of the file. If is_ASCII is False, then it
-        is understood that the provided filepath points to a binary WFM file whose
-        time stamp needs to be extracted and then the acquisition time is computed
-        as the time difference between the last-trigger time stamp and the first-trigger.
+        This parameter determines whether this function delegates the meta-data
+        extraction to DataPreprocessor._parse_headers() (is_ASCII is True) or
+        to DataPreprocessor._extract_tek_wfm_metadata() (is_ASCII is False).
 
         - skiprows_identifier (string): This parameter only makes a difference
-        if is_ASCII is True. In such case, it is passed to DataPreprocessor.parse_headers()
+        if is_ASCII is True. In such case, it is passed to DataPreprocessor._parse_headers()
         as headers_end_identifier, which, in turn, passes it to
         DataPreprocessor.find_skiprows() as identifier. This string is used to
         identify the line which immediately precedes the data columns in an
@@ -2520,18 +2116,13 @@ class DataPreprocessor:
         parameters_identifiers, from the first line through the L-th line.
 
         - parameters_delimiter (string): This parameter only makes a difference if
-        is_ASCII is True. In such case, it is given to DataPreprocessor.parse_headers()
+        is_ASCII is True. In such case, it is given to DataPreprocessor._parse_headers()
         as identifier_delimiter. This string is used to separate each identifier
         from its value.
 
-        - data_delimiter (string): This parameter only makes a difference if is_ASCII
-        is True. In such case, it is given to DataPreprocessor.process_core_data(),
-        which in turn passes it to numpy.loadtxt() as delimiter. It is used to separate
-        entries of the different columns of the input file.
-
         - casting_functions (tuple/list of functions): This parameter only makes a
         difference if is_ASCII is True. In such case, it is given to
-        DataPreprocessor.parse_headers() as casting_functions. The i-th function
+        DataPreprocessor._parse_headers() as casting_functions. The i-th function
         within casting_functions will be used to transform the string read from the
         input file for the i-th parameter identifier.
 
@@ -2541,43 +2132,23 @@ class DataPreprocessor:
             (in the Tektronix .WFM file format),
             - extracts some meta-data from it which is partially returned by this method
             as a dictionary. Such extraction is carried out by
-            DataPreprocessor.parse_headers() or DataPreprocessor.extract_tek_wfm_metadata()
+            DataPreprocessor._parse_headers() or DataPreprocessor._extract_tek_wfm_metadata()
             for the case where is_ASCII is True or False, respectively.
-            - Then, backs it up with a modified name (the backup filename is formed by
-            pre-appending the 'raw_' string to the original filename) to a location which
-            depends on the backup_folderpath parameter (overwritting may occur, up to
-            overwrite_files),
-            - crafts one* ASCII file in a unified format which comprises just one
-            column of float values with no headers, whose filename is crafted out of
-            the original filename by pre-appending the 'processed_'* string,
-            - saves it to a tunable location (up to the destination_folderpath parameter,
-            overwritting may occur),
-            - and adds the raw-and-processed filepaths to the returned dictionary under
-            the keys 'raw_filepath' and 'processed_filepath'*, respectively.
-
-        *In the particular case when is_ASCII is False and contains_timestamp is True,
-        then two processed files are crafted: a processed waveform-set file and a processed
-        timestamp. In such case, the pre-appended strings to the processed filenames
-        are 'processed_' and 'processed_ts_' respectively. Both resulting filepaths are
-        added to the resulting dictionary under the keys 'processed_filepath' and
-        'processed_ts_filepath' respectively.
-
-        Some additional entries could be added to the resulting dictionary, up to the boolean
-        values given to get_creation_date and contains_timestamp. Check such parameters
-        documentation for more information.
+            - optionally, if get_creation_date is True, the creation date of the input
+            file is also retrieved and added to the resulting dictionary under the key
+            'creation_date'.
 
         For DataPreprocessor.generate_meas_config_files() to work properly, the dictionary
         returned by this method must, at least, contain the following keys: 'Horizontal Units',
-        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count', 'creation_date'.
-        If contains_timestamp is True, then the returned dictionary must also contain the
-        following keys: 'average_delta_t_wf' and 'acquisition_time'. If get_creation_date is
-        True, then the returned dictionary must also contain the 'creation_date' key."""
+        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count' and 
+        'creation_date'.
+        """
 
         htype.check_type(
             filepath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 17219
+                "DataPreprocessor.get_metadata", 17219
             ),
         )
         for i in range(len(parameters_identifiers)):
@@ -2585,102 +2156,43 @@ class DataPreprocessor:
                 parameters_identifiers[i],
                 str,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 43177
+                    "DataPreprocessor.get_metadata", 43177
                 ),
             )
-        if destination_folderpath is not None:
-            htype.check_type(
-                destination_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 85829
-                ),
-            )
-            if not os.path.isdir(destination_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_file",
-                        21570,
-                        extra_info=f"Path {destination_folderpath} does not exist or is not a directory.",
-                    )
-                )
-        if backup_folderpath is not None:
-            htype.check_type(
-                backup_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 32598
-                ),
-            )
-            if not os.path.isdir(backup_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_file",
-                        47109,
-                        extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
-                    )
-                )
+
         htype.check_type(
             get_creation_date,
             bool,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 11280
-            ),
-        )
-        htype.check_type(
-            overwrite_files,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 44161
-            ),
-        )
-        htype.check_type(
-            ndecimals,
-            int,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 57103
+                "DataPreprocessor.get_metadata", 11280
             ),
         )
         htype.check_type(
             verbose,
             bool,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 56912
+                "DataPreprocessor.get_metadata", 56912
             ),
         )
         htype.check_type(
             is_ASCII,
             bool,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 67189
-            ),
-        )
-        htype.check_type(
-            contains_timestamp,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 19270
+                "DataPreprocessor.get_metadata", 67189
             ),
         )
         htype.check_type(
             skiprows_identifier,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 99170
+                "DataPreprocessor.get_metadata", 99170
             ),
         )
         htype.check_type(
             parameters_delimiter,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 12851
-            ),
-        )
-        htype.check_type(
-            data_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_file", 64539
+                "DataPreprocessor.get_metadata", 12851
             ),
         )
         casting_functions_ = [lambda x: x for y in parameters_identifiers]
@@ -2690,28 +2202,27 @@ class DataPreprocessor:
                 tuple,
                 list,
                 exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_file", 41470
+                    "DataPreprocessor.get_metadata", 41470
                 ),
             )
             for i in range(len(casting_functions)):
                 if not callable(casting_functions[i]):
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "DataPreprocessor.process_file", 55415
+                            "DataPreprocessor.get_metadata", 55415
                         )
                     )
             if len(casting_functions) != len(parameters_identifiers):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "DataPreprocessor.process_file", 99167
+                        "DataPreprocessor.get_metadata", 99167
                     )
                 )
             casting_functions_ = casting_functions
 
         result = {}
-        tek_wfm_metadata = {}
         if is_ASCII:
-            parameters, skiprows = DataPreprocessor.parse_headers(
+            parameters, _ = DataPreprocessor._parse_headers(
                 filepath,
                 *parameters_identifiers,
                 identifier_delimiter=parameters_delimiter,
@@ -2720,506 +2231,20 @@ class DataPreprocessor:
                 return_skiprows=True,
             )
         else:
-            parameters, supplementary_extraction = (
-                DataPreprocessor.extract_tek_wfm_metadata(filepath)
+            parameters, _ = (
+                DataPreprocessor._extract_tek_wfm_metadata(filepath)
             )
-            tek_wfm_metadata = parameters | supplementary_extraction
         result.update(parameters)
 
         if get_creation_date:
             result["creation_date"] = DataPreprocessor.get_str_creation_date(filepath)
 
-        if is_ASCII:
-            file_type_code = 0 if not contains_timestamp else 1
-        else:
-            file_type_code = 2 if not contains_timestamp else 3
-
-        filepaths_dict = DataPreprocessor.process_core_data(
-            filepath,
-            file_type_code,
-            destination_folderpath=destination_folderpath,
-            backup_folderpath=backup_folderpath,
-            overwrite_files=overwrite_files,
-            skiprows=skiprows if is_ASCII else 0,
-            data_delimiter=data_delimiter,
-            ndecimals=ndecimals,
-            tek_wfm_metadata=tek_wfm_metadata,
-        )
-
-        # If applicable, filepaths_dict will also include
-        # an entry with the key 'acquisition_time' and
-        # another one with the key 'average_delta_t_wf'.
-        # We are adding them to the resulting dictionary here.
-        result.update(filepaths_dict)  
-
         if verbose:
             print(
-                f"In function DataPreprocessor.clean_file(): Succesfully processed {filepath}"
+                f"In function DataPreprocessor.get_metadata(): Succesfully processed {filepath}"
             )
 
         return result
-
-    @staticmethod
-    def process_core_data(
-        filepath,
-        file_type_code,
-        destination_folderpath=None,
-        backup_folderpath=None,
-        overwrite_files=True,
-        skiprows=0,
-        data_delimiter=",",
-        ndecimals=18,
-        tek_wfm_metadata=None,
-    ):
-        """This static method gets the following mandatory positional argument:
-
-        - filepath (string): Path to the file whose data will be processed.
-
-        - file_type_code (scalar integer): It must be either 0, 1, 2 or 3.
-        This integer indicates the type of file which should be processed.
-        0 matches an ASCII waveform dataset and 1 matches an ASCII timestamp.
-        2 matches a binary (Tektronix WFM file format) file whose timestamp
-        should not be extracted, while 3 matches a binary file whose
-        timestamp should be extracted.
-
-        This function also gets the following optional keyword arguments:
-
-        - destination_folderpath (None or string): If it is defined, then
-        the processed file(s) are removed from the input file folder and
-        moved to the folder whose path matches destination_folderpath.
-
-        - backup_folderpath (None or string): If it is defined, then the
-        backup of the input file is moved to the folder whose path matches
-        backup_folderpath.
-
-        - overwrite_files (boolean): If it set to True (resp. False), the
-        resulting files, i.e. the raw and processed files, will (resp. won't)
-        be overwritten if they already exist.
-
-        - skiprows (integer scalar): This parameter is only used for the
-        case of ASCII input files, i.e. either file_type_code is 0 or 1.
-        It indicates the number of rows to skip in the input file in order
-        to access the core data.
-
-        - data_delimiter (string): This parameter is only used for the case
-        of ASCII input files, i.e. either file_type_code is 0 or 1. In such
-        case, it is given to numpy.loadtxt() as delimiter, which in turn,
-        uses it to separate entries of the different columns of the input file.
-
-        - ndecimals (int): Number of decimals to use to save the real values
-        to the processed file(s). Scientific notation is assumed.
-
-        - tek_wfm_metadata (None or dictionary): This parameter is only used
-        for the case of binary input files, i.e. either file_type_code is 2
-        or 3. In such case, it must be defined. It is a dictionary containing
-        the metadata of the provided input file. It must be the union of the
-        two dictionaries returned by DataPreprocessor.extract_tek_wfm_metadata().
-        For more information on the keys which these dictionaries should contain,
-        check such method documentation.
-
-        This static method returns a dictionary. To do so, it does the following:
-            - Backs up the input file to a filepath whose file name is crafted
-            by pre-appending the 'raw_' string to the input file name.
-            - Then, if file_type_code is 0, 1 or 2,
-                - it creates one ASCII file in a unified format which comprises
-                just one column of float values, which is the result of
-                removing the headers and the first column from the input file,
-                and whose filename is crafted out of the original filename by
-                pre-appending the 'processed_' string. Such file contains the
-                formatted waveform dataset information (file_type_code==0, 2)
-                or the formatted timestamp information (file_type_code==1) and
-                is given a file name which is crafted by pre-appending the
-                'processed_' string to the input file name.
-            - Else, if file_type_code is 3, then
-                - it creates two ASCII files following the unified format
-                specified before. The first (resp. second) one contains the
-                waveform dataset (resp. the timestamp). The filename of the
-                first (resp. second) is crafted out of the original filename
-                by pre-appending the 'processed_' (resp. 'processed_ts_')
-                string. For both generated ASCII files, the data cleaning goes
-                as in the previous case.
-            - Then, saves the processed file(s) to a tunable location (up
-            to the destination_folderpath parameter, overwritting may occur).
-            - Then, if file_type_code is 0, 1 or 2, this method
-                - adds the raw-and-processed filepaths to the returned
-                dictionary under the keys 'raw_filepath' and 'processed_filepath',
-                respectively.
-            - Else, if file_type_code is 3, then
-                - adds the raw filepath, the processed-waveforms filepath
-                and the processed-timestamp filepath to the returned dictionary
-                under the keys 'raw_filepath', 'processed_filepath' and
-                'processed_ts_filepath'.
-            - To end with, if file_type_code is 1 or 3, then two additional
-            quantities are computed and saved to the returned dictionary. The
-            first one is saved under the key 'average_delta_t_wf' and is the
-            average of the time differences between consecutive triggers in the
-            waveforms dataset. The second one is saved under the key
-            'acquisition_time' and is the acquisition time of the waveform
-            dataset which is stored in the provided input file. By acquisition
-            time we refer to the time difference between the last trigger and
-            the first trigger of the waveforms dataset stored in the provided
-            filepath. It is assumed that the i-th entry of the time stamp is
-            time increment of the i-th waveform trigger with respect to the
-            (i-1)-th waveform trigger. Therefore, the acquisition time is
-            computed as the sum of all of the entries of the time stamp."""
-
-        htype.check_type(
-            filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 46221
-            ),
-        )
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data",
-                    49000,
-                    extra_info=f"Path {filepath} does not exist or is not a file.",
-                )
-            )
-        else:
-            _, extension = os.path.splitext(filepath)
-
-        htype.check_type(
-            file_type_code,
-            int,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 79829
-            ),
-        )
-        if file_type_code < 0 or file_type_code > 3:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 66937
-                )
-            )
-        elif file_type_code < 2 and extension not in (".csv", ".txt", ".dat"):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data",
-                    12823,
-                    extra_info=f"Not allowed extension for an ASCII input file.",
-                )
-            )
-        elif file_type_code > 1 and extension != ".wfm":
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data",
-                    47001,
-                    extra_info=f"Binary input files must be WFM files.",
-                )
-            )
-        if destination_folderpath is not None:
-            htype.check_type(
-                destination_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 19713
-                ),
-            )
-            if not os.path.isdir(destination_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_core_data",
-                        24040,
-                        extra_info=f"Path {destination_folderpath} does not exist or is not a directory.",
-                    )
-                )
-        if backup_folderpath is not None:
-            htype.check_type(
-                backup_folderpath,
-                str,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 79090
-                ),
-            )
-            if not os.path.isdir(backup_folderpath):
-                raise FileNotFoundError(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_core_data",
-                        34147,
-                        extra_info=f"Path {backup_folderpath} does not exist or is not a directory.",
-                    )
-                )
-        htype.check_type(
-            overwrite_files,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 60125
-            ),
-        )
-        htype.check_type(
-            skiprows,
-            int,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 96245
-            ),
-        )
-        htype.check_type(
-            data_delimiter,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 68852
-            ),
-        )
-        htype.check_type(
-            ndecimals,
-            int,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.process_core_data", 72220
-            ),
-        )
-        if file_type_code > 1:
-            htype.check_type(
-                tek_wfm_metadata,
-                dict,
-                exception_message=htype.generate_exception_message(
-                    "DataPreprocessor.process_core_data", 72345
-                ),
-            )
-        result = {}
-        raw_filepath, processed_filepath = (
-            DataPreprocessor.get_raw_and_processed_filepaths(
-                filepath,
-                raw_prelabel="raw_",
-                processed_prelabel="processed_",
-                raw_folderpath=backup_folderpath,
-                processed_folderpath=destination_folderpath,
-            )
-        )
-        result["raw_filepath"], result["processed_filepath"] = (
-            raw_filepath,
-            processed_filepath,
-        )
-        if file_type_code == 3:
-            _, processed_ts_filepath = DataPreprocessor.get_raw_and_processed_filepaths(
-                filepath,
-                raw_prelabel="raw_",
-                processed_prelabel="processed_ts_",
-                raw_folderpath=backup_folderpath,
-                processed_folderpath=destination_folderpath,
-            )
-            result["processed_ts_filepath"] = processed_ts_filepath
-
-        if file_type_code < 2:  # ASCII input
-            data = np.loadtxt(filepath, delimiter=data_delimiter, skiprows=skiprows)
-            if np.ndim(data) < 2 or np.shape(data)[1] < 2:
-                raise cuex.NoAvailableData(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.process_core_data",
-                        41984,
-                        extra_info="Input ASCII data must have at least two columns.",
-                    )
-                )
-            # Either voltage entries or a timestamp,
-            # we remove the rest of the data and
-            # preserve the second column
-            data = data[:, 1]
-
-            np.savetxt(processed_filepath, data, fmt=f"%.{ndecimals}e", delimiter=",")
-
-            if file_type_code == 1:
-                # Assuming that the acquisition time of the
-                # last waveform is negligible with respect
-                # to the time difference between triggers
-                result["acquisition_time"] = np.sum(data)
-                result["average_delta_t_wf"] = result["acquisition_time"] / (
-                    data.shape[0] - 1
-                )
-
-        else:  # Binary input
-            timestamp, waveforms = DataPreprocessor.extract_tek_wfm_coredata(
-                filepath, tek_wfm_metadata
-            )
-
-            waveforms = waveforms.flatten(
-                order="F"
-            )  # Concatenate waveforms in a 1D-array
-            np.savetxt(
-                processed_filepath, waveforms, fmt=f"%.{ndecimals}e", delimiter=","
-            )
-
-            if file_type_code == 3:
-                # Assuming that the acquisition time of the
-                # last waveform is negligible with respect
-                # to the time difference between triggers
-                result["acquisition_time"] = np.sum(timestamp)
-
-                # The time stamp, as returned by
-                # DataPreprocessor.extract_tek_wfm_coredata(),
-                # contains as many entries as waveforms in
-                # in the FastFrame set. The first one is null.
-                result["average_delta_t_wf"] = result["acquisition_time"] / (
-                    timestamp.shape[0] - 1
-                )
-                np.savetxt(
-                    processed_ts_filepath,
-                    timestamp,
-                    fmt=f"%.{ndecimals}e",
-                    delimiter=",",
-                )
-
-        shutil.move(filepath, raw_filepath)  # Backup
-        return result
-
-    @staticmethod
-    def extract_tek_wfm_coredata(filepath, metadata):
-        """This static method gets the following mandatory positional arguments:
-
-        - filepath (string): Path to the binary file (Tektronix WFM file format),
-        which must host a FastFrame set and whose core data should be extracted.
-        DataPreprocessor.extract_tek_wfm_metadata() should have previously checked
-        that, indeed, the input file hosts a FastFrame set. It is a check based
-        on the 4-bytes integer which you can find at offset 78 of the WFM file.
-        - metadata (dictionary): It is a dictionary which contains meta-data of
-        the input file which is necessary to extract the core data. It should
-        contain the union of the two dictionaries returned by
-        DataPreprocessor.extract_tek_wfm_metadata(). For more information on
-        the data contained in such dictionaries, check such method documentation.
-
-        This method returns two arrays. The first one is an unidimensional array
-        of length M, which stores timestamp information. The second one is a
-        bidimensional array which stores the waveforms of the FastFrame set of
-        the given input file. Say such array has shape NxM: then N is the number
-        of (user-accesible) points per waveform, while M is the number of
-        waveforms. The waveform entries in such array are already expressed in
-        the vertical units which are extracted to the key 'Vertical Units' by
-        DataPreprocessor.extract_tek_wfm_metadata(). In this context, the i-th
-        entry of the first array returned by this function gives the time
-        difference, in seconds, between the trigger of the i-th waveform and
-        the trigger of the (i-1)-th waveform. The first entry, which is undefined
-        up to the given definition, is manually set to zero."""
-
-        htype.check_type(
-            filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.extract_tek_wfm_coredata", 82855
-            ),
-        )
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "DataPreprocessor.extract_tek_wfm_coredata",
-                    58749,
-                    extra_info=f"Path {filepath} does not exist or is not a file.",
-                )
-            )
-        else:
-            _, extension = os.path.splitext(filepath)
-            if extension != ".wfm":
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message(
-                        "DataPreprocessor.extract_tek_wfm_coredata",
-                        21667,
-                        extra_info=f"The extension of the input file must match '.wfm'.",
-                    )
-                )
-        htype.check_type(
-            metadata,
-            dict,
-            exception_message=htype.generate_exception_message(
-                "DataPreprocessor.extract_tek_wfm_coredata", 35772
-            ),
-        )
-
-        # Fraction of the sample time
-        # from the trigger time stamp
-        # to the next sample.
-        first_sample_delay = np.empty((metadata["FastFrame Count"],), dtype=np.double)
-
-        # The fraction of the second
-        # when the trigger occurred.
-        triggers_second_fractions = np.empty(
-            (metadata["FastFrame Count"],), dtype=np.double
-        )
-
-        # GMT (in seconds from the epoch)
-        # when the trigger occurred.
-        gmt_in_seconds = np.empty((metadata["FastFrame Count"],), dtype=np.double)
-
-        first_sample_delay[0] = metadata["tfrac[0]"]  # Add info of the first frame
-        triggers_second_fractions[0] = metadata["tdatefrac[0]"]
-        gmt_in_seconds[0] = metadata["tdate[0]"]
-
-        # For FastFrame, we've got a chunk of metadata['FastFrame Count']*54
-        # bytes which store WfmUpdateSpec and WfmCurveSpec objects, containing
-        # data on the timestamp and the number of points of each frame.
-
-        with open(filepath, "rb") as file:  # Binary read mode
-            _ = file.read(838)  # Throw away the header bytes (838 bytes)
-
-            # WUS stands for Waveform Update Specification. WUS objects count on a 4 bytes
-            # unsigned long, a 8 bytes double, another 8 bytes double and a 4 bytes long.
-
-            # Structure of the output array of np.fromfile
-            # The first element of each tuple is the name
-            # of the field, whereas the second element is the
-            # data type of each field
-            dtype = [
-                ("_", "i4"),
-                ("first_sample_delay", "f8"),
-                ("trigger_second_fraction", "f8"),
-                ("gmt_in_seconds", "i4"),
-            ]
-
-            # Within the same 'with' context,
-            # np.fromfile continues the reading
-            # process as of the already-read
-            # 838 bytes. Also, we are taking into
-            # account that the time information
-            # of the first frame was already read.
-            data = np.fromfile(
-                file, dtype=dtype, count=(metadata["FastFrame Count"] - 1)
-            )
-
-            # Merge first frame trigger
-            # info. with info. from the
-            # the rest of the frames.
-            first_sample_delay[1:] = data["first_sample_delay"]
-            triggers_second_fractions[1:] = data["trigger_second_fraction"]
-            gmt_in_seconds[1:] = data["gmt_in_seconds"]
-
-            # N.B. For binary gain measurements (with external trigger),
-            # it was observed that all of the entries of
-            # triggers_second_fractions, and gmt_in_seconds are null at this point.
-
-            # Read waveforms
-            waveforms = np.memmap(
-                file,
-                dtype=metadata["samples_datatype"],
-                mode="r",
-                offset=metadata["curve_buffer_offset"],
-                # Shape of the returned array
-                # Running along second dimension
-                # gives different waveforms
-                shape=(metadata["samples_no"], metadata["FastFrame Count"]),
-                order="F",
-            )
-
-        # While the numbers in gmt_in_seconds are O(9)
-        # The fractions of seconds are O(-1). Summing
-        # the fractions of the second to the GMT could
-        # result in losing the second fraction info. due
-        # to rounding error. It's better to shift the
-        # time origin to the first trigger, then add the
-        # seconds fractions.
-        seconds_from_first_trigger = gmt_in_seconds - gmt_in_seconds[0]
-        timestamp = seconds_from_first_trigger + triggers_second_fractions
-
-        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
-
-        # Filter out the oscilloscope interpolation samples
-        waveforms = waveforms[
-            metadata["pre-values_no"] : metadata["samples_no"]
-            - metadata["post-values_no"],
-            :,
-        ]
-
-        # 2D array of waveforms, in vertical units
-        waveforms = (waveforms * metadata["vscale"]) + metadata["voffset"]
-        return timestamp, waveforms
 
     @staticmethod
     def rename_file(filepath, new_filename, overwrite=False, verbose=False):
@@ -3736,8 +2761,12 @@ class DataPreprocessor:
         catalog, the key-value pair is added to the output dictionary, and the key
         is removed from the catalog. If the key is not present in the loaded dictionary,
         or it is present but its type is not suitable according to catalog, then the key
-        remains in the catalog and nothing is added to the output dictionary. This
-        function returns the output dictionary and the remaining catalog, in such order.
+        remains in the catalog and nothing is added to the output dictionary. There is
+        one exception to these rules: if the key is present in the loaded dictionary but
+        its value is of type int (resp. float) when the expected type is float (resp. int),
+        then the value is casted to the expected type and added to the output dictionary.
+        This function returns the output dictionary and the remaining catalog, in such
+        order.
         """
 
         htype.check_type(
@@ -3813,34 +2842,54 @@ class DataPreprocessor:
             # found in the input dictionary
             if key in input_dictionary.keys():
 
-                try:
-                    htype.check_type(
-                        input_dictionary[key],
-                        catalog[key],
-                        exception_message=htype.generate_exception_message(
-                            "DataPreprocessor.try_grabbing_from_json", 35881
-                        ),
-                    )
-                # Although the key was found, its
-                # value does not have a suitable type
-                # cuex.TypeException is the exception raised
-                # by htype.check_type if types do not match.
-                except cuex.TypeException:
+                c1 = catalog[key] == int and type(input_dictionary[key]) == float
+                c2 = catalog[key] == float and type(input_dictionary[key]) == int
+
+                # Implement the int<-->float exception
+                if c1 or c2:
+
+                    # Cast the value to the expected type
+                    output_dictionary[key] = catalog[key](input_dictionary[key])
+                    del remaining_catalog[key]
+
                     if verbose:
                         print(
                             htype.generate_exception_message(
                                 "DataPreprocessor.try_grabbing_from_json",
-                                58548,
-                                extra_info=f"A candidate for key '{key}' was found but its type does not match the required one. The candidate has been ignored.",
+                                42481,
+                                extra_info=f"A candidate for key '{key}' was found with type ({type(input_dictionary[key])}). The candidate has been casted to the expected type ({catalog[key]}).",
                             )
                         )
-                    continue
 
-                # The found candidate has a suitable type
-                # Actually add it to the output dictionary
                 else:
-                    output_dictionary[key] = input_dictionary[key]
-                    del remaining_catalog[key]
+                    try:
+                        htype.check_type(
+                            input_dictionary[key],
+                            catalog[key],
+                            exception_message=htype.generate_exception_message(
+                                "DataPreprocessor.try_grabbing_from_json", 35881
+                            ),
+                        )
+                    # Although the key was found, its
+                    # value does not have a suitable type
+                    # cuex.TypeException is the exception raised
+                    # by htype.check_type if types do not match.
+                    except cuex.TypeException:
+                        if verbose:
+                            print(
+                                htype.generate_exception_message(
+                                    "DataPreprocessor.try_grabbing_from_json",
+                                    58548,
+                                    extra_info=f"A candidate for key '{key}' was found but its type does not match the required one. The candidate has been ignored.",
+                                )
+                            )
+                        continue
+
+                    # The found candidate has a suitable type
+                    # Actually add it to the output dictionary
+                    else:
+                        output_dictionary[key] = input_dictionary[key]
+                        del remaining_catalog[key]
 
         return output_dictionary, remaining_catalog
 
@@ -3911,29 +2960,43 @@ class DataPreprocessor:
         else:
             return len(aux)
 
+    @staticmethod
     def count_files_by_extension_in_folder(
-        input_folderpath, extension, ignore_hidden_files=True, return_filenames=False
+        input_folderpath, 
+        extension,
+        count_matches=True,
+        ignore_hidden_files=True, 
+        return_filenames=False
     ):
         """This function gets the following positional arguments:
 
         - input_folderpath (string): Path to an existing folder.
-        - extension (string): Extension of the files whose names
-        will be counted. I.e. the file names, say x, that will
-        contribute to the count are those for which
-        x.endswith('.'+extension) evaluates to True.
+        - extension (string): Extension of the files which will
+        contribute to the count, or which will be excluded from 
+        it, depending on the value given to the 'count_matches' 
+        parameter. 
+        - count_matches (bool): Whether to count the files whose
+        extension matches the given one. If False, then the
+        files which contribute to the count are those whose 
+        extension does not match the given one. I.e. if 
+        count_matches is True (resp. False), the file names, 
+        say x, that will contribute to the count are those for 
+        which x.endswith('.'+extension) evaluates to True 
+        (resp. False).
 
         This function gets the following keyword arguments:
 
         - ignore_hidden_files (boolean): Whether to ignore hidden
         files, i.e. files whose name starts with a dot ('.').
         - return_filenames (boolean): Whether to return the names
-        of the files whose extension matches the given one, in
-        addition to the number of files.
+        of the files which contributed to the count, in addition 
+        to the number of files.
 
         This function gets the path to a folder, and returns the
-        number of files whose extension matches the given one. If
-        return_filenames is True, then this function also returns
-        the names of such files, i.e. a list of strings."""
+        number of files whose extension matches, or not, the given 
+        one, up to the count_matches parameter. If return_filenames 
+        is True, then this function also returns the names of such 
+        files, i.e. a list of strings."""
 
         htype.check_type(
             input_folderpath,
@@ -3956,6 +3019,13 @@ class DataPreprocessor:
             ),
         )
         htype.check_type(
+            count_matches,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.count_files_by_extension_in_folder", 46527
+            ),
+        )
+        htype.check_type(
             ignore_hidden_files,
             bool,
             exception_message=htype.generate_exception_message(
@@ -3969,18 +3039,32 @@ class DataPreprocessor:
                 "DataPreprocessor.count_files_by_extension_in_folder", 13523
             ),
         )
+
         if ignore_hidden_files:
-            aux = [
+            candidates = [
                 filename
                 for filename in os.listdir(input_folderpath)
-                if filename.endswith("." + extension) and not filename.startswith(".")
+                if not filename.startswith(".") and 
+                os.path.isfile(os.path.join(input_folderpath, filename))
+            ]
+        else:
+            candidates = [
+                filename
+                for filename in os.listdir(input_folderpath)
+                if os.path.isfile(os.path.join(input_folderpath, filename))
             ]
 
+        if count_matches:
+            aux = [
+                filename
+                for filename in candidates
+                if filename.endswith("." + extension)
+            ]
         else:
             aux = [
                 filename
-                for filename in os.listdir(input_folderpath)
-                if filename.endswith("." + extension)
+                for filename in candidates
+                if not filename.endswith("." + extension)
             ]
 
         if return_filenames:
@@ -3989,12 +3073,12 @@ class DataPreprocessor:
             return len(aux)
 
     @staticmethod
-    def check_well_formedness_of_input_folder(
+    def check_structure_of_input_folder(
         input_folderpath,
         subfolders_no=7,
-        json_files_no_at_2nd_level=2,
+        json_files_no_at_2nd_level=1,
         json_files_no_at_3rd_level=1,
-        wfm_files_no_at_2nd_and_3rd_level=18,
+        non_json_files_no_at_2nd_and_3rd_level=18,
     ):
         """This function gets the following positional argument:
 
@@ -4016,86 +3100,92 @@ class DataPreprocessor:
         the number of json files at every third level. I.e. any folder
         within any folder within the given input folder must contain
         exactly this number of json files.
-        - wfm_files_no_at_2nd_and_3rd_level (positive integer): It must
-        match the number of wfm files at every second or third level.
-        I.e. any folder within the given input folder, or any folder
-        within any folder within the given input folder, must contain
-        exactly this number of wfm files.
+        - non_json_files_no_at_2nd_and_3rd_level (positive integer): It 
+        must match the number of non-json files at every second or 
+        third level. I.e. any folder within the given input folder, 
+        or any folder within any folder within the given input folder, 
+        must contain exactly this number of non-json files.
 
         This function gets the path to a folder, and checks that the
         file structure within that folder follows the expected pattern.
-        This function returns a list of strings, each of which is an
-        incidence, i.e. a description of a deviation from the expected
-        file structure. If the file structure is well-formed, then
-        the returned list is empty."""
+        This function returns two objects. The first one is a list of 
+        strings, each of which is a warning, i.e. a description of 
+        a deviation from the expected file structure. If the file 
+        structure is well-formed, then this returned list is empty.
+        The second returned object is also a list of strings. In this
+        case, each string is a path to a folder where the number of
+        json files does match the expected number. These folders are
+        considered to be analysable."""
 
         htype.check_type(
             input_folderpath,
             str,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 74528
+                "DataPreprocessor.check_structure_of_input_folder", 74528
             ),
         )
         if not os.path.isdir(input_folderpath):
 
             raise FileNotFoundError(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 22434
+                    "DataPreprocessor.check_structure_of_input_folder", 22434
                 )
             )
         htype.check_type(
             subfolders_no,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 23452
+                "DataPreprocessor.check_structure_of_input_folder", 23452
             ),
         )
         if subfolders_no < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 45244
+                    "DataPreprocessor.check_structure_of_input_folder", 45244
                 )
             )
         htype.check_type(
             json_files_no_at_2nd_level,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 95821
+                "DataPreprocessor.check_structure_of_input_folder", 95821
             ),
         )
         if json_files_no_at_2nd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 36144
+                    "DataPreprocessor.check_structure_of_input_folder", 36144
                 )
             )
         htype.check_type(
             json_files_no_at_3rd_level,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 47829
+                "DataPreprocessor.check_structure_of_input_folder", 47829
             ),
         )
         if json_files_no_at_3rd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 12311
+                    "DataPreprocessor.check_structure_of_input_folder", 12311
                 )
             )
         htype.check_type(
-            wfm_files_no_at_2nd_and_3rd_level,
+            non_json_files_no_at_2nd_and_3rd_level,
             int,
             exception_message=htype.generate_exception_message(
-                "DataPreprocessor.check_well_formedness_of_input_folder", 45829
+                "DataPreprocessor.check_structure_of_input_folder", 45829
             ),
         )
-        if wfm_files_no_at_2nd_and_3rd_level < 1:
+        if non_json_files_no_at_2nd_and_3rd_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "DataPreprocessor.check_well_formedness_of_input_folder", 58821
+                    "DataPreprocessor.check_structure_of_input_folder", 58821
                 )
             )
-        incidences_report = []
+        
+        warnings = []
+        analysable_folderpaths = []
 
         folders_no, folders_names = DataPreprocessor.count_folders(
             input_folderpath, ignore_hidden_folders=True, return_foldernames=True
@@ -4103,7 +3193,7 @@ class DataPreprocessor:
         folders_names.sort()
 
         if folders_no != subfolders_no:
-            incidences_report.append(
+            warnings.append(
                 f"Expected {subfolders_no} sub-folder(s) in {input_folderpath}, but {folders_no} were found."
             )
 
@@ -4123,28 +3213,31 @@ class DataPreprocessor:
         # one of the expected sub-strings
         # (str(i), for some i=1,...,subfolders_no)
         if len(folders_names_copy) != 0:
-            incidences_report.append(
+            warnings.append(
                 f"The following sub-folder(s) of the given root folder are not integer-labelled: {folders_names_copy}"
             )
 
         for folder_name in folders_names:
-            incidences_report += DataPreprocessor.__check_well_formedness_of_subfolder(
+            aux_warnings, aux_analysable_folderpaths = DataPreprocessor.__check_well_formedness_of_subfolder(
                 os.path.join(input_folderpath, folder_name),
                 json_files_no_at_1st_level=json_files_no_at_2nd_level,
                 json_files_no_at_2nd_level=json_files_no_at_3rd_level,
-                wfm_files_no_at_1st_and_2nd_level=wfm_files_no_at_2nd_and_3rd_level,
+                non_json_files_no_at_1st_and_2nd_level=non_json_files_no_at_2nd_and_3rd_level,
             )
-        return incidences_report
+            warnings += aux_warnings
+            analysable_folderpaths += aux_analysable_folderpaths
+        
+        return warnings, analysable_folderpaths
 
     @staticmethod
     def __check_well_formedness_of_subfolder(
         input_folderpath,
-        json_files_no_at_1st_level=2,
+        json_files_no_at_1st_level=1,
         json_files_no_at_2nd_level=1,
-        wfm_files_no_at_1st_and_2nd_level=18,
+        non_json_files_no_at_1st_and_2nd_level=18,
     ):
         """This static method is a helper method which should only be
-        called by the method check_well_formedness_of_input_folder().
+        called by the method check_structure_of_input_folder().
         No type-checking is performed on the arguments of this method.
         This method gets the following positional argument:
 
@@ -4159,38 +3252,55 @@ class DataPreprocessor:
         the number of json files at every second level. I.e. any folder
         within the given input folder must contain exactly this number
         of json files.
-        - wfm_files_no_at_1st_and_2nd_level (positive integer): It must
-        match the number of wfm files at the first level and every second
-        level. I.e. the given folder and any folder within it, must
-        contain exactly this number of wfm files.
+        - non_json_files_no_at_1st_and_2nd_level (positive integer): It
+        must match the number of non-json files at the first level and
+        every second level. I.e. the given folder and any folder within
+        it, must contain exactly this number of non-json files.
 
         This function gets the path to a folder, and checks that the
         file structure within that folder follows the expected pattern.
-        This function returns a list of strings, each of which is an
-        incidence, i.e. a description of a deviation from the expected
-        file structure. If the file structure is well-formed, then
-        the returned list is empty."""
+        This function returns two objects. The first one is a list of 
+        strings, each of which is a warning, i.e. a description of 
+        a deviation from the expected file structure. If the file 
+        structure is well-formed, then this returned list is empty.
+        The second returned object is also a list of strings. In this
+        case, each string is a path to a folder where the number of
+        json files does match the expected number. These folders are
+        considered to be analysable."""
 
-        incidences_report = []
+        warnings = []
+        analysable_folderpaths = []
 
         aux_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-            input_folderpath, "json", ignore_hidden_files=True, return_filenames=False
+            input_folderpath, 
+            "json",
+            count_matches=True,
+            ignore_hidden_files=True, 
+            return_filenames=False
         )
         if aux_json_files_no != json_files_no_at_1st_level:
-            incidences_report.append(
+            warnings.append(
                 f"Expected {json_files_no_at_1st_level} json file(s) in {input_folderpath}, but {aux_json_files_no} were found."
             )
+        else:
+            analysable_folderpaths.append(input_folderpath)
 
-        aux_wfm_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-            input_folderpath, "wfm", ignore_hidden_files=True, return_filenames=False
+        aux_non_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
+            input_folderpath, 
+            "json", 
+            count_matches=False,
+            ignore_hidden_files=True, 
+            return_filenames=False
         )
-        if aux_wfm_files_no != wfm_files_no_at_1st_and_2nd_level:
-            incidences_report.append(
-                f"Expected {wfm_files_no_at_1st_and_2nd_level} wfm file(s) in {input_folderpath}, but {aux_wfm_files_no} were found."
+        if aux_non_json_files_no != non_json_files_no_at_1st_and_2nd_level:
+            warnings.append(
+                f"Expected {non_json_files_no_at_1st_and_2nd_level} non-json file(s) in {input_folderpath}, but {aux_non_json_files_no} were found."
             )
 
         _, folders_names = DataPreprocessor.count_folders(
-            input_folderpath, ignore_hidden_folders=True, return_foldernames=True
+            input_folderpath, 
+            ignore_hidden_folders=True, 
+            return_foldernames=True
         )
         folders_names.sort()
 
@@ -4199,19 +3309,182 @@ class DataPreprocessor:
             subfolder_path = os.path.join(input_folderpath, folder_name)
 
             aux_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-                subfolder_path, "json", ignore_hidden_files=True, return_filenames=False
+                subfolder_path, 
+                "json", 
+                count_matches=True,
+                ignore_hidden_files=True, 
+                return_filenames=False
             )
             if aux_json_files_no != json_files_no_at_2nd_level:
-                incidences_report.append(
+                warnings.append(
                     f"Expected {json_files_no_at_2nd_level} json file(s) in {subfolder_path}, but {aux_json_files_no} were found."
                 )
+            else:
+                analysable_folderpaths.append(subfolder_path)
 
-            aux_wfm_files_no = DataPreprocessor.count_files_by_extension_in_folder(
-                subfolder_path, "wfm", ignore_hidden_files=True, return_filenames=False
+            aux_non_json_files_no = DataPreprocessor.count_files_by_extension_in_folder(
+                subfolder_path, 
+                "json",
+                count_matches=False,
+                ignore_hidden_files=True, 
+                return_filenames=False
             )
-            if aux_wfm_files_no != wfm_files_no_at_1st_and_2nd_level:
-                incidences_report.append(
-                    f"Expected {wfm_files_no_at_1st_and_2nd_level} wfm file(s) in {subfolder_path}, but {aux_wfm_files_no} were found."
+            if aux_non_json_files_no != non_json_files_no_at_1st_and_2nd_level:
+                warnings.append(
+                    f"Expected {non_json_files_no_at_1st_and_2nd_level} non-json file(s) in {subfolder_path}, but {aux_non_json_files_no} were found."
                 )
 
-        return incidences_report
+        return warnings, analysable_folderpaths
+    
+    @staticmethod
+    def hosts_gain_data(folderpath):
+        """This static method gets the following mandatory positional 
+        argument:
+
+        - folderpath (string): Path to a folder which contains the data
+        to be processed.
+
+        This method returns a boolean, which is True (resp. False) if 
+        this function inferred that the given folder contains gain 
+        (resp. darknoise) data. This inference is done based on the
+        first json file found. If the name of such json file contains
+        the 'gain' substring, then this function returns True. If such
+        json file does not contain the 'gain' substring, and it
+        contains the 'darknoise' substring, then this function returns
+        False. If no json file at all was found, or if it was found
+        but it does not contain neither the 'gain' nor the 'darknoise' 
+        substrings in its name, then an exception is raised."""
+
+        htype.check_type(
+            folderpath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.hosts_gain_data", 24194
+            ),
+        )
+        if not os.path.isdir(folderpath):
+
+            raise Exception(
+                htype.generate_exception_message(
+                    "DataPreprocessor.hosts_gain_data", 20859
+                )
+            )
+        
+        aux, filenames = DataPreprocessor.count_files_by_extension_in_folder(
+            folderpath, 
+            "json",
+            count_matches=True,
+            ignore_hidden_files=True, 
+            return_filenames=True
+        )
+        
+        if aux == 0:
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.hosts_gain_data", 
+                    57289,
+                    extra_info=f"Not a single JSON file was found in {folderpath}"
+                )
+            )
+        else:
+            if 'gain' in filenames[0]:
+                return True
+            elif 'darknoise' in filenames[0]:
+                return False
+            else:
+                raise Exception(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.hosts_gain_data", 
+                        45231,
+                        extra_info=f"The inspected json file ({filenames[0]}) should contain either the 'gain' or the 'darknoise' substring."
+                    )
+                )
+            
+    @staticmethod
+    def grab_strip_IDs(json_filepath, max_strip_id_no):
+        """This static method gets the following positional arguments:
+        
+        - json_filepath (string): Path to a json file. It must exist
+        and it must end with the '.json' substring.
+        - max_strip_id_no (integer): The maximum number of strip IDs
+        to read from the json file
+
+        This method loads the contents of the given JSON file to
+        a dictionary. Then, it looks for the value whose key matches
+        'socket_1_strip_ID'. If such key is not found, then an
+        exception is raised. If it is found, but the value cannot
+        be casted to an integer, an exception is also raised.
+        In any other case, the value is casted to an integer and
+        appended to an empty list. Then, this method keeps on 
+        looking (and appending the values) for the keys 
+        f"socket_{i}_strip_ID", with increasing i, until a key is 
+        not found or the maximum number of strip IDs to read is 
+        reached. If the value for any of the keys f"socket_{i}_strip_ID" 
+        cannot be casted to an integer, an exception is raised.
+        The return type is a list of integers.
+        """
+
+        htype.check_type(
+            json_filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.grab_strip_IDs", 40893
+            ),
+        )
+        if not os.path.isfile(json_filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.grab_strip_IDs", 47742
+                )
+            )
+        if not json_filepath.endswith(".json"):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.grab_strip_IDs", 98490
+                )
+            )
+        htype.check_type(
+            max_strip_id_no,
+            int,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.grab_strip_IDs", 13296
+            ),
+        )
+        if max_strip_id_no < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DataPreprocessor.grab_strip_IDs", 33351
+                )
+            )
+        
+        with open(json_filepath, 'r') as file:
+            data = json.load(file)
+
+        try:
+            aux = data[f"socket_1_strip_ID"]
+        except KeyError:
+            raise Exception(f"Not even one strip ID was found in {json_filepath}")
+                
+        try:
+            strips_ids = [int(aux)]
+        except ValueError:
+            raise Exception(f"The value for 'socket_1_strip_ID' in {json_filepath} cannot be casted to an integer.")
+        
+        current_strip_id = 2
+        while current_strip_id <= max_strip_id_no:
+            try:
+                aux = data[f"socket_{current_strip_id}_strip_ID"]
+            except KeyError:    
+                # Stop reading. If f"socket_{i}_strip_ID" is not available
+                # it does not make sense to look for f"socket_{i+1}_strip_ID"
+                break
+            
+            try:
+                aux = int(aux)
+            except ValueError:
+                raise Exception(f"The key 'socket_{current_strip_id}_strip_ID' was found in {json_filepath}, but its value cannot be casted to an integer.")
+            
+            strips_ids.append(aux)
+            current_strip_id += 1
+
+        return strips_ids
