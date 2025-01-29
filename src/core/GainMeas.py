@@ -335,7 +335,7 @@ class GainMeas(SiPMMeas):
         axes_title=None,
         gaussian_plot_npoints=100,
         plot_charge_range=None,
-        show_fit=True,
+        plot_fit=True,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -401,10 +401,10 @@ class GainMeas(SiPMMeas):
         - plot_charge_range (None or list of two floats): This parameter
         only makes a difference if plot_axes is suitably defined. In such
         case, it is given to plot_axes.set_xlim().
-        - show_fit (scalar boolean): This parameter only makes a difference
-        if plot_axes is defined. In such case, it means whether to show
+        - plot_fit (scalar boolean): This parameter only makes a difference
+        if plot_axes is defined. In such case, it means whether to plot
         the fit functions together with the plotted histogram. Note that,
-        if show_fit is True, then the fit plots are also affected by the
+        if plot_fit is True, then the fit plots are also affected by the
         logarithmic_plot parameter.
 
         This method histograms self.__charge_entries and fits one gaussian
@@ -413,7 +413,7 @@ class GainMeas(SiPMMeas):
         the peaks_to_fit keyword argument. To perform the fits, this method
         calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). In
         addition, if plot_axes is provided, then the resulting histogram is
-        plotted in the given axes. Furthermore, if show_fit is True, then the
+        plotted in the given axes. Furthermore, if plot_fit is True, then the
         fit functions are plotted together with the histogram. To end with,
         this method returns the output of
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which are
@@ -558,7 +558,7 @@ class GainMeas(SiPMMeas):
                     ),
                 )
         htype.check_type(
-            show_fit,
+            plot_fit,
             bool,
             exception_message=htype.generate_exception_message(
                 "GainMeas.fit_peaks_histogram", 47189
@@ -598,7 +598,7 @@ class GainMeas(SiPMMeas):
             if logarithmic_plot:
                 plot_axes.set_ylim(10**-1)
 
-            if show_fit:
+            if plot_fit:
 
                 # SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() gives
                 # scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
