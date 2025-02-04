@@ -454,75 +454,75 @@ class DarkNoiseMeas(SiPMMeas):
         """This method gets the following optional keyword arguments:
 
         - peaks_to_detect (scalar integer): It must be positive (>0). It is
-         given to the 'peaks_to_detect' keyword argument of
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It matches
-         the number of peaks of the self.__amplitude histogram, which will be
-         detected to start with. However, only the first and the second detected
-         peaks will be fit (those which occur for the smallest x-values of the
-         self.__amplitude histogram). In order to compute the one-and-a-half
-         PE amplitude, we need to fit the 1-PE and the 2-PE peaks. For ideal
-         datasets, where the 1-PE and 2-PE peaks of the self.__amplitude are
-         the highest ones, it suffices to set peaks_to_detect to 2. However,
-         for less ideal cases, where there are >2-PE peaks which are actually
-         higher than those of <3-PE, manual peak discrimination should be done.
-         An strategy to work around these cases, where there are N >2-PE peaks
-         which are higher than those of <3-PE, is to set peaks_to_detect to 2+N
-         and peaks_to_fit to (0,1).
-         - bins_no (scalar integer): It must be positive (>0). It is the number
-         of bins which are used to histogram the amplitudes of the peaks in
-         the underlying waveform set.
-         - starting_fraction (scalar float): It must be semipositive (>=0.0)
-         and smaller or equal to 1 (<=1.0). It is given to the static method
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-         turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
-         for more information.
-         - step_fraction (scalar float): It must be positive (>0.0) and smaller
-         or equal to 1 (<=1.0). It is given to the static method
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-         turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
-         for more information.
-         - minimal_prominence_wrt_max (scalar float): It must be semipositive
-         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
-         fraction of the maximum value of the histogram of self.__amplitude.
-         It is given to the 'minimal_prominence_wrt_max' keyword argument of
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It sets
-         a minimal prominence for a peak to be detected, based on a fraction
-         of the maximum value within the specified histogram. I.e. the only
-         considered peaks are those whose prominence is bigger or equal to a
-         fraction of the histogram maximum. For more information check the
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
-         - std_no (scalar float): It must be positive (>0.0). This parameter is
-         given to the std_no keyword argument of the static method
-         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
-         turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check its
-         docstrings for more information.
-         - timedelay_cut (scalar float): It must be semipositive (>=0.0). It
-         is used as an inclusive lower bound for the time-delay value of the
-         peaks that have been spotted within the underlying WaveformSet object.
-         I.e. the entries within self.__amplitude which are histogrammed in
-         order to fit the 1-PE and 2-PE peaks, are those whose matching
-         time-delay value is bigger or equal to timedelay_cut.
+        given to the 'peaks_to_detect' keyword argument of
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It matches
+        the number of peaks of the self.__amplitude histogram, which will be
+        detected to start with. However, only the first and the second detected
+        peaks will be fit (those which occur for the smallest x-values of the
+        self.__amplitude histogram). In order to compute the one-and-a-half
+        PE amplitude, we need to fit the 1-PE and the 2-PE peaks. For ideal
+        datasets, where the 1-PE and 2-PE peaks of the self.__amplitude are
+        the highest ones, it suffices to set peaks_to_detect to 2. However,
+        for less ideal cases, where there are >2-PE peaks which are actually
+        higher than those of <3-PE, manual peak discrimination should be done.
+        An strategy to work around these cases, where there are N >2-PE peaks
+        which are higher than those of <3-PE, is to set peaks_to_detect to 2+N
+        and peaks_to_fit to (0,1).
+        - bins_no (scalar integer): It must be positive (>0). It is the number
+        of bins which are used to histogram the amplitudes of the peaks in
+        the underlying waveform set.
+        - starting_fraction (scalar float): It must be semipositive (>=0.0)
+        and smaller or equal to 1 (<=1.0). It is given to the static method
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
+        for more information.
+        - step_fraction (scalar float): It must be positive (>0.0) and smaller
+        or equal to 1 (<=1.0). It is given to the static method
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
+        for more information.
+        - minimal_prominence_wrt_max (scalar float): It must be semipositive
+        (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
+        fraction of the maximum value of the histogram of self.__amplitude.
+        It is given to the 'minimal_prominence_wrt_max' keyword argument of
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It sets
+        a minimal prominence for a peak to be detected, based on a fraction
+        of the maximum value within the specified histogram. I.e. the only
+        considered peaks are those whose prominence is bigger or equal to a
+        fraction of the histogram maximum. For more information check the
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
+        - std_no (scalar float): It must be positive (>0.0). This parameter is
+        given to the std_no keyword argument of the static method
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check its
+        docstrings for more information.
+        - timedelay_cut (scalar float): It must be semipositive (>=0.0). It
+        is used as an inclusive lower bound for the time-delay value of the
+        peaks that have been spotted within the underlying WaveformSet object.
+        I.e. the entries within self.__amplitude which are histogrammed in
+        order to fit the 1-PE and 2-PE peaks, are those whose matching
+        time-delay value is bigger or equal to timedelay_cut.
 
-         This method computes the voltage amplitudes matching 0.5 and 1.5
-         photoelectrons. Those values are stored into the self.__half_a_pe and
-         self.__one_and_a_half_pe attributes, respectively. To do so, this
-         method
+        This method computes the voltage amplitudes matching 0.5 and 1.5
+        photoelectrons. Those values are stored into the self.__half_a_pe and
+        self.__one_and_a_half_pe attributes, respectively. To do so, this
+        method
 
-         1) filters out the entries within self.__amplitude whose matching entry
-         within self.__timedelay is lower than timedelay_cut,
-         2) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
-         which generates an histogram of the filtered self.__amplitude entries,
-         3) then generates a probability distribution function (pdf) out of such
-         histogram,
-         4) then targets the two highest peaks of such pdf which have the lowest
-         amplitude value, via SiPMMeas.tune_peak_height() and scipy.signal.find_peaks(),
-         5) then fits one gaussian function to each one of these two peaks
-         6) and uses the fit mean of both gaussian functions to compute the desired
-         attributes. Say that the fit mean of the gaussian function which fits to the
-         1-PE (resp. 2-PE) peak is mu_1 (resp. mu_2), then the attributes are
-         computed in the following way:
-             6.1) The 0.5-PE voltage amplitude is computed as mu_1 -((mu_2-mu_1)/2)
-             6.2) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2"""
+        1) filters out the entries within self.__amplitude whose matching entry
+        within self.__timedelay is lower than timedelay_cut,
+        2) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        which generates an histogram of the filtered self.__amplitude entries,
+        3) then generates a probability distribution function (pdf) out of such
+        histogram,
+        4) then targets the two highest peaks of such pdf which have the lowest
+        amplitude value, via SiPMMeas.tune_peak_height() and scipy.signal.find_peaks(),
+        5) then fits one gaussian function to each one of these two peaks
+        6) and uses the fit mean of both gaussian functions to compute the desired
+        attributes. Say that the fit mean of the gaussian function which fits to the
+        1-PE (resp. 2-PE) peak is mu_1 (resp. mu_2), then the attributes are
+        computed in the following way:
+            6.1) The 0.5-PE voltage amplitude is computed as mu_1 -((mu_2-mu_1)/2)
+            6.2) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2"""
 
         htype.check_type(
             bins_no,
