@@ -1,0 +1,16 @@
+### General parameters
+# The directory where the input data is located.
+input_data_folderpath: ''
+
+# The directory where the 'aux/', 'load/' and
+# 'data/' directories are located. The pre-processed
+# data, which is the output of the preprocessor,
+# will be saved into these directories. Namely,
+# the raw bulk data will be saved into the 'data/'.
+# Some auxiliary data including units, magnitudes,
+# sampling rate, number of acquired waveforms etc.
+# will be saved into the 'aux/' directory. The
+# measurements metadata and the interface to the
+# rest of the data (bulk and auxiliary) will be
+# saved into the 'load/' directory.
+workspace_dir: ''
