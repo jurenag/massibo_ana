@@ -1,0 +1,25 @@
+### General parameters
+# The directory where the results to visualize
+# are located. Every file (in this directory)
+# whose name ends with '.pkl' will be read
+# read into a pandas dataframe.
+input_dir: ''
+
+# Regarding the read dataframes, the columns
+# whose names are in this list will be ignored
+columns_to_ignore:
+  - 'timedelay'
+  - 'amplitude'
+  - 'frame_idx'
+  - 'charge_entries'
+
+# Whether to visualize all of the data
+# contained in the dataframes read from
+# the input directory.
+visualize_all_boards: false
+
+# The following list is ignored if
+# visualize_all_boards is set to true
+sets_to_analyze:
+  - 4
+  - 5
