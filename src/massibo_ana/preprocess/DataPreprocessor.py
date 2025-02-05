@@ -5,8 +5,8 @@ import datetime
 import shutil
 import struct
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
 
 
 class DataPreprocessor:
