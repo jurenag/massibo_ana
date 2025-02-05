@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 import typing
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
-from src.custom_types.OneTypeRTL import OneTypeRTL
-from src.custom_types.IdentifiedDict import IdentifiedDict
-from src.postprocess.SiPMMeasSummary import SiPMMeasSummary
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.OneTypeRTL import OneTypeRTL
+from massibo_ana.custom_types.IdentifiedDict import IdentifiedDict
+from massibo_ana.postprocess.SiPMMeasSummary import SiPMMeasSummary
 
 
 class SMSSet(OneTypeRTL):

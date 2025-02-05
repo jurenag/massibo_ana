@@ -10,7 +10,7 @@ from PyPDF2 import PdfReader, PdfWriter, PdfMerger
 import matplotlib
 import matplotlib.figure
 
-import src.utils.htype as htype
+import massibo_ana.utils.htype as htype
 
 class PDFGenerator:
 

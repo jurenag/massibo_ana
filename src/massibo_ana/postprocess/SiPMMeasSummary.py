@@ -1,9 +1,9 @@
 import numpy as np
 import typing
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
-from src.custom_types.IdentifiedDict import IdentifiedDict
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.IdentifiedDict import IdentifiedDict
 
 
 class SiPMMeasSummary(IdentifiedDict):
