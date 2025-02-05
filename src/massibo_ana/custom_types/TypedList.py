@@ -1,6 +1,6 @@
 import numpy as np
 
-import src.utils.htype as htype
+import massibo_ana.utils.htype as htype
 
 
 class TypedList(list):

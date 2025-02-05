@@ -1,4 +1,4 @@
-from src.custom_types.RestrictiveTL import RestrictiveTL
+from massibo_ana.custom_types.RestrictiveTL import RestrictiveTL
 
 
 class OneTypeRTL(RestrictiveTL):

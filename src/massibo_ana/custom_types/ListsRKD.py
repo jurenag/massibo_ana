@@ -1,9 +1,9 @@
 import numpy as np
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
-from src.custom_types.RigidKeyDictionary import RigidKeyDictionary
-from src.custom_types.TypedList import TypedList
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.RigidKeyDictionary import RigidKeyDictionary
+from massibo_ana.custom_types.TypedList import TypedList
 
 
 class ListsRKD(RigidKeyDictionary):

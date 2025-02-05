@@ -1,4 +1,4 @@
-from src.custom_types.TypedList import TypedList
+from massibo_ana.custom_types.TypedList import TypedList
 
 
 class RestrictiveTL(TypedList):
