@@ -1,6 +1,6 @@
 import abc as abc
 
-import src.utils.custom_exceptions as cuex
+import massibo_ana.utils.custom_exceptions as cuex
 
 
 def generate_exception_message(issuer, code, extra_info=None):
