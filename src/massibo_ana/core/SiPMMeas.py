@@ -8,10 +8,10 @@ from scipy import signal as spsi
 from scipy import constants as spcon
 from scipy import optimize as spopt
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
-from src.custom_types.RigidKeyDictionary import RigidKeyDictionary
-from src.core.WaveformSet import WaveformSet
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.RigidKeyDictionary import RigidKeyDictionary
+from massibo_ana.core.WaveformSet import WaveformSet
 
 
 class SiPMMeas(ABC):

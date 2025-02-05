@@ -5,11 +5,11 @@ import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
-from src.custom_types.RigidKeyDictionary import RigidKeyDictionary
-from src.core.Waveform import Waveform
-from src.core.SiPMMeas import SiPMMeas
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.RigidKeyDictionary import RigidKeyDictionary
+from massibo_ana.core.Waveform import Waveform
+from massibo_ana.core.SiPMMeas import SiPMMeas
 
 
 class DarkNoiseMeas(SiPMMeas):

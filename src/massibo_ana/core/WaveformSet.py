@@ -9,12 +9,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy import signal as spsi
 
-import src.utils.htype as htype
-import src.utils.search as search
-import src.utils.custom_exceptions as cuex
-from src.custom_types.OneTypeRTL import OneTypeRTL
-from src.core.Waveform import Waveform
-from src.preprocess.DataPreprocessor import DataPreprocessor
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.search as search
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.OneTypeRTL import OneTypeRTL
+from massibo_ana.core.Waveform import Waveform
+from massibo_ana.preprocess.DataPreprocessor import DataPreprocessor
 
 
 class WaveformSet(OneTypeRTL):

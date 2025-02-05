@@ -1,10 +1,10 @@
 import math
 import numpy as np
 
-import src.utils.htype as htype
-import src.utils.custom_exceptions as cuex
-from src.custom_types.TypedList import TypedList
-from src.custom_types.ListsRKD import ListsRKD
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.custom_types.TypedList import TypedList
+from massibo_ana.custom_types.ListsRKD import ListsRKD
 
 
 class Waveform:
