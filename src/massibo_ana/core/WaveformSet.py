@@ -1,6 +1,5 @@
 import os
 import math
-import copy
 import datetime as dt
 import random
 import json
