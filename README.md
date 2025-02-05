@@ -1,13 +1,5 @@
 # Description
-Tools for cleaning, analyzing and graphing output data from Massibo, which is a setup for cryogenic characterization of SiPMs' dark noise rate and gain
-
-massibo_ana uses python 3.10.12 and the following third-party packages
-
-- numpy 1.26.1
-- pandas 2.1.1
-- scipy 1.11.3
-- matplotlib 3.8.0
-- json5 0.9.14
+Tools for cleaning, analyzing and graphing output data from Massibo, which is a setup for cryogenic characterization of SiPMs' dark noise rate and gain. massibo_ana uses python 3.
 
 # Set up
 It is recommended to set up a virtual environment particularly for massibo_ana. Assuming you are already running within the desired virutal environment, navigate to the massibo_ana root directory and build the project by running
