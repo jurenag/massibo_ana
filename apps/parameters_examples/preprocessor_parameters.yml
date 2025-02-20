@@ -14,3 +14,6 @@ input_data_folderpath: ''
 # rest of the data (bulk and auxiliary) will be
 # saved into the 'load/' directory.
 workspace_dir: ''
+
+# Whether to print functioning related messages
+verbose: true
