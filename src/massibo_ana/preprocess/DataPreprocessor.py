@@ -376,13 +376,17 @@ class DataPreprocessor:
         is the key of such candidate within the corresponding dictionary, i.e.
         self.__ascii_gain_candidates for ASCII gain measurements, 
         self.__bin_gain_candidates for binary gain measurements and so on.
-        - strips_ids (list of integers): Its value only makes a difference if
-        sipms_per_strip is defined. In such case (and if it is defined), then for
-        each type of measurement, every measurement whose key takes a value from
-        i*sipms_per_strip to ((i+1)*sipms_per_strip)-1, is assumed to belong
-        to the strip with ID strips_ids[i], i.e. the strip_ID field for such
-        measurement will be set to strips_ids[i]. To this end, it is required
-        that no measurement key is greater or equal to len(strips_ids)*sipms_per_strip.
+        - strips_ids (dictionary): Its keys and values must be integers. The
+        value for this parameter only makes a difference if sipms_per_strip
+        is defined. In such case (and if it is defined), then for each type
+        of measurement, every measurement whose key takes a value from
+        (i-1)*sipms_per_strip to (i*sipms_per_strip)-1 (both inclusive), is
+        assumed to belong to the strip with ID strips_ids[i], i.e. the strip_ID
+        field for such measurement will be set to strips_ids[i]. To this end,
+        it is required that all of the measurement keys belong to the union of
+        the sets U_i = {(i-1)*sipms_per_strip, ..., (i*sipms_per_strip)-1} for
+        every i in the set of keys of the strips_ids dictionary. If this is
+        not the case, then an exception is raised.
         - ask_for_inference_confirmation (boolean): This parameter only makes
         a difference if sipms_per_strip is not None. In that case, then this
         parameter determines whether the user is asked for confirmation before
@@ -501,14 +505,14 @@ class DataPreprocessor:
             ):  # Yes, only check strips_ids if sipms_per_strip is defined
                 htype.check_type(
                     strips_ids,
-                    list,
+                    dict,
                     exception_message=htype.generate_exception_message(
                         "DataPreprocessor.generate_meas_config_files", 42323
                     ),
                 )
-                for elem in strips_ids:
+                for key in strips_ids.keys():
                     htype.check_type(
-                        elem,
+                        key,
                         int,
                         np.int64,
                         exception_message=htype.generate_exception_message(
@@ -516,28 +520,51 @@ class DataPreprocessor:
                         ),
                     )
 
-                p1 = False
-                if len(self.ASCIIGainCandidates) > 0:
-                    p1 = max(list(self.ASCIIGainCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+                    htype.check_type(
+                        strips_ids[key],
+                        int,
+                        np.int64,
+                        exception_message=htype.generate_exception_message(
+                            "DataPreprocessor.generate_meas_config_files", 10370
+                        ),
+                    )
 
-                p2 = False
-                if len(self.ASCIIDarkNoiseCandidates) > 0:
-                    p2 = max(list(self.ASCIIDarkNoiseCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+                allowed_measurement_keys = []
+                for key in strips_ids.keys():
+                    allowed_measurement_keys += list(
+                        range(
+                            (key - 1) * sipms_per_strip,
+                            key * sipms_per_strip
+                        )
+                    )
 
-                p3 = False
-                if len(self.BinaryGainCandidates) > 0:    
-                    p3 = max(list(self.BinaryGainCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+                not_allowed_found_keys = set()
 
-                p4 = False
-                if len(self.BinaryDarkNoiseCandidates) > 0:
-                    p4 = max(list(self.BinaryDarkNoiseCandidates.keys())) >= len(strips_ids) * sipms_per_strip
+                for key in self.ASCIIGainCandidates.keys():
+                    if key not in allowed_measurement_keys:
+                        not_allowed_found_keys.add(key)
 
-                if p1 or p2 or p3 or p4:
+                for key in self.ASCIIDarkNoiseCandidates.keys():
+                    if key not in allowed_measurement_keys:
+                        not_allowed_found_keys.add(key)
+
+                for key in self.BinaryGainCandidates.keys():
+                    if key not in allowed_measurement_keys:
+                        not_allowed_found_keys.add(key)
+
+                for key in self.BinaryDarkNoiseCandidates.keys():
+                    if key not in allowed_measurement_keys:
+                        not_allowed_found_keys.add(key)
+
+                if len(not_allowed_found_keys) > 0:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
                             "DataPreprocessor.generate_meas_config_files",
                             39450,
-                            extra_info=f"The number of candidates for at least one type of measurement is bigger or equal to len(strips_ids) * sipms_per_strip (={len(strips_ids) * sipms_per_strip}). The provided strip IDs cannot be automatically assigned to the candidates.",
+                            extra_info=f"Found the following not-allowed "
+                            f"measurement keys in the candidates: {list(not_allowed_found_keys)}."
+                            " Note that the measurement keys must belong "
+                            f"to the following set: {allowed_measurement_keys}.",
                         )
                     )
                 
@@ -857,7 +884,10 @@ class DataPreprocessor:
                 )
                 if fAssignStripID:
                     aux_gainmeas_dict.update(
-                        {"strip_ID": strips_ids[key // sipms_per_strip]}
+                        {"strip_ID": strips_ids[
+                            aux_gainmeas_dict["electronic_board_socket"]
+                            ]
+                        }
                     )
 
             aux_gainmeas_dict.update(
@@ -977,7 +1007,10 @@ class DataPreprocessor:
                 )
                 if fAssignStripID:
                     aux_darknoisemeas_dict.update(
-                        {"strip_ID": strips_ids[key // sipms_per_strip]}
+                        {"strip_ID": strips_ids[
+                            aux_darknoisemeas_dict["electronic_board_socket"]
+                            ]
+                        }
                     )
 
             aux_darknoisemeas_dict.update(
@@ -1114,7 +1147,10 @@ class DataPreprocessor:
                 )
                 if fAssignStripID:
                     aux_gainmeas_dict.update(
-                        {"strip_ID": strips_ids[key // sipms_per_strip]}
+                        {"strip_ID": strips_ids[
+                            aux_gainmeas_dict["electronic_board_socket"]
+                            ]
+                        }
                     )
 
             aux_gainmeas_dict.update(
@@ -1223,7 +1259,10 @@ class DataPreprocessor:
                 )
                 if fAssignStripID:
                     aux_darknoisemeas_dict.update(
-                        {"strip_ID": strips_ids[key // sipms_per_strip]}
+                        {"strip_ID": strips_ids[
+                            aux_darknoisemeas_dict["electronic_board_socket"]
+                            ]
+                        }
                     )
 
             aux_darknoisemeas_dict.update(
@@ -3401,27 +3440,31 @@ class DataPreprocessor:
                 )
             
     @staticmethod
-    def grab_strip_IDs(json_filepath, max_strip_id_no):
+    def grab_strip_IDs(
+        json_filepath,
+        max_strip_id_no=3,
+        verbose=True
+    ):
         """This static method gets the following positional arguments:
         
         - json_filepath (string): Path to a json file. It must exist
         and it must end with the '.json' substring.
         - max_strip_id_no (integer): The maximum number of strip IDs
-        to read from the json file
+        to read from the json file. It must be a positive integer.
+        - verbose (boolean): Whether to print functioning-related
+        messages.
 
-        This method loads the contents of the given JSON file to
-        a dictionary. Then, it looks for the value whose key matches
-        'socket_1_strip_ID'. If such key is not found, then an
-        exception is raised. If it is found, but the value cannot
-        be casted to an integer, an exception is also raised.
-        In any other case, the value is casted to an integer and
-        appended to an empty list. Then, this method keeps on 
-        looking (and appending the values) for the keys 
-        f"socket_{i}_strip_ID", with increasing i, until a key is 
-        not found or the maximum number of strip IDs to read is 
-        reached. If the value for any of the keys f"socket_{i}_strip_ID" 
+        This method loads the contents of the given json file to
+        a dictionary. Then, for every i in {1, ..., max_strip_id_no},
+        it looks for the value whose key matches
+        f"socket_{i}_strip_ID". If such key is found, but its value
         cannot be casted to an integer, an exception is raised.
-        The return type is a list of integers.
+        If such key is found and its value can be casted to an
+        integer, then it is casted and it is added to the output
+        dictionary under a key which matches the i value. The return
+        type is a dictionary whose keys, if any, are integers in the
+        range [1, max_strip_id_no], and their values are the matching
+        strip IDs, up to the content loaded from the input jsonf file.
         """
 
         htype.check_type(
@@ -3456,35 +3499,37 @@ class DataPreprocessor:
                     "DataPreprocessor.grab_strip_IDs", 33351
                 )
             )
+        htype.check_type(
+            verbose,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.grab_strip_IDs", 45289
+            ),
+        )
         
         with open(json_filepath, 'r') as file:
             data = json.load(file)
 
-        try:
-            aux = data[f"socket_1_strip_ID"]
-        except KeyError:
-            raise Exception(f"Not even one strip ID was found in {json_filepath}")
-                
-        try:
-            strips_ids = [int(aux)]
-        except ValueError:
-            raise Exception(f"The value for 'socket_1_strip_ID' in {json_filepath} cannot be casted to an integer.")
-        
-        current_strip_id = 2
-        while current_strip_id <= max_strip_id_no:
+        strips_ids = {}
+        for i in range(1, max_strip_id_no+1):
             try:
-                aux = data[f"socket_{current_strip_id}_strip_ID"]
-            except KeyError:    
-                # Stop reading. If f"socket_{i}_strip_ID" is not available
-                # it does not make sense to look for f"socket_{i+1}_strip_ID"
-                break
+                aux = data[f"socket_{i}_strip_ID"]
+            except KeyError:
+                if verbose:
+                    print(
+                        "In function DataPreprocessor.grab_strip_IDs(): "
+                        f"No strip ID was found for socket {i} in {json_filepath}."
+                    )
+                continue
             
             try:
-                aux = int(aux)
+                strips_ids[i] = int(aux)
             except ValueError:
-                raise Exception(f"The key 'socket_{current_strip_id}_strip_ID' was found in {json_filepath}, but its value cannot be casted to an integer.")
-            
-            strips_ids.append(aux)
-            current_strip_id += 1
+                raise Exception(
+                    "In function DataPreprocessor.grab_strip_IDs(): "
+                    f"The key 'socket_{i}_strip_ID' was found in "
+                    f"{json_filepath}, but its value ({aux}), of type "
+                    f"{type(aux)}, cannot be casted to an integer."
+                )
 
         return strips_ids
