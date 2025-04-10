@@ -2731,6 +2731,7 @@ class DataPreprocessor:
 
         return first_split, second_split
 
+    @staticmethod
     def path_is_contained_in_dir(path, dir_path):
         """This function gets the following positional arguments:
 
