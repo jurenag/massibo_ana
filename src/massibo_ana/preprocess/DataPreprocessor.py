@@ -1343,8 +1343,8 @@ class DataPreprocessor:
         argument:
 
         - input_string (string): Must contain at least one occurrence
-        of base. It must also contain at least two occurrences of separator
-        after the first occurrence of base.
+        of base. It may also contain occurences of separator after
+        the first occurrence of base.
         - base (string)
 
         And the following optional keyword argument:
@@ -1354,10 +1354,20 @@ class DataPreprocessor:
         This method searches for the first occurrence of base in
         input_string. Then takes the substring that goes after such
         occurrence, and looks for the first two occurrences of separator.
-        This method takes what's in between such occurrences of separator
-        and tries to cast it to integer. This function returns the result
-        of the casting process if it is successful. It raises an
-        InvalidParameterDefinition exception otherwise."""
+        Then
+
+            - If they both were found, then this method takes the substring
+            that is in between such occurrences of separator and tries to
+            cast it to integer.
+            - Else, if only one occurrence was found, then this method takes
+            the substring that is left after this occurrence, and tries to
+            cast it to integer.
+            - Else, if no occurrence was found, then this method takes the
+            substring that is left after the first occurrence of base,
+            and tries to cast it to integer.
+
+        This function returns the result of the casting process if it is
+        successful. It raises an InvalidParameterDefinition exception otherwise."""
 
         htype.check_type(
             input_string,
@@ -1394,21 +1404,19 @@ class DataPreprocessor:
         idx = input_string.find(base, 0) + len(base)
         aux = input_string[idx:]
 
-        if DataPreprocessor.count_occurrences(aux, separator) < 2:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    42225,
-                    extra_info=f"There must be at least two occurrences of the separator, {separator}, in {aux}.",
-                )
-            )
+        separator_occurrences = DataPreprocessor.count_occurrences(aux, separator)
 
-        # Take what's in between
-        # both occurrences of separator
-        idx = aux.find(separator, 0) + len(separator)
-        aux = aux[idx:]
-        idx = aux.find(separator, 0)
-        aux = aux[:idx]
+        if separator_occurrences >= 1:
+            # If there is at least one occurrence of separator, then take out the substring
+            # which happens before the first separator, including the first separator
+            idx = aux.find(separator, 0) + len(separator)
+            aux = aux[idx:]
+
+            if separator_occurrences > 1:
+                # If there are more than one occurrences of the separator, then
+                # take out the substring which happens after the second separator
+                idx = aux.find(separator, 0)
+                aux = aux[:idx]
 
         try:
             return int(aux)
