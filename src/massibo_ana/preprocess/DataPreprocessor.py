@@ -780,7 +780,7 @@ class DataPreprocessor:
             "Sample Interval": [float, "time_resolution"],
             "Record Length": [int, "points_per_wvf"],
             "FastFrame Count": [int, "wvfs_to_read"],
-            # The casuistry for the following one is as follows:
+            # N.B. 1: The casuistry for the following one is as follows:
             # - ASCII gain: There's no timestamp from which to compute this, so
             #               this value may be computed from LED_frequency_kHz
             # - ASCII dark noise: The value is computed from the input timestamp
@@ -791,6 +791,9 @@ class DataPreprocessor:
             #                   results in 0.0, the code should alternatively compute it
             #                   using LED_frequency_kHz.
             # - Binary dark noise: The value is computed from the input timestamp
+            # N.B . 2: Neither 'average_delta_t_wf' nor 'acquisition_time' are
+            # extracted or computed at the pre-processing stage anymore. They are kept
+            # here for reference, though. They are now computed in WaveformSet.read_wvfs().
             "average_delta_t_wf": [float, "delta_t_wf"],
             "acquisition_time": [float, "acquisition_time_min"],
         }
