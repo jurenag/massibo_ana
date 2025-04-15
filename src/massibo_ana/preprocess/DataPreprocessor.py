@@ -55,11 +55,14 @@ class DataPreprocessor:
         format of a measurement file is ASCII or the Tektronix .wfm file
         format.
         - key_separator (string): All of the filepaths that are definitely
-        considered a measurement candidate must contain at least two
-        occurrences of key_separator after its base. For gain (resp. dark
-        noise) measurements, its base is gain_base (resp. darknoise_base).
-        The substring that takes place in between such two occurrences,
-        is casted to integer by DataPreprocessor.find_integer_after_base,
+        considered a measurement candidate may contain an occurrence of
+        key_separator after its base and before its extension. For gain
+        (resp. dark noise) measurements, its base is gain_base (resp.
+        darknoise_base). The substring that takes place somewhere after
+        the first occurrence of the base and before the extension of
+        the file (for more information check the documentation string of
+        the DataPreprocessor.find_integer_after_base static method) is
+        casted to an integer by DataPreprocessor.find_integer_after_base,
         and later used as a key for dictionary population.
         - verbose (boolean): Whether to print functioning-related messages.
 
@@ -154,7 +157,9 @@ class DataPreprocessor:
                     # anticipated within
                     # find_integer_after_base
                     aux = DataPreprocessor.find_integer_after_base(
-                        filename, self.__gain_base, separator=key_separator
+                        os.path.splitext(filename)[0],
+                        self.__gain_base,
+                        separator=key_separator
                     )
 
                     DataPreprocessor.bin_ascii_splitter(
@@ -175,7 +180,9 @@ class DataPreprocessor:
                     # anticipated within
                     # find_integer_after_base
                     aux = DataPreprocessor.find_integer_after_base(
-                        filename, self.__darknoise_base, separator=key_separator
+                        os.path.splitext(filename)[0],
+                        self.__darknoise_base,
+                        separator=key_separator
                     )
 
                     DataPreprocessor.bin_ascii_splitter(
