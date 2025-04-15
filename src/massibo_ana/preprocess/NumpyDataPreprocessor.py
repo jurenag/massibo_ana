@@ -1,0 +1,1071 @@
+import os
+import numpy as np
+import shutil
+
+import massibo_ana.utils.htype as htype
+import massibo_ana.utils.custom_exceptions as cuex
+from massibo_ana.preprocess.DataPreprocessor import DataPreprocessor
+
+
+class NumpyDataPreprocessor:
+
+    def __init__(
+        self,
+        input_folderpath,
+        gain_base="gain",
+        darknoise_base="darknoise",
+        key_separator="_",
+        verbose=True,
+    ):
+        """This class is aimed at handling and preprocessing the gain and
+        dark-noise raw data, typically measured with Daphne and packed into
+        a numpy array in a binary format, for one thermal-cycle, i.e. for one
+        cryogenic immersion of the whole setup. This initializer gets the
+        following mandatory positional argument
+
+        - input_folderpath (string): Path to the folder where the input
+        data is hosted.
+
+        And the following optional keyword arguments:
+
+        - gain_base (string): Every file which contains this string
+        in its filename and does not contain the darknoise_base string,
+        will be considered the output of a gain measurement.
+        - darknoise_base (string): Every file which contains this
+        string in its filename and does not contain the gain_base
+        string, will be considered the output of a dark noise measurement.
+        - key_separator (string): All of the filepaths that are definitely
+        considered a measurement candidate may contain an occurrence of
+        key_separator after its base and before its extension. For gain
+        (resp. dark noise) measurements, its base is gain_base (resp.
+        darknoise_base). The substring that takes place somewhere after
+        the first occurrence of the base and before the extension of
+        the file (for more information check the documentation string of
+        the DataPreprocessor.find_integer_after_base static method) is
+        casted to an integer by DataPreprocessor.find_integer_after_base,
+        and later used as a key for dictionary population.
+        - verbose (boolean): Whether to print functioning-related messages.
+
+        Based on the criteria explained above, this initializer populates
+        the attribute self.__gain_candidates (resp.
+        self.__darknoise_candidates) with the filepaths to the files within
+        the provided input folder which are considered to be the output of a
+        gain (resp. dark noise) measurement. The key for every value that is
+        added to such dictionary attributes is extracted from the corresponding
+        filepath by DataPreprocessor.find_integer_after_base. Check the
+        key_separator parameter documentation of the
+        DataPreprocessor.find_integer_after_base docstring for more information.
+        """
+
+        htype.check_type(
+            input_folderpath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.__init__", 89176
+            ),
+        )
+        htype.check_type(
+            gain_base,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.__init__", 89911
+            ),
+        )
+        htype.check_type(
+            darknoise_base,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.__init__", 40891
+            ),
+        )
+        htype.check_type(
+            key_separator,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.__init__", 47299
+            ),
+        )
+        htype.check_type(
+            verbose,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.__init__", 79488
+            ),
+        )
+
+        self.__input_folderpath = input_folderpath
+        self.__gain_base = gain_base
+        self.__darknoise_base = darknoise_base
+
+        self.__gain_candidates = {}
+        self.__darknoise_candidates = {}
+
+        for filename in os.listdir(self.__input_folderpath):
+            filepath = os.path.join(self.__input_folderpath, filename)
+            if os.path.isfile(filepath):
+                if (
+                    self.__gain_base in filename
+                    and self.__darknoise_base not in filename
+                ):
+
+                    # Possible failures are
+                    # anticipated within
+                    # find_integer_after_base
+                    aux = DataPreprocessor.find_integer_after_base(
+                        os.path.splitext(filename)[0],
+                        self.__gain_base,
+                        separator=key_separator
+                    )
+
+                    self.__gain_candidates[aux] = filepath
+
+                elif (
+                    self.__gain_base not in filename
+                    and self.__darknoise_base in filename
+                ):
+
+                    # Possible failures are
+                    # anticipated within
+                    # find_integer_after_base
+                    aux = DataPreprocessor.find_integer_after_base(
+                        os.path.splitext(filename)[0],
+                        self.__darknoise_base,
+                        separator=key_separator
+                    )
+
+                    self.__darknoise_candidates[aux] = filepath
+
+        DataPreprocessor.print_dictionary_info(
+            self.__gain_candidates,
+            "gain",
+            candidate_type="binary-numpy",
+            verbose=verbose,
+        )
+
+        DataPreprocessor.print_dictionary_info(
+            self.__darknoise_candidates,
+            "dark noise",
+            candidate_type="binary-numpy",
+            verbose=verbose,
+        )
+
+        return
+
+    @property
+    def InputFolderpath(self):
+        return self.__input_folderpath
+
+    @property
+    def GainBase(self):
+        return self.__gain_base
+
+    @property
+    def DarknoiseBase(self):
+        return self.__darknoise_base
+
+    @property
+    def GainCandidates(self):
+        return self.__gain_candidates
+
+    @property
+    def DarkNoiseCandidates(self):
+        return self.__darknoise_candidates
+
+    def generate_meas_config_files(
+        self,
+        root_directory,
+        load_folderpath,
+        aux_folderpath,
+        data_folderpath,
+        packing_version=0,
+        path_to_json_default_values=None,
+        sipms_per_strip=None,
+        strips_ids=None,
+        ask_for_inference_confirmation=True,
+        verbose=True,
+    ):
+        """This method gets the following mandatory positional arguments:
+
+        - root_directory (string): Path which points to an existing directory,
+        which is considered to be the root directory. Every path which is
+        written by this function is relative to this root directory.
+        - load_folderpath (string): Path to a folder where the DarkNoiseMeas and
+        GainMeas configuration json files will be saved. It must be contained,
+        at an arbitrary depth, within the root directory.
+        - aux_folderpath (string): Path to a folder where the WaveformSet and
+        Waveform json configuration files will be saved. It must be contained,
+        at an arbitrary depth, within the root directory.
+        - data_folderpath (string): Raw data files regardless its original 
+        format, will be saved in this folder. It must be contained, at an
+        arbitrary depth, within the root directory.
+
+        This method gets the following optional keyword arguments:
+
+        - packing_version (integer): It must be a semipositive integer. It is
+        eventually given to the packing_version parameter of the
+        NumpyDataPreprocessor.get_metadata() method. It refers to the version of
+        the procedure which was used to pack the data read by Daphne into a binary
+        numpy file. I.e. this version determines how the meta-data was packed, and
+        so, how it should be retrieved.
+        - path_to_json_default_values (string): If it is not none, it should be
+        the path to a json file from which some default values may be read.
+        - sipms_per_strip (positive integer): The number of SiPMs per strip. If
+        it is not None, the electronic_board_socket and sipm_location fields will
+        be inferred. To do so, each gain (resp. dark noise) measurement candidate
+        is assigned an electronic_board_socket and a sipm_location value which
+        are computed as (i//sipms_per_strip)+1 and (i%sipms_per_strip)+1) respectively,
+        where i is the key of such candidate within the self.__gain_candidates
+        (resp. self.__darknoise_candidates) dictionary.
+        - strips_ids (dictionary): Its keys and values must be integers. The
+        value for this parameter only makes a difference if sipms_per_strip
+        is defined. In such case (and if it is defined), then for each type
+        of measurement, every measurement whose key takes a value from
+        (i-1)*sipms_per_strip to (i*sipms_per_strip)-1 (both inclusive), is
+        assumed to belong to the strip with ID strips_ids[i], i.e. the strip_ID
+        field for such measurement will be set to strips_ids[i]. To this end,
+        it is required that all of the measurement keys belong to the union of
+        the sets U_i = {(i-1)*sipms_per_strip, ..., (i*sipms_per_strip)-1} for
+        every i in the set of keys of the strips_ids dictionary. If this is
+        not the case, then an exception is raised.
+        - ask_for_inference_confirmation (boolean): This parameter only makes
+        a difference if sipms_per_strip is not None. In that case, then this
+        parameter determines whether the user is asked for confirmation before
+        the fields 'electronic_board_socket' and 'sipm_location' are inferred.
+        This is also applied to the 'strip_ID' field if the strips_ids parameter
+        is also defined.
+        - verbose (boolean): Whether to print functioning-related messages.
+
+        For each filepath in self.__gain_candidates (resp.
+        self.__darknoise_candidates), this method generates a json file which
+        contains all of the information needed to create a GainMeas (resp.
+        DarkNoiseMeas) object using the GainMeas.from_json_file (resp.
+        DarkNoiseMeas.from_json_file) initializer class method. To do so, some
+        information is taken from the input files themselves, such as the fields
+        'time_unit', 'signal_unit', 'time_resolution', 'points_per_wvf' or
+        'wvfs_to_read', among others. The remaining necessary information, namely
+
+            - signal_magnitude (str),
+            - set_name (str),
+            - creation_dt_offset_min (float),
+            - delivery_no (int),
+            - set_no (int),
+            - meas_no (int),
+            - strip_ID (int),
+            - meas_ID (str),
+            - date (str, in the format 'YYYY-MM-DD HH:MM:SS'),
+            - location (str),
+            - operator (str),
+            - setup_ID (str),
+            - system_characteristics (str),
+            - thermal_cycle (int),
+            - electronic_board_number (int),
+            - electronic_board_location (str),
+            - electronic_board_socket (int),
+            - sipm_location (int),
+            - cover_type (str),
+            - operation_voltage_V (float),
+            - overvoltage_V (float),
+            - PDE (float),
+            - status (str),
+            - LED_voltage_V (float),
+            - LED_frequency_kHz (float),
+            - LED_pulse_shape (str),
+            - LED_high_width_ns (float) and
+            - threshold_mV (float),
+
+        is taken from the json file given to path_to_json_default_values, if
+        it is available there and the values comply with the expected types.
+        The user is interactively asked for the fields which could not be 
+        retrieved from the given json file."""
+
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
+            root_directory,
+            container_folderpath=None
+        )
+
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
+            load_folderpath,
+            container_folderpath=root_directory
+        )
+
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
+            aux_folderpath,
+            container_folderpath=root_directory
+        )
+
+        DataPreprocessor.check_well_formedness_of_input_folderpath(
+            data_folderpath,
+            container_folderpath=root_directory
+        )
+
+        htype.check_type(
+            packing_version,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.generate_meas_config_files", 24710
+            ),
+        )
+        if packing_version < 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.generate_meas_config_files", 57283
+                )
+            )
+
+        fReadDefaultsFromFile = False
+        if path_to_json_default_values is not None:
+            htype.check_type(
+                path_to_json_default_values,
+                str,
+                exception_message=htype.generate_exception_message(
+                    "NumpyDataPreprocessor.generate_meas_config_files", 91126
+                ),
+            )
+            fReadDefaultsFromFile = True
+
+        fInferrFields = False
+        if sipms_per_strip is not None:
+            htype.check_type(
+                sipms_per_strip,
+                int,
+                np.int64,
+                exception_message=htype.generate_exception_message(
+                    "NumpyDataPreprocessor.generate_meas_config_files", 89701
+                ),
+            )
+            if sipms_per_strip < 1:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "NumpyDataPreprocessor.generate_meas_config_files", 12924
+                    )
+                )
+            fInferrFields = True
+            fAssignStripID = False
+
+            if (
+                strips_ids is not None
+            ):  # Yes, only check strips_ids if sipms_per_strip is defined
+                htype.check_type(
+                    strips_ids,
+                    dict,
+                    exception_message=htype.generate_exception_message(
+                        "NumpyDataPreprocessor.generate_meas_config_files", 42323
+                    ),
+                )
+                for key in strips_ids.keys():
+                    htype.check_type(
+                        key,
+                        int,
+                        np.int64,
+                        exception_message=htype.generate_exception_message(
+                            "NumpyDataPreprocessor.generate_meas_config_files", 61191
+                        ),
+                    )
+
+                    htype.check_type(
+                        strips_ids[key],
+                        int,
+                        np.int64,
+                        exception_message=htype.generate_exception_message(
+                            "NumpyDataPreprocessor.generate_meas_config_files", 10370
+                        ),
+                    )
+
+                allowed_measurement_keys = []
+                for key in strips_ids.keys():
+                    allowed_measurement_keys += list(
+                        range(
+                            (key - 1) * sipms_per_strip,
+                            key * sipms_per_strip
+                        )
+                    )
+
+                not_allowed_found_keys = set()
+
+                for key in self.GainCandidates.keys():
+                    if key not in allowed_measurement_keys:
+                        not_allowed_found_keys.add(key)
+
+                for key in self.DarkNoiseCandidates.keys():
+                    if key not in allowed_measurement_keys:
+                        not_allowed_found_keys.add(key)
+
+                if len(not_allowed_found_keys) > 0:
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message(
+                            "NumpyDataPreprocessor.generate_meas_config_files",
+                            39450,
+                            extra_info=f"Found the following not-allowed "
+                            f"measurement keys in the candidates: {list(not_allowed_found_keys)}."
+                            " Note that the measurement keys must belong "
+                            f"to the following set: {allowed_measurement_keys}.",
+                        )
+                    )
+                
+                fAssignStripID = True
+
+        htype.check_type(
+            ask_for_inference_confirmation,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.generate_meas_config_files", 67213
+            ),
+        )
+        htype.check_type(
+            verbose,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.generate_meas_config_files", 92127
+            ),
+        )
+
+        queried_wvf_fields = {"signal_magnitude": str}
+        read_wvf_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_wvf_fields_from_file, queried_wvf_fields = (
+                DataPreprocessor.try_grabbing_from_json(
+                    queried_wvf_fields,
+                    path_to_json_default_values,
+                    verbose=verbose
+                )
+            )
+        queried_once_wvf_fields = {}
+        if bool(queried_wvf_fields):  # True if queried_wvfs_fields is not empty
+            queried_once_wvf_fields, queried_wvf_fields = (
+                DataPreprocessor.query_dictionary_splitting(queried_wvf_fields)
+            )
+
+        queried_wvfset_fields = {
+            "set_name": str,
+            "creation_dt_offset_min": float,
+        }
+
+        read_wvfset_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_wvfset_fields_from_file, queried_wvfset_fields = (
+                DataPreprocessor.try_grabbing_from_json(
+                    queried_wvfset_fields,
+                    path_to_json_default_values,
+                    verbose=verbose
+                )
+            )
+        queried_once_wvfset_fields = {}
+        if bool(queried_wvfset_fields):  # True if queried_wvfset_fields is not empty
+            queried_once_wvfset_fields, queried_wvfset_fields = (
+                DataPreprocessor.query_dictionary_splitting(queried_wvfset_fields)
+            )
+
+        queried_sipmmeas_fields = {
+            "delivery_no": int,
+            "set_no": int,
+            "meas_no": int,
+            "strip_ID": int,
+            "meas_ID": str,
+            "date": str,  # It must be in the format 'YYYY-MM-DD HH:MM:SS'
+            "location": str,
+            "operator": str,
+            "setup_ID": str,
+            "system_characteristics": str,
+            "thermal_cycle": int,
+            "electronic_board_number": int,
+            "electronic_board_location": str,
+            "electronic_board_socket": int,
+            "sipm_location": int,
+            "cover_type": str,
+            "operation_voltage_V": float,
+            "overvoltage_V": float,
+            "PDE": float,
+            "status": str,
+        }
+
+        inferred_sipmmeas_fields = {}
+        if fInferrFields:
+            inferred_sipmmeas_fields = {
+                "electronic_board_socket": queried_sipmmeas_fields[
+                    "electronic_board_socket"
+                ],
+                "sipm_location": queried_sipmmeas_fields["sipm_location"],
+            }
+            del queried_sipmmeas_fields["electronic_board_socket"]
+            del queried_sipmmeas_fields["sipm_location"]
+
+            if fAssignStripID:
+                inferred_sipmmeas_fields["strip_ID"] = queried_sipmmeas_fields[
+                    "strip_ID"
+                ]
+                del queried_sipmmeas_fields["strip_ID"]
+
+            if not fAssignStripID:
+                if ask_for_inference_confirmation:
+                    if not DataPreprocessor.yes_no_translator(
+                        input(
+                            f"In function NumpyDataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter. Do you want to continue? (y/n)"
+                        )
+                    ):
+                        return
+                else:
+                    print(f"In function NumpyDataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket' and 'sipm_location' will be inferred according to the candidates keys and the value given to the 'sipms_per_strip' ({sipms_per_strip}) parameter.")
+            else:
+                if ask_for_inference_confirmation:
+                    if not DataPreprocessor.yes_no_translator(
+                        input(
+                            f"In function NumpyDataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters. Do you want to continue? (y/n)"
+                        )
+                    ):
+                        return
+                else:
+                    print(f"In function NumpyDataPreprocessor.generate_meas_config_files(): The values for the fields 'electronic_board_socket', 'sipm_location' and 'strip_ID', will be inferred according to the candidates keys and the values given to the 'sipms_per_strip' ({sipms_per_strip}) and the 'strips_ids' ({strips_ids}) parameters.")
+
+        read_sipmmeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_sipmmeas_fields_from_file, queried_sipmmeas_fields = (
+                DataPreprocessor.try_grabbing_from_json(
+                    queried_sipmmeas_fields,
+                    path_to_json_default_values,
+                    verbose=verbose,
+                )
+            )
+        queried_once_sipmmeas_fields = {}
+        if bool(
+            queried_sipmmeas_fields
+        ):  # True if queried_sipmmeas_fields is not empty
+            queried_once_sipmmeas_fields, queried_sipmmeas_fields = (
+                DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
+            )
+
+        queried_gainmeas_fields = {
+            "LED_voltage_V": float,
+            "LED_frequency_kHz": float,
+            "LED_pulse_shape": str,
+            "LED_high_width_ns": float,
+        }
+
+        inferred_gainmeas_fields = {}
+        if fInferrFields:
+            inferred_gainmeas_fields.update(inferred_sipmmeas_fields)
+
+        read_gainmeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_gainmeas_fields_from_file, queried_gainmeas_fields = (
+                DataPreprocessor.try_grabbing_from_json(
+                    queried_gainmeas_fields,
+                    path_to_json_default_values,
+                    verbose=verbose,
+                )
+            )
+        queried_once_gainmeas_fields = {}
+        if bool(
+            queried_gainmeas_fields
+        ):  # True if queried_gainmeas_fields is not empty
+            print("The following only applies to gain measurements: ", end="")
+            queried_once_gainmeas_fields, queried_gainmeas_fields = (
+                DataPreprocessor.query_dictionary_splitting(queried_gainmeas_fields)
+            )
+        queried_gainmeas_fields.update(queried_sipmmeas_fields)
+
+        # The acquisition time is not queried because
+        # it is computed from the time stamp data
+        queried_darknoisemeas_fields = {"threshold_mV": float}
+
+        inferred_darknoisemeas_fields = {}
+        if fInferrFields:
+            inferred_darknoisemeas_fields.update(inferred_sipmmeas_fields)
+
+        read_darknoisemeas_fields_from_file = {}
+        if fReadDefaultsFromFile:
+            read_darknoisemeas_fields_from_file, queried_darknoisemeas_fields = (
+                DataPreprocessor.try_grabbing_from_json(
+                    queried_darknoisemeas_fields,
+                    path_to_json_default_values,
+                    verbose=verbose,
+                )
+            )
+        queried_once_darknoisemeas_fields = {}
+        if bool(
+            queried_darknoisemeas_fields
+        ):  # True if queried_darknoisemeas_fields is not empty
+            print("The following only applies to dark noise measurements: ", end="")
+            queried_once_darknoisemeas_fields, queried_darknoisemeas_fields = (
+                DataPreprocessor.query_dictionary_splitting(
+                    queried_darknoisemeas_fields
+                )
+            )
+        queried_darknoisemeas_fields.update(queried_sipmmeas_fields)
+
+        translator = {
+            "Horizontal Units": [str, "time_unit"],
+            "Vertical Units": [str, "signal_unit"],
+            "Sample Interval": [float, "time_resolution"],
+            "Record Length": [int, "points_per_wvf"],
+            "FastFrame Count": [int, "wvfs_to_read"]
+        }
+
+        # Query unique-query data and add update them with the default values gotten from the json file
+        if (
+            queried_once_wvf_fields
+            or queried_once_wvfset_fields
+            or queried_once_sipmmeas_fields
+            or queried_once_gainmeas_fields
+            or queried_darknoisemeas_fields
+        ):
+            print(
+                "Let us retrieve the unique-query fields. These fields will apply for every measurement in this NumpyDataPreprocessor instance."
+            )
+
+        aux_wvf_dict = DataPreprocessor.query_fields_in_dictionary(
+            queried_once_wvf_fields,
+            default_dict=None
+        )
+        aux_wvf_dict.update(read_wvf_fields_from_file)
+        aux_wvfset_dict = DataPreprocessor.query_fields_in_dictionary(
+            queried_once_wvfset_fields,
+            default_dict=None
+        )
+        aux_wvfset_dict.update(read_wvfset_fields_from_file)
+        aux_sipmmeas_dict = DataPreprocessor.query_fields_in_dictionary(
+            queried_once_sipmmeas_fields,
+            default_dict=None
+        )
+        aux_sipmmeas_dict.update(read_sipmmeas_fields_from_file)
+        aux_gainmeas_dict = DataPreprocessor.query_fields_in_dictionary(
+            queried_once_gainmeas_fields,
+            default_dict=None
+        )
+        aux_gainmeas_dict.update(read_gainmeas_fields_from_file)
+        aux_darknoisemeas_dict = DataPreprocessor.query_fields_in_dictionary(
+            queried_once_darknoisemeas_fields,
+            default_dict=None
+        )
+        aux_darknoisemeas_dict.update(read_darknoisemeas_fields_from_file)
+
+        aux_gainmeas_dict.update(aux_sipmmeas_dict)
+        aux_darknoisemeas_dict.update(aux_sipmmeas_dict)
+
+        for i, key in enumerate(sorted(self.GainCandidates.keys())):
+
+            aux = NumpyDataPreprocessor.get_metadata(
+                self.GainCandidates[key],
+                packing_version=packing_version,
+                get_creation_date=False,
+                verbose=verbose
+            )
+
+            print(
+                f"Let us retrieve some information for the waveform set in {self.GainCandidates[key]}"
+            )
+
+            aux_wvf_dict.update(
+                {
+                    translator["Horizontal Units"][1]: aux["Horizontal Units"],
+                    translator["Vertical Units"][1]: aux["Vertical Units"],
+                }
+            )
+
+            aux_wvf_dict.update(
+                DataPreprocessor.query_fields_in_dictionary(
+                    queried_wvf_fields,
+                    default_dict=aux_wvf_dict
+                )
+            )
+
+            aux_wvfset_dict.update(
+                {
+                    translator["Sample Interval"][1]: aux["Sample Interval"],
+                    translator["Record Length"][1]: aux["Record Length"],
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"]
+                }
+            )
+
+            aux_wvfset_dict.update(
+                DataPreprocessor.query_fields_in_dictionary(
+                    queried_wvfset_fields,
+                    default_dict=aux_wvfset_dict
+                )
+            )
+
+            if fInferrFields:
+                aux_gainmeas_dict.update(
+                    {
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
+                    }
+                )
+                if fAssignStripID:
+                    aux_gainmeas_dict.update(
+                        {"strip_ID": strips_ids[
+                            aux_gainmeas_dict["electronic_board_socket"]
+                            ]
+                        }
+                    )
+
+            aux_gainmeas_dict.update(
+                DataPreprocessor.query_fields_in_dictionary(
+                    queried_gainmeas_fields,
+                    default_dict=aux_gainmeas_dict
+                )
+            )
+
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
+            # aux_gainmeas_dict['date'][:10], gives 'YYYY-MM-DD'.
+            output_filepath_base = f"{aux_gainmeas_dict['strip_ID']}-{aux_gainmeas_dict['sipm_location']}-{aux_gainmeas_dict['thermal_cycle']}-OV{round(10.*aux_gainmeas_dict['overvoltage_V'])}dV-{aux_gainmeas_dict['date'][:10]}"
+
+            _, extension = os.path.splitext(self.GainCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_gain" + extension
+            )
+            
+            shutil.move(
+                self.GainCandidates[key], 
+                new_raw_filepath
+            )
+
+            aux_wvfset_dict.update(
+                {
+                    "wvf_filepath": os.path.relpath(
+                        new_raw_filepath,
+                        start=root_directory
+                    )
+                }
+            )
+
+            wvf_output_filepath = os.path.join(
+                aux_folderpath,
+                output_filepath_base + "_gain_wvf.json"
+            )
+
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
+
+            aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
+                wvf_output_filepath,
+                start=root_directory
+            )
+
+            wvfset_output_filepath = os.path.join(
+                aux_folderpath,
+                output_filepath_base + "_gain_wvfset.json"
+            )
+            DataPreprocessor.generate_json_file(
+                aux_wvfset_dict,
+                wvfset_output_filepath)
+
+            aux_gainmeas_dict["wvfset_json_filepath"] = os.path.relpath(
+                wvfset_output_filepath,
+                start=root_directory
+            )
+            gainmeas_output_filepath = os.path.join(
+                load_folderpath,
+                output_filepath_base + "_gainmeas.json"
+            )
+            DataPreprocessor.generate_json_file(
+                aux_gainmeas_dict,
+                gainmeas_output_filepath
+            )
+
+        for i, key in enumerate(sorted(self.DarkNoiseCandidates.keys())):
+
+            aux = NumpyDataPreprocessor.get_metadata(
+                self.DarkNoiseCandidates[key],
+                packing_version=packing_version,
+                get_creation_date=False,
+                verbose=verbose
+            )
+
+            print(
+                f"Let us retrieve some information for the waveform set in {self.DarkNoiseCandidates[key]}"
+            )
+
+            aux_wvf_dict.update(
+                {
+                    translator["Horizontal Units"][1]: aux["Horizontal Units"],
+                    translator["Vertical Units"][1]: aux["Vertical Units"],
+                }
+            )
+
+            aux_wvf_dict.update(
+                DataPreprocessor.query_fields_in_dictionary(
+                    queried_wvf_fields,
+                    default_dict=aux_wvf_dict
+                )
+            )
+
+            aux_wvfset_dict.update(
+                {
+                    translator["Sample Interval"][1]: aux["Sample Interval"],
+                    translator["Record Length"][1]: aux["Record Length"],
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"],
+                }
+            )
+
+            aux_wvfset_dict.update(
+                DataPreprocessor.query_fields_in_dictionary(
+                    queried_wvfset_fields,
+                    default_dict=aux_wvfset_dict
+                )
+            )
+
+            if fInferrFields:
+                aux_darknoisemeas_dict.update(
+                    {
+                        "electronic_board_socket": (key // sipms_per_strip) + 1,
+                        "sipm_location": (key % sipms_per_strip) + 1,
+                    }
+                )
+                if fAssignStripID:
+                    aux_darknoisemeas_dict.update(
+                        {"strip_ID": strips_ids[
+                            aux_darknoisemeas_dict["electronic_board_socket"]
+                            ]
+                        }
+                    )
+
+            aux_darknoisemeas_dict.update(
+                DataPreprocessor.query_fields_in_dictionary(
+                    queried_darknoisemeas_fields,
+                    default_dict=aux_darknoisemeas_dict
+                )
+            )
+
+            output_filepath_base = f"{aux_darknoisemeas_dict['strip_ID']}-{aux_darknoisemeas_dict['sipm_location']}-{aux_darknoisemeas_dict['thermal_cycle']}-OV{round(10.*aux_darknoisemeas_dict['overvoltage_V'])}dV-{aux_darknoisemeas_dict['date'][:10]}"
+            # The date follows the format 'YYYY-MM-DD HH:MM:SS'. Thus,
+            # aux_darknoisemeas_dict['date'][:10], gives 'YYYY-MM-DD'.
+
+            _, extension = os.path.splitext(self.DarkNoiseCandidates[key])
+
+            new_raw_filepath = os.path.join(
+                data_folderpath, 
+                output_filepath_base + "_raw_darknoise" + extension)
+            
+            shutil.move(
+                self.DarkNoiseCandidates[key], 
+                new_raw_filepath
+            )
+
+            aux_wvfset_dict.update(
+                {
+                    "wvf_filepath": os.path.relpath(
+                        new_raw_filepath,
+                        start=root_directory
+                    )
+                }
+            )
+
+            wvf_output_filepath = os.path.join(
+                aux_folderpath,
+                output_filepath_base + "_darknoise_wvf.json"
+            )
+
+            DataPreprocessor.generate_json_file(
+                # Waveform.Signs.setter inputs must be lists
+                {key: [value] for (key, value) in aux_wvf_dict.items()}, 
+                wvf_output_filepath)
+
+            aux_wvfset_dict["wvf_extra_info"] = os.path.relpath(
+                wvf_output_filepath,
+                start=root_directory
+            )
+
+            wvfset_output_filepath = os.path.join(
+                aux_folderpath,
+                output_filepath_base + "_darknoise_wvfset.json"
+            )
+
+            DataPreprocessor.generate_json_file(
+                aux_wvfset_dict,
+                wvfset_output_filepath
+            )
+
+            aux_darknoisemeas_dict["wvfset_json_filepath"] = os.path.relpath(
+                wvfset_output_filepath,
+                start=root_directory
+            )
+
+            darknoisemeas_output_filepath = os.path.join(
+                load_folderpath,
+                output_filepath_base + "_darknoisemeas.json"
+            )
+            
+            DataPreprocessor.generate_json_file(
+                aux_darknoisemeas_dict,
+                darknoisemeas_output_filepath
+            )
+
+        return
+    
+    @staticmethod
+    def get_metadata(
+        filepath,
+        packing_version=0,
+        get_creation_date=False,
+        verbose=True
+    ):
+        """This static method gets the following mandatory positional argument:
+
+        - filepath (string): Path to the file whose meta-data will be retrieved.
+
+        This function also gets the following optional keyword arguments:
+
+        - packing_version (int): It must be a semipositive integer. No well-formedness
+        checks for this parameter are performed here. The caller is responsible for
+        this. It refers to the version of the procedure which was used to pack the data
+        read by Daphne into a binary numpy file. I.e. this version determines how the
+        meta-data was packed, and so, how it should be retrieved.
+
+        - get_creation_date (bool): If True, the creation date of the input file
+        is added to the resulting dictionary under the key 'creation_date'. The
+        associated value is an string which follows the format 'YYYY-MM-DD HH:MM:SS'.
+        If False, no extra entry is added to the resulting dictionary.
+
+        - verbose (boolean): Whether to print functioning-related messages.
+
+        This static method
+
+            1) receives a path to an input file, which should be a binary file which
+            combines some metadata in a header plus a numpy array, and
+            2) extracts some meta-data from it which is partially returned by this method
+            as a dictionary.
+            3) Optionally, if get_creation_date is True, the creation date of the input
+            file is also retrieved and added to the resulting dictionary under the key
+            'creation_date'.
+
+        For NumpyDataPreprocessor.generate_meas_config_files() to work properly, the dictionary
+        returned by this method must, at least, contain the following keys: 'Horizontal Units',
+        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count' and 
+        'creation_date'.
+        """
+
+        htype.check_type(
+            filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.get_metadata", 17219
+            ),
+        )
+        htype.check_type(
+            get_creation_date,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.get_metadata", 11280
+            ),
+        )
+        htype.check_type(
+            verbose,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.get_metadata", 56912
+            ),
+        )
+
+        result = {}
+
+        if packing_version == 0:
+            result.update(
+                NumpyDataPreprocessor.__get_metadata_v0(
+                    filepath
+                )
+            )
+
+        else:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.get_metadata",
+                    31801,
+                    extra_info=f"The packing version {packing_version} is not supported."
+                )
+            )
+
+        if get_creation_date:
+            result["creation_date"] = DataPreprocessor.get_str_creation_date(filepath)
+
+        if verbose:
+            print(
+                f"In function NumpyDataPreprocessor.get_metadata(): Succesfully processed {filepath}"
+            )
+
+        return result
+    
+    @staticmethod
+    def __get_metadata_v0(
+        filepath
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.get_metadata() method i.e. it is not intended to be
+        called directly by the user. No type checks are done here. Its purpose is
+        to carry out the second bullet of the NumpyDataPreprocessor.get_metadata()
+        docstring, for the particular case when the version parameter is equal to 0.
+        """
+
+        shape, _ = NumpyDataPreprocessor.__get_npy_file_shape_and_dtype(filepath)
+
+        return {
+            'Horizontal Units': 'ns',
+            'Vertical Units': 'ADU',
+            'Sample Interval': 1000/41.66,
+            # The first column is typically the timestamp,
+            # so the number of points per waveform is
+            # actually the number of columns minus one
+            'Record Length': shape[1] - 1,
+            'FastFrame Count': shape[0],
+            'PreTrigger length': 64,
+            'Timestamp bytes': 8
+        }
+    
+    @staticmethod
+    def __get_npy_file_shape_and_dtype(filepath):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.__get_metadata_v0() method i.e. it is not intended to
+        be called directly by the user. No type checks are done here. This static
+        method gets the following mandatory positional argument:
+
+        - filepath (string): Path to a numpy file which was created using the
+        numpy.save() function.
+        
+        This function returns two values:
+
+        - shape (tuple): Its length matches 2. It is the shape of the numpy array
+        stored in the input file.
+        - dtype (numpy.dtype): The data type of the numpy array stored in the input
+        file.
+        
+        This function is particularly useful for cases when the stored array is very
+        big. This function is able to retrieve the desired information (shape and dtype)
+        without loading the entire array into memory. This is done by reading just the
+        header of the file.
+        """
+
+        with open(
+            filepath,
+            'rb') as file:
+
+            aux = file.read(6)
+            if aux != b'\x93NUMPY':            
+                raise ValueError(
+                    htype.generate_exception_message(
+                        "NumpyDataPreprocessor.__get_npy_file_shape_and_dtype",
+                        46912,
+                        extra_info=f"The file {filepath} is not a valid numpy file."
+                    )
+                )
+
+            version = tuple(file.read(2))
+            if version == (1, 0):
+                header = np.lib.format.read_array_header_1_0(file)
+
+            elif version == (2, 0):
+                header = np.lib.format.read_array_header_2_0(file)
+
+            else:
+                raise ValueError(
+                    htype.generate_exception_message(
+                        "NumpyDataPreprocessor.__get_npy_file_shape_and_dtype",
+                        23568,
+                        extra_info=f"Version {version} is not supported."
+                    )
+                )
+
+            return header[0], header[2]
