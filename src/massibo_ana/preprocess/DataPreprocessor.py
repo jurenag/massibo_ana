@@ -76,7 +76,7 @@ class DataPreprocessor:
         for every value that is added to such dictionary attributes is
         extracted from the corresponding filepath by
         DataPreprocessor.find_integer_after_base. Check the key_separator
-        parameter documentation or the DataPreprocessor.find_integer_after_base
+        parameter documentation of the DataPreprocessor.find_integer_after_base
         docstring for more information.
         """
 
@@ -1336,7 +1336,7 @@ class DataPreprocessor:
 
     @staticmethod
     def find_integer_after_base(input_string, base, separator="_"):
-        """This static method gets the following mandatory poisitional
+        """This static method gets the following mandatory positional
         argument:
 
         - input_string (string): Must contain at least one occurrence
@@ -1346,7 +1346,7 @@ class DataPreprocessor:
 
         And the following optional keyword argument:
 
-        - separator (string):
+        - separator (string)
 
         This method searches for the first occurrence of base in
         input_string. Then takes the substring that goes after such
