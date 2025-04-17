@@ -14,6 +14,7 @@ import massibo_ana.utils.custom_exceptions as cuex
 from massibo_ana.custom_types.OneTypeRTL import OneTypeRTL
 from massibo_ana.core.Waveform import Waveform
 from massibo_ana.preprocess.DataPreprocessor import DataPreprocessor
+from massibo_ana.preprocess.NumpyDataPreprocessor import NumpyDataPreprocessor
 
 
 class WaveformSet(OneTypeRTL):
