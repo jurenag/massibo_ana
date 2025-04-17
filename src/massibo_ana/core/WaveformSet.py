@@ -1679,6 +1679,18 @@ class WaveformSet(OneTypeRTL):
         seconds_from_first_trigger = gmt_in_seconds - gmt_in_seconds[0]
         timestamp = seconds_from_first_trigger + triggers_second_fractions
 
+        # N.B. 1: The following concatenation fixes the fact that the timestamp
+        # definition in the docstring of this function is different from that of
+        # the definition of the numpy.diff function.
+        # N.B. 2: One could think that computing the np.diff() here is just a
+        # way of unifying the computation pipeline with the ASCII case (where
+        # the timestamp contains time increments by default, and a cumulative
+        # sum needs to be done later in WaveformSet.read_wvfs()). However,
+        # this is not the only reason. The other (and more important) reason is
+        # that the timestamps stored in the .WFM files have an arbitrary time
+        # origin (probably the epoch). Therefore, although it makes us lose the
+        # time lapse between the start of the measurement and the first trigger,
+        # the np.diff() operation is necessary.
         timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
 
         # Filter out the oscilloscope interpolation samples
