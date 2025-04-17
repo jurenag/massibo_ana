@@ -1069,3 +1069,203 @@ class NumpyDataPreprocessor:
                 )
 
             return header[0], header[2]
+
+    @staticmethod  
+    def fix_timestamp_overflow(
+            timestamp,
+            timestamp_bytes,
+            tolerance=0,
+            check_upper_bound=False,
+            return_overflow_idcs=False
+        ):
+        """
+        This static method gets the following positional arguments:
+
+        - timestamp (np.ndarray): 1D array of integer timestamp values potentially
+        affected by overflows.
+        - timestamp_bytes (integer): Number of bytes used to store each timestamp in
+        the original source (e.g., 4 for a 32-bit register). Must be at least 1.
+
+        This static method gets the following keyword arguments: 
+
+        - tolerance (integer): A non-negative tolerance threshold for detecting
+        overflows. timestamp[i] is considered to have overflown with respect to
+        timestamp[i-1] if the following is true: timestamp[i-1] - tolerance > timestamp[i]
+        Default is 0, in which case, an overflow is detected if
+        timestamp[i-1] > timestamp[i].
+        - check_upper_bound (bool): If True, checks whether any timestamp value
+        exceeds the maximum possible value for the given byte size. Raises an error
+        if such values are found. Default is False.
+        - return_overflow_idcs (bool): If True, returns a list of indices where
+        overflows were detected in addition to the corrected timestamp array. Default
+        is False.
+
+        This method fixes timestamp overflows caused by limited register size. It
+        processes an array of integer timestamps and corrects overflow errors that
+        occur when the timestamp counter exceeds its maximum value. It assumes that
+        overflows can be detected by a drop in the timestamp values and sums the
+        appropriate correction to subsequent timestamps to restore their monotonicity."""
+
+        htype.check_type(
+            timestamp,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.fix_timestamp_overflow",
+                59960
+            ),
+        )
+
+        htype.check_type(
+            timestamp_bytes,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.fix_timestamp_overflow",
+                52220
+            ),
+        )
+        if timestamp_bytes < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.fix_timestamp_overflow",
+                    48947
+                )
+            )
+
+        htype.check_type(
+            tolerance,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.fix_timestamp_overflow",
+                34915
+            ),
+        )
+        if tolerance < 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.fix_timestamp_overflow",
+                    37137
+                )
+            )
+        
+        htype.check_type(
+            check_upper_bound,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.fix_timestamp_overflow",
+                21030
+            ),
+        )
+
+        htype.check_type(
+            return_overflow_idcs,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.fix_timestamp_overflow",
+                83745
+            ),
+        )
+        
+        if timestamp_bytes <= 4:
+            # Worst-case scenario is we need to fix timestamp overflows even having
+            # a 4 bytes register for the timestamp, in which case, we will prepare
+            # a np.uint64 array, for which each entry is 8 bytes (i.e. can represent
+            # up to 2**64). I.e. the maximum for each new entry is 2**32 times
+            # larger than the previous one, which was 4 bytes (i.e. 2**32).
+            aux = np.uint64
+        else:
+            raise ValueError(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.fix_timestamp_overflow",
+                    67568,
+                    extra_info="We probably don't need to fix timestamp overflows "
+                    "if the timestamp register is larger than 4 bytes. P.e. at the "
+                    "typical sampling rate of ~24 ns, 4 bytes can represent up to "
+                    "~103 seconds, while 5 bytes can represent up to ~7.5 hours. "
+                    "If our measurement did not exceed 7 hours, (which it probably"
+                    " did not), we do not need to fix any timestamp overflow. Make"
+                    " sure not to call this function in this case."
+                )
+            )
+        
+        fixed_timestamp = np.empty(
+            np.shape(timestamp),
+            dtype=aux
+        )
+        
+        correction = 0
+        correction_step = 2 ** (8 * timestamp_bytes)
+
+        if check_upper_bound:
+            for i in range(len(timestamp)):
+                if timestamp[i] >= correction_step:
+                    raise ValueError(
+                        htype.generate_exception_message(
+                            "NumpyDataPreprocessor.fix_timestamp_overflow",
+                            71013,
+                            extra_info=f"The {i}-th entry of the given timestamp"
+                            f" ({timestamp[i]}) cannot be larger or equal to"
+                            f" the maximum value ({correction_step}) for a "
+                            f"{timestamp_bytes}-byte(s) register."
+                        )
+                    ) 
+
+        overflown_idcs = []
+
+        # Assuming that the first entry of the timestamp is not overflown
+        fixed_timestamp[0] = timestamp[0]
+
+        for i in range(1, len(timestamp)):
+            if timestamp[i-1] - tolerance > timestamp[i]:
+                correction += correction_step
+                overflown_idcs.append(i)
+
+            fixed_timestamp[i] = timestamp[i]
+            fixed_timestamp[i] += correction
+
+        if not return_overflow_idcs:
+            return fixed_timestamp
+        else:
+            return fixed_timestamp, overflown_idcs
+        
+    @staticmethod
+    def interpret_time_unit_in_seconds(time_unit):
+        """
+        This function gets the following positional argument:
+
+        - time_unit (string): It represents a time unit which is
+        a decimal multiple of a second. It can take a value in 
+        ['s', 'ms', 'us', 'ns', 'ps'].
+        
+        This function returns the numerical value of the given
+        time unit in seconds. For example, if the input is 'ms',
+        the output will be 1e-3."""
+
+        htype.check_type(
+            time_unit,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.interpret_time_unit_in_seconds",
+                82593
+            ),
+        )
+
+        if time_unit == 's':
+            return 1.
+        elif time_unit == 'ms':
+            return 1.e-3
+        elif time_unit == 'us':
+            return 1.e-6
+        elif time_unit == 'ns':
+            return 1.e-9
+        elif time_unit == 'ps':
+            return 1.e-12
+        else:
+            raise ValueError(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.interpret_time_unit_in_seconds",
+                    96926,
+                    extra_info=f"An unknown time unit ({time_unit}) was given."
+                )
+            )
