@@ -1012,7 +1012,7 @@ class NumpyDataPreprocessor:
             'Record Length': shape[1] - 1,
             'FastFrame Count': shape[0],
             'PreTrigger length': 64,
-            'Timestamp bytes': 8
+            'Timestamp Bytes': 4
         }
     
     @staticmethod
