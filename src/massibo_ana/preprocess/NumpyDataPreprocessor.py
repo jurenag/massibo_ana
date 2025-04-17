@@ -935,9 +935,9 @@ class NumpyDataPreprocessor:
 
         For NumpyDataPreprocessor.generate_meas_config_files() to work properly, the dictionary
         returned by this method must, at least, contain the following keys: 'Horizontal Units',
-        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count' and 
-        'creation_date'.
-        """
+        'Vertical Units', 'Sample Interval', 'Record Length', 'FastFrame Count' and
+        'creation_date'. The 'Timestamp Bytes' key may be also required by the corresponding
+        core-data extractor."""
 
         htype.check_type(
             filepath,
