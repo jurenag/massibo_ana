@@ -973,7 +973,7 @@ class WaveformSet(OneTypeRTL):
         the timestamp are broadcastable to an strictly positive float.
         - headers_end_identifier (string): This parameter is given to the 
         'headers_end_identifier' parameter of the WaveformSet.read_wvfs()
-        method. It is a string which is used to find the end of the headers
+        method. It is an string which is used to find the end of the headers
         in the input file, in case an ASCII file is provided. For more 
         information, check the documentation of the 'headers_end_identifier'
         parameter of the WaveformSet.read_wvfs().
