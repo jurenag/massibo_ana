@@ -971,6 +971,13 @@ class NumpyDataPreprocessor:
                 )
             )
 
+        elif packing_version == 1:
+            result.update(
+                NumpyDataPreprocessor.__get_metadata_v1(
+                    filepath
+                )
+            )
+
         else:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
