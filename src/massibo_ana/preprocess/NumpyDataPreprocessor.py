@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import shutil
+import struct
 
 import massibo_ana.utils.htype as htype
 import massibo_ana.utils.custom_exceptions as cuex
@@ -1013,6 +1014,110 @@ class NumpyDataPreprocessor:
             'FastFrame Count': shape[0],
             'PreTrigger length': 64,
             'Timestamp Bytes': 4
+        }
+    
+    @staticmethod
+    def __get_metadata_v1(
+        filepath
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.get_metadata() method i.e. it is not intended to be
+        called directly by the user. No type checks are done here. Its purpose is
+        to carry out the second bullet of the NumpyDataPreprocessor.get_metadata()
+        docstring, for the particular case when the version parameter is equal to 1.
+        """
+
+        with open(filepath, 'rb') as file:
+            
+            metadata_length_bytes = struct.unpack(
+                '<H',
+                # Note that the file pointer is forwarded by 2 bytes
+                # and is not reset to the beginning
+                file.read(2)
+            )[0]
+
+            metadata = file.read(metadata_length_bytes)
+
+        # This offset is referred to metadata
+        offset = 0
+    
+        # Read the number of bytes used
+        # to store the VERTICAL_UNITS string
+        VERTICAL_UNITS_length_bytes = struct.unpack_from(
+            # 2 bytes
+            '<H',
+            metadata,
+            offset
+        )[0]
+        offset += 2
+
+        # Read the VERTICAL_UNITS string
+        VERTICAL_UNITS = metadata[
+            offset:offset + VERTICAL_UNITS_length_bytes
+        ].decode('utf-8')
+        offset += VERTICAL_UNITS_length_bytes
+
+        # Read the number of bytes used
+        # to store the HORIZONTAL_UNITS string
+        HORIZONTAL_UNITS_length_bytes = struct.unpack_from(
+            # 2 bytes
+            '<H',
+            metadata,
+            offset
+        )[0]
+        offset += 2
+
+        # Read the HORIZONTAL_UNITS string
+        HORIZONTAL_UNITS = metadata[
+            offset:offset + HORIZONTAL_UNITS_length_bytes
+        ].decode('utf-8')
+        offset += HORIZONTAL_UNITS_length_bytes
+
+        SAMPLE_INTERVAL = struct.unpack_from(
+            # 4 bytes
+            '<f',
+            metadata,
+            offset
+        )[0]
+        offset += 4
+
+        WAVEFORM_LENGTH = struct.unpack_from(
+            # 4 bytes
+            '<I',
+            metadata,
+            offset
+        )[0]
+        offset += 4
+
+        NUMBER_OF_WAVEFORMS = struct.unpack_from(
+            '<I',
+            metadata,
+            offset
+        )[0]
+        offset += 4
+
+        PRETRIGGER_LENGTH = struct.unpack_from(
+            '<I',
+            metadata,
+            offset
+        )[0]
+        offset += 4
+
+        TIMESTAMP_BYTES = struct.unpack_from(
+            '<H',
+            metadata,
+            offset
+        )[0]
+        offset += 2
+
+        return {
+            'Horizontal Units': HORIZONTAL_UNITS,
+            'Vertical Units': VERTICAL_UNITS,
+            'Sample Interval': SAMPLE_INTERVAL,
+            'Record Length': WAVEFORM_LENGTH,
+            'FastFrame Count': NUMBER_OF_WAVEFORMS,
+            'PreTrigger length': PRETRIGGER_LENGTH,
+            'Timestamp Bytes': TIMESTAMP_BYTES,
         }
     
     @staticmethod
