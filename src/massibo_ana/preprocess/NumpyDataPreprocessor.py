@@ -1181,6 +1181,98 @@ class NumpyDataPreprocessor:
                 )
 
             return header[0], header[2]
+        
+    @staticmethod
+    def __get_coredata_v0(
+        filepath
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.extract_homemade_bin_coredata() method i.e. it is
+        not intended to be called directly by the user. No type checks are done
+        here. Its purpose is to carry out the extraction of the core/bulk data of
+        the given homemade binary file, for the particular case when its packing
+        version is equal to 0.
+        """
+
+        try:
+            aux = np.load(filepath)
+
+        except Exception as e:
+            raise cuex.BinReadException(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.__get_coredata_v0",
+                    48019,
+                    extra_info="Caught the following error while trying "
+                    f"to read the core data of the file {filepath}: {e}"
+                )
+            )
+
+        timestamp = aux[:,0]
+        waveforms = np.transpose(aux[:,1:])
+
+        return timestamp, waveforms
+
+    @staticmethod
+    def __get_coredata_v1(
+        filepath,
+        verbose=True
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.extract_homemade_bin_coredata() method i.e. it is
+        not intended to be called directly by the user. No type checks are done
+        here. Its purpose is to carry out the extraction of the core/bulk data of
+        the given homemade binary file, for the particular case when its packing
+        version is equal to 1.
+        """
+
+        # Read the metadata because we need to know the number of
+        # waveforms and the waveform length for the core-data extraction
+        metadata = NumpyDataPreprocessor.get_metadata(
+            filepath,
+            packing_version=1,
+            get_creation_date=False,
+            verbose=verbose
+        )
+
+        with open(filepath, 'rb') as file:
+            
+            metadata_length_bytes = struct.unpack(
+                '<H',
+                # Note that the file pointer is forwarded by 2 bytes
+                # and is not reset to the beginning
+                file.read(2)
+            )[0]
+
+            # Dump the metadata
+            _ = file.read(metadata_length_bytes)
+
+            try:
+                data = np.frombuffer(
+                    file.read(
+                        # Plus one because the first entry is the timestamp
+                        metadata['FastFrame Count'] * (metadata['Record Length'] + 1) * 4
+                    ),
+                    dtype=np.uint32
+                )  # 4 bytes por uint32
+
+                data = data.reshape(
+                    (metadata['FastFrame Count'], metadata['Record Length'] + 1)
+                )
+
+            except Exception as e:
+                raise cuex.BinReadException(
+                    htype.generate_exception_message(
+                        "NumpyDataPreprocessor.__get_coredata_v1",
+                        93004,
+                        extra_info="Caught the following error while trying "
+                        f"to read the core data of the file {filepath}: {e}"
+                    )
+                )
+
+        timestamp = data[:,0]
+        waveforms = np.transpose(data[:,1:])
+
+        return timestamp, waveforms
 
     @staticmethod  
     def fix_timestamp_overflow(
