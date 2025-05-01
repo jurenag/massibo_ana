@@ -1473,3 +1473,62 @@ class NumpyDataPreprocessor:
                     extra_info=f"An unknown time unit ({time_unit}) was given."
                 )
             )
+
+    @staticmethod
+    def infer_bytes_number(
+            input
+        ): 
+
+        """This static method gets the following mandatory positional argument:
+
+        - input (np.ndarray): Unidimensional array of integers, which stores raw
+        values as given by an N-bytes register. I.e. these values are supposed to
+        be integer values coming from a counter which can take values from 0 to
+        (2^N)-1, both included.
+
+        This method returns a positive integer, which is the inferred number of
+        bytes used to represent the values which belong to the given input. To
+        do such inference, this method checks the maximum value of input, say
+        i_max. Then, the inferred number of bytes is given by the smallest
+        integer N such that (2^N)-1 >= i_max."""
+
+        htype.check_type(
+            input,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.infer_bytes_number",
+                23818
+            ),
+        )
+
+        if np.ndim(input) != 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.infer_bytes_number",
+                    69278,
+                    extra_info="The given array must be unidimensional.",
+                )
+            )
+        
+        maximum_value = np.max(input)
+        fInferred = False
+
+        # Iterate from 1 to 16, so that we find the minimum
+        # number of bytes that can store the maximum value
+        for bytes_number in range(1, 17):
+            if maximum_value <= (2 ** (bytes_number * 8)) - 1:
+                fInferred = True
+                break
+
+        if not fInferred:
+            raise Exception(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.infer_bytes_number",
+                    12152,
+                    extra_info="The inferred number of bytes used to store "
+                    "the timestamp information is bigger than 16 bytes, which "
+                    "is very unlikely. Please check the input timestamp array."
+                )
+            )
+
+        return bytes_number
