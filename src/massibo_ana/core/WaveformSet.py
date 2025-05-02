@@ -940,6 +940,7 @@ class WaveformSet(OneTypeRTL):
         ref_datetime=None,
         creation_dt_offset_min=None,
         wvf_extra_info=None,
+        verbose=True
     ):
         """This class method is meant to be an alternative initializer.
         It creates a WaveformSet out of an ASCII or binary (in the 
@@ -1007,6 +1008,7 @@ class WaveformSet(OneTypeRTL):
         Waveform object in the WaveformSet. For more information on which keys 
         should you use when building the json file, see the Waveform class 
         documentation.
+        - verbose (bool): Whether to print functioning related messages.
 
         For the case of an ASCII input file, at least one of [timestamp_filepath, 
         delta_t_wf] must be different from None. In other case, there's not 
@@ -1106,6 +1108,7 @@ class WaveformSet(OneTypeRTL):
             headers_end_identifier=headers_end_identifier,
             data_delimiter=data_delimiter,
             delta_t_wf=delta_t_wf,
+            verbose=verbose
         )
 
         waveforms_pack = []
@@ -1134,6 +1137,7 @@ class WaveformSet(OneTypeRTL):
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
+        verbose=True
     ):
         """This method takes the following mandatory positional argument:
 
@@ -1183,6 +1187,7 @@ class WaveformSet(OneTypeRTL):
         periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide one time stamp 
         per waveform. It must be a positive float.
+        - verbose (bool): Whether to print functioning related messages.
 
         For the case of an ASCII input file, at least one of [timestamp_filepath, 
         delta_t_wf] must be different from None. In other case, there's not 
@@ -1304,6 +1309,7 @@ class WaveformSet(OneTypeRTL):
                 0,
                 skiprows=headers_endline,
                 data_delimiter=data_delimiter,
+                verbose=verbose
             )
 
             if len(waveforms) % points_per_wvf != 0:
@@ -1332,6 +1338,7 @@ class WaveformSet(OneTypeRTL):
                         1,
                         skiprows=headers_endline,
                         data_delimiter=data_delimiter,
+                        verbose=verbose
                     )
 
                 # In WaveformSet._extract_core_data(), it is
@@ -1366,6 +1373,7 @@ class WaveformSet(OneTypeRTL):
                     input_filepath,
                     2,
                     tek_wfm_metadata=tek_wfm_metadata,
+                    verbose=verbose
                 )
             
             timestamps = np.cumsum(timestamps)
@@ -1379,6 +1387,7 @@ class WaveformSet(OneTypeRTL):
         skiprows=0,
         data_delimiter=",",
         tek_wfm_metadata=None,
+        verbose=True
     ):
         """This static method is a helper method which should only be called 
         by the WaveformSet.read_wvfs() method. It gets the following mandatory 
@@ -1410,6 +1419,7 @@ class WaveformSet(OneTypeRTL):
         returned by DataPreprocessor._extract_tek_wfm_metadata(). For more 
         information on the keys which these dictionaries should contain, check 
         such method documentation.
+        - verbose (bool): Whether to print functioning related messages.
 
         If file_type_code is 0, then this method returns an unidimensional
         numpy array which contains the waveform dataset. I.e. this array is
