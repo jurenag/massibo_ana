@@ -39,6 +39,7 @@ class DarkNoiseMeas(SiPMMeas):
         PDE=None,
         status=None,
         threshold_mV=None,
+        verbose=True,
         **kwargs,
     ):
         """This class, which derives from SiPMMeas class, aims to implement a SiPM dark
@@ -95,6 +96,7 @@ class DarkNoiseMeas(SiPMMeas):
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
         - threshold_mV (float): Trigger threshold which was used for acquiring the waveforms.
+        - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
@@ -185,6 +187,7 @@ class DarkNoiseMeas(SiPMMeas):
             overvoltage_V=overvoltage_V,
             PDE=PDE,
             status=status,
+            verbose=verbose,
             **kwargs,
         )
 
