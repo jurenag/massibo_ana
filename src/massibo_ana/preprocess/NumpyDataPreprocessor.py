@@ -1183,6 +1183,185 @@ class NumpyDataPreprocessor:
             return header[0], header[2]
         
     @staticmethod
+    def extract_homemade_bin_coredata(
+            filepath,
+            packing_version=0,
+            tolerance=0,
+            verbose=True,
+        ):
+        """This static method gets the following mandatory positional arguments:
+
+        - filepath (string): Path to the homemade binary file (.npy or .bin),
+        whose core data should be extracted, i.e. its waveform and timestamp data.
+        - packing_version (int): It must be a semipositive integer. No well-
+        formedness checks for this parameter are performed here. The caller is
+        responsible for this. It refers to the version of the procedure which was
+        used to pack the data read by Daphne into a binary numpy file. I.e. this
+        version determines how the meta-data and the core-data was packed, and so,
+        how it should be retrieved.
+        - tolerance (int): It must be a semipositive integer. It is given to the
+        tolerance parameter of
+        NumpyDataPreprocessor.fix_timestamp_overflow(). For more information,
+        check the docstring of such method.
+        - verbose (bool): Whether to print functioning related messages or not.
+
+        This method returns two arrays. The first one is an unidimensional array
+        of length M, which stores timestamp information. The second one is a
+        bidimensional array which stores the waveforms. Say such array has
+        shape NxM: then N is the number of points per waveform, while M is the
+        number of waveforms. The waveform entries in such array are already
+        expressed in the vertical units which are extracted to the key 'Vertical
+        Units' by NumpyDataPreprocessor.get_metadata(). In this context, the i-th
+        entry of the first array returned by this function gives the time
+        difference, in seconds, between the trigger of the i-th waveform and
+        the trigger of the (i-1)-th waveform. The first entry, which is undefined
+        up to the given definition, is manually set to zero."""
+
+        htype.check_type(
+            filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                59755
+            ),
+        )
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                    83081,
+                    extra_info=f"Path {filepath} does not exist or is not a file.",
+                )
+            )
+        else:
+            _, extension = os.path.splitext(filepath)
+            if extension not in (".npy", ".bin"):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                        89792,
+                        extra_info=f"The extension of the input file ({extension}) must match '.npy' or '.bin'.",
+                    )
+                )
+            
+        htype.check_type(
+            tolerance,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                83499
+            ),
+        )
+        if tolerance < 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                    24243
+                )
+            )
+        
+        htype.check_type(
+            verbose,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                48211
+            ),
+        )
+
+        try:
+            metadata = NumpyDataPreprocessor.get_metadata(
+                filepath,
+                packing_version=packing_version,
+                get_creation_date=False,
+                verbose=verbose
+            )
+        except Exception as e:
+            raise Exception(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                    22831,
+                    extra_info=f"The following error (maybe due to an erroneous "
+                    f"packing_version, which was set to {packing_version}) ocurred"
+                    f" while trying to get the metadata: {e}"
+                )
+            )
+            
+        # For packing versions in (0,1), if an erroneous packing_version was defined, then the
+        # NumpyDataPreprocessor.get_metadata() will have raised an exception. I.e. there is no
+        # need to handle exceptions in the calls to NumpyDataPreprocessor.__get_coredata_vi().
+        # This should be revised when a new packing version is added.
+
+        if packing_version == 0:
+            timestamp, waveforms = NumpyDataPreprocessor.__get_coredata_v0(
+                    filepath
+                )
+            
+        elif packing_version == 1:
+            timestamp, waveforms = NumpyDataPreprocessor.__get_coredata_v1(
+                    filepath,
+                    verbose=verbose
+                )
+        else:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.extract_homemade_bin_coredata",
+                    87937,
+                    extra_info=f"The packing version {packing_version} is not supported."
+                )
+            )
+        
+        timestamp_bytes = NumpyDataPreprocessor.infer_bytes_number(
+            timestamp
+        )
+        
+        # The operations that happen as of this point and until the
+        # return statement are common to all the packing versions. 
+        timestamp = NumpyDataPreprocessor.fix_timestamp_overflow(
+                timestamp,
+                # Using the inferred bytes number instead of
+                # metadata['Timestamp Bytes'] because the metadata
+                # provided by the operator is not reliable and prone to errors
+                timestamp_bytes,
+                tolerance=tolerance,
+                check_upper_bound=True,
+                return_overflow_idcs=False
+            )
+
+        sample_interval_s = metadata['Sample Interval'] * \
+            NumpyDataPreprocessor.interpret_time_unit_in_seconds(
+                metadata['Horizontal Units']
+            )
+
+        # N.B. 1: An UFuncTypeError is raised if no previous casting is
+        # done here
+        # N.B. 2: Casting 8-bytes integers (np.uint64) to 8-bytes floats
+        # (np.float64) introduces a rounding error only if the integers
+        # are bigger than 2**53, which won't happen for our case where
+        # (at ~24 ns of sampling rate), 2**53 corrresponds to a ~6.9 years
+        # non-stop data-taking.
+        timestamp = sample_interval_s * timestamp.astype(np.float64)
+
+        # N.B. 1: The following concatenation fixes the fact that the timestamp
+        # definition in the docstring of this function is different from that of
+        # the definition of the numpy.diff function.
+        # N.B. 2: One could think that computing the np.diff() here is just a
+        # way of unifying the computation pipeline with the Tektronix ASCII
+        # case (where the timestamp contains time increments by default, and
+        # a cumulative sum needs to be done later in WaveformSet.read_wvfs()).
+        # However, this is not the only reason. The other (and more important)
+        # reason is that the timestamps stored in the homemade-binary files have
+        # an arbitrary time origin. This time origin has to do with the
+        # Daphne timestamp counter, which is NOT reset everytime a new SiPM
+        # measurement is started. Therefore, although it potentially makes us 
+        # lose the time lapse between the start of the measurement and the
+        # first trigger, the np.diff() operation is necessary.
+        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
+
+        return timestamp, waveforms
+        
+    @staticmethod
     def __get_coredata_v0(
         filepath
     ):
