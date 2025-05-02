@@ -40,6 +40,7 @@ class SiPMMeas(ABC):
         overvoltage_V=None,
         PDE=None,
         status=None,
+        verbose=True,
         **kwargs,
     ):
         """This class aims to model a base class from which to derive certain SiPM measurements.
@@ -96,6 +97,7 @@ class SiPMMeas(ABC):
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
+        - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
@@ -444,7 +446,8 @@ class SiPMMeas(ABC):
             delta_t_wf=delta_t_wf,
             ref_datetime=self.__date,
             creation_dt_offset_min=creation_dt_offset_min,
-            wvf_extra_info=wvf_extra_info
+            wvf_extra_info=wvf_extra_info,
+            verbose=verbose
         )
 
         htype.check_type(
