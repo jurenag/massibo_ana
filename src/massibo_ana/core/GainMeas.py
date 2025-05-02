@@ -42,6 +42,7 @@ class GainMeas(SiPMMeas):
         LED_frequency_kHz=None,
         LED_pulse_shape=None,
         LED_high_width_ns=None,
+        verbose=True,
         **kwargs,
     ):
         """This class, which derives from SiPMMeas class, aims to implement a SiPM gain
@@ -105,6 +106,7 @@ class GainMeas(SiPMMeas):
         into the object-attribute self.__LED_pulse_shape.
         - LED_high_width_ns (positive float): Width of the high level of the pulsed signal that feeds
         the LED, in nanoseconds. It is loaded into the object-attribute self.__LED_high_width_ns.
+        - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
         delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
@@ -215,6 +217,7 @@ class GainMeas(SiPMMeas):
             overvoltage_V=overvoltage_V,
             PDE=PDE,
             status=status,
+            verbose=verbose,
             **kwargs,
         )
 
