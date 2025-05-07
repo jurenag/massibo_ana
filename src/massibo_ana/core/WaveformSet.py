@@ -936,6 +936,7 @@ class WaveformSet(OneTypeRTL):
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
+        packing_version=0,
         set_name=None,
         ref_datetime=None,
         creation_dt_offset_min=None,
@@ -943,16 +944,17 @@ class WaveformSet(OneTypeRTL):
         verbose=True
     ):
         """This class method is meant to be an alternative initializer.
-        It creates a WaveformSet out of an ASCII or binary (in the 
-        Tektronix WFM format) input file. Optionally, in the case of 
-        an ASCII input file, this initializer could make use of another 
-        file which stores the timestamp of the waveforms. This class 
-        method gets the following mandatory positional arguments:
+        It creates a WaveformSet out of an ASCII or binary input file.
+        Optionally, in the case of an ASCII input file, this initializer
+        could make use of another file which stores the timestamp of the
+        waveforms. This class method gets the following mandatory
+        positional arguments:
 
         - input_filepath (string): File from which to read the waveforms.
         It is given to the WaveformSet.read_wvfs() method. Its extension
-        must match either '.csv', '.txt', '.dat' or '.wfm'. For more
-        information, check the WaveformSet.read_wvfs() method documentation.
+        must match either '.csv', '.txt', '.dat', '.wfm', '.npy' or '.bin'.
+        For more information, check the WaveformSet.read_wvfs() method
+        documentation.
         - time_resolution (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
         It must be a positive float.
@@ -992,6 +994,14 @@ class WaveformSet(OneTypeRTL):
         a periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide a complete text 
         file with a time stamp. It must be a positive float.
+        - packing_version (integer): It must be a semipositive integer. This
+        parameter is only used for the case of a homemade binary file, i.e.
+        for the case when the extension of the input file matches '.npy' or
+        '.bin'. In such case, it is given to the packing_version parameter
+        of the WaveformSet.read_wvfs(), which is in charge of checking the
+        well-formedness of this parameter method. This parameter tells
+        such method how to unpack the binary data in the input file. For
+        more information, check the documentation of the mentioned method.
         - set_name (string): It is passed to cls.__init__ as set_name.
         - ref_datetime (datetime): It is passed to cls.__init__ as
         ref_datetime. This parameter is interpreted as the reference
@@ -1108,6 +1118,7 @@ class WaveformSet(OneTypeRTL):
             headers_end_identifier=headers_end_identifier,
             data_delimiter=data_delimiter,
             delta_t_wf=delta_t_wf,
+            packing_version=packing_version,
             verbose=verbose
         )
 
