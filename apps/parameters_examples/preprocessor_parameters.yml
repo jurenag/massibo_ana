@@ -23,9 +23,3 @@ verbose: true
 # the NumpyDataPreprocessor class (which can handle the numpy
 # binary packing of the Daphne data).
 data_from_tektronix_scope: false
-
-# This parameter only makes a difference if data_from_tektronix_scope
-# is false. In such case, it gives the version of the binary packing
-# used to pack the meta-data and the bulk-data (timestamp and waveforms)
-# into the numpy binary file.
-packing_version: 0
