@@ -1533,7 +1533,7 @@ class WaveformSet(OneTypeRTL):
             additional_dict["acquisition_time"] = np.sum(timestamp)
 
             # The time stamp, as returned by
-            # WaveformSet.extract_tek_wfm_coredata(),
+            # DataPreprocessor.extract_tek_wfm_coredata(),
             # contains as many entries as waveforms in
             # in the FastFrame set. The first one is null.
             additional_dict["average_delta_t_wf"] = additional_dict["acquisition_time"] / (
