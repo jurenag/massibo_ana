@@ -1137,6 +1137,7 @@ class WaveformSet(OneTypeRTL):
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
+        packing_version=0,
         verbose=True
     ):
         """This method takes the following mandatory positional argument:
@@ -1145,14 +1146,17 @@ class WaveformSet(OneTypeRTL):
         If its extension matches either '.txt', '.csv' or '.dat', it will 
         be interpreted as an ASCII file. If its extension matches '.wfm',
         it will be interpreted as a binary file in the Tektronix WFM format.
-        If any other extension is found, an exception is raised. 
+        If its extension matches '.npy' or '.bin', it will be interpreted
+        as a homemade binary file. If any other extension is found, an
+        exception is raised.
+
         - points_per_wvf (int): The expected number of points per 
         waveform in the input filepath. It must be a positive integer.
 
         This method also takes the following optional keyword arguments:
 
         - timestamp_filepath (string): This parameter only makes a difference
-        if the input file is ASCII. File path to the file which hosts a
+        if the input file is ASCII. File path to the file which hosts
         an ASCII time stamp (its extension must match either '.txt', '.csv' 
         or '.dat') of the waveforms which are hosted in input_filepath. 
         The i-th entry of this file is considered to be the initial time of
@@ -1187,12 +1191,18 @@ class WaveformSet(OneTypeRTL):
         periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide one time stamp 
         per waveform. It must be a positive float.
+        - packing_version (integer): It must be a semipositive integer. This
+        parameter is only used for the case of a homemade binary file, i.e.
+        for the case when the extension of the input file matches '.npy' or
+        '.bin'. In such case, it is given to the packing_version parameter
+        of the WaveformSet._extract_core_data() method. This parameter tells
+        such method how to unpack the binary data in the input file. For more
+        information, check the documentation of the mentioned method.
         - verbose (bool): Whether to print functioning related messages.
 
         For the case of an ASCII input file, at least one of [timestamp_filepath, 
         delta_t_wf] must be different from None. In other case, there's not 
         enough information to write the keys of the goal dictionary.
-        This class method returns a WaveformSet.
 
         This function returns three parameters, in the following order:
 
@@ -1212,14 +1222,22 @@ class WaveformSet(OneTypeRTL):
 
         _, extension = os.path.splitext(input_filepath)
 
-        if extension not in (".txt", ".csv", ".dat", ".wfm"):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.read_wvfs", 1)
-            )
+        if extension in (".txt", ".csv", ".dat"):
+            file_type_code = 0
 
-        fIsBinary = False
-        if extension == ".wfm":
-            fIsBinary = True
+        elif extension == ".wfm":
+            file_type_code = 1
+
+        elif extension in (".npy", ".bin"):
+            file_type_code = 2
+
+        else:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.read_wvfs",
+                    1,
+                    extra_info=f"Extension '{extension}' is not supported.",)
+            )
 
         htype.check_type(
             points_per_wvf,
@@ -1234,7 +1252,7 @@ class WaveformSet(OneTypeRTL):
             )
 
         fUseTStamp = False
-        if not fIsBinary:
+        if file_type_code == 0:  # ASCII file
             if timestamp_filepath is not None:
                 htype.check_type(
                     timestamp_filepath,
@@ -1280,7 +1298,7 @@ class WaveformSet(OneTypeRTL):
                     )
 
         # These parameters are only used in the ASCII case
-        if not fIsBinary:   
+        if file_type_code == 0:
 
             htype.check_type(
                 headers_end_identifier,
@@ -1296,8 +1314,24 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.read_wvfs", 11
                 ),
             )
+        
+        elif file_type_code == 2: # Homemade binary file
+            htype.check_type(
+                packing_version,
+                int,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.read_wvfs", 12
+                ),
+            )
 
-        if not fIsBinary:
+            if packing_version < 0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 13
+                    )
+                )
+
+        if file_type_code == 0:  # ASCII file
 
             headers_endline = DataPreprocessor.find_skiprows(
                 input_filepath, 
@@ -1316,7 +1350,7 @@ class WaveformSet(OneTypeRTL):
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.read_wvfs", 
-                        12,
+                        14,
                         extra_info=f"The number of data-points in the concatenation "
                         f"of waveforms ({len(waveforms)}) must be a multiple of "
                         f"points_per_wvf ({points_per_wvf}).",
@@ -1361,21 +1395,35 @@ class WaveformSet(OneTypeRTL):
                     "average_delta_t_wf": delta_t_wf,
                     "acquisition_time": waveforms_no * delta_t_wf,
                 }
-        else:
 
-            parameters, supplementary_extraction = (
-                DataPreprocessor._extract_tek_wfm_metadata(input_filepath)
-            )
-            tek_wfm_metadata = parameters | supplementary_extraction
-
-            timestamps, waveforms, additional_dict = \
-                WaveformSet._extract_core_data(
-                    input_filepath,
-                    2,
-                    tek_wfm_metadata=tek_wfm_metadata,
-                    verbose=verbose
-                )
+        else:  # file_type_code in (1,2)
             
+            if file_type_code == 1: # Tektronix WFM file format
+                parameters, supplementary_extraction = (
+                    DataPreprocessor._extract_tek_wfm_metadata(input_filepath)
+                )
+                tek_wfm_metadata = parameters | supplementary_extraction
+
+                timestamps, waveforms, additional_dict = \
+                    WaveformSet._extract_core_data(
+                        input_filepath,
+                        2,
+                        tek_wfm_metadata=tek_wfm_metadata,
+                        verbose=verbose
+                    )
+
+            else: # file_type_code == 2, homemade binary file
+
+                timestamps, waveforms, additional_dict = \
+                    WaveformSet._extract_core_data(
+                        input_filepath,
+                        3,
+                        packing_version=packing_version,
+                        verbose=verbose
+                    )
+
+            # The cumulative sum applies
+            # in any of the two binary cases
             timestamps = np.cumsum(timestamps)
 
         return timestamps, waveforms, additional_dict
@@ -1491,6 +1539,8 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet._extract_core_data", 5
                 ),
             )
+
+        # packing_version is checked by the WaveformSet.read_wvfs() method
 
         result = None
         additional_dict = {}
