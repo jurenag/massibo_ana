@@ -27,7 +27,8 @@ class Waveform:
         - t0 (float scalar): Time, with respect to some time absolute scale, of the first
         data point of the waveform.
         - signal (unidimensional float numpy array): For a waveform of a certain magnitude,
-        say V, signal hosts the V values of the waveform datapoints.
+        say V, signal hosts the V values of the waveform datapoints. If its type does not
+        match np.float64, it will be casted to np.float64.
 
         This initializer gets the following optional keyword arguments:
 
@@ -113,17 +114,13 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message("Waveform.__init__", 3)
             )
-        htype.check_type(
-            signal[0],
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "Waveform.__init__", 4
-            ),
-        )
+        
+        if signal.dtype != np.float64:
+            signal = signal.astype(np.float64)
 
         if t_step is None and time is None:
             raise cuex.InsufficientParameters(
-                htype.generate_exception_message("Waveform.__init__", 5)
+                htype.generate_exception_message("Waveform.__init__", 4)
             )
         elif t_step is not None:
             # If both, time and t_step are defined, t_step configuration is used by default
@@ -132,12 +129,12 @@ class Waveform:
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 6
+                    "Waveform.__init__", 5
                 ),
             )
             if t_step <= 0.0:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 7)
+                    htype.generate_exception_message("Waveform.__init__", 6)
                 )
             fUseTStep = True
         else:
@@ -146,23 +143,23 @@ class Waveform:
                 time,
                 np.ndarray,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 8
+                    "Waveform.__init__", 7
                 ),
             )
             if np.ndim(time) != 1:
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 9)
+                    htype.generate_exception_message("Waveform.__init__", 8)
                 )
             htype.check_type(
                 time[0],
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 10
+                    "Waveform.__init__", 9
                 ),
             )
             if np.shape(time) != np.shape(signal):
                 raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message("Waveform.__init__", 11)
+                    htype.generate_exception_message("Waveform.__init__", 10)
                 )
             fUseTStep = False
 
@@ -171,7 +168,7 @@ class Waveform:
                 infer_t0,
                 bool,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 12
+                    "Waveform.__init__", 11
                 ),
             )
 
@@ -185,7 +182,7 @@ class Waveform:
                 signs,
                 dict,
                 exception_message=htype.generate_exception_message(
-                    "Waveform.__init__", 13
+                    "Waveform.__init__", 12
                 ),
             )
             for key in signs.keys():
