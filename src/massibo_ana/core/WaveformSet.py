@@ -1387,6 +1387,7 @@ class WaveformSet(OneTypeRTL):
         skiprows=0,
         data_delimiter=",",
         tek_wfm_metadata=None,
+        packing_version=0,
         verbose=True
     ):
         """This static method is a helper method which should only be called 
@@ -1395,10 +1396,13 @@ class WaveformSet(OneTypeRTL):
 
         - filepath (string): Path to the file whose data will be extracted.
 
-        - file_type_code (scalar integer): It must be either 0, 1 or 2.
-        This integer indicates the type of file which should be processed.
-        0 matches an ASCII waveform dataset, 1 matches an ASCII timestamp
-        and 2 matches a binary (Tektronix WFM file format).
+        - file_type_code (scalar integer): It must be either 0, 1, 2 or 3.
+        This integer indicates the type of file which should be processed:
+            - 0: An ASCII waveform dataset
+            - 1: An ASCII timestamp
+            - 2: A binary file (Tektronix WFM file format)
+            - 3: A binary file with a homemade memory map which packs
+            metadata and waveforms
 
         This function also gets the following optional keyword arguments:
 
@@ -1413,12 +1417,21 @@ class WaveformSet(OneTypeRTL):
         uses it to separate entries of the different columns of the input file.
 
         - tek_wfm_metadata (None or dictionary): This parameter is only used
-        for the case of binary input files, i.e. file_type_code is 2. In such 
-        case, it must be defined. It is a dictionary containing the metadata 
-        of the provided input file. It must be the union of the two dictionaries 
-        returned by DataPreprocessor._extract_tek_wfm_metadata(). For more 
-        information on the keys which these dictionaries should contain, check 
-        such method documentation.
+        for the cases when file_type_code is 2. In such case, it must be defined.
+        It is a dictionary containing the metadata of the provided input file.
+        It must be the union of the two dictionaries returned by
+        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
+        the keys which these dictionaries should contain, check such method
+        documentation.
+
+        - packing_version (integer): It must be a semipositive integer. This
+        parameter is only used for the cases when file_type_code is 3. In such
+        case, it is given to the packing_version parameter of the
+        NumpyDataPreprocessor.extract_homemade_bin_coredata() method. This
+        parameter tells such method how to unpack the binary data in the input
+        file. For more information, check the documentation of the mentioned
+        method.
+
         - verbose (bool): Whether to print functioning related messages.
 
         If file_type_code is 0, then this method returns an unidimensional
@@ -1426,10 +1439,10 @@ class WaveformSet(OneTypeRTL):
         the result of concatenating all of the waveforms in the input file.
         If file_type_code is 1, then this method returns a unidimensional 
         numpy array which contains the time stamp of the waveforms. If 
-        file_type_code is 2, then this method returns two unidimensional 
+        file_type_code is 2 or 3, then this method returns two unidimensional 
         numpy arrays. The first one contains the time stamp of the waveforms. 
         The second one contains the concatenation of the waveforms. If 
-        file_type_code is 1 or 2, then this method returns an additional 
+        file_type_code is 1, 2 or 3, then this method returns an additional 
         dictionary which contains two entries. The first one is saved under 
         the key 'average_delta_t_wf' and is the average of the time differences 
         between consecutive triggers in the waveforms dataset. The second one 
@@ -1451,7 +1464,7 @@ class WaveformSet(OneTypeRTL):
                 "WaveformSet._extract_core_data", 1
             ),
         )
-        if file_type_code < 0 or file_type_code > 2:
+        if file_type_code < 0 or file_type_code > 3:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet._extract_core_data", 2
@@ -1470,7 +1483,7 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet._extract_core_data", 4
                 )
             )
-        if file_type_code > 1:
+        if file_type_code == 2:
             htype.check_type(
                 tek_wfm_metadata,
                 dict,
@@ -1518,9 +1531,22 @@ class WaveformSet(OneTypeRTL):
 
         else:  # Binary input
 
-            timestamp, waveforms = WaveformSet.extract_tek_wfm_coredata(
-                filepath, tek_wfm_metadata
-            )
+            if file_type_code == 2: # Binary .WFM file
+                timestamp, waveforms = DataPreprocessor.extract_tek_wfm_coredata(
+                    filepath, tek_wfm_metadata
+                )
+            else: # file_type_code == 3, homemade binary file
+
+                timestamp, waveforms = NumpyDataPreprocessor.extract_homemade_bin_coredata(
+                    filepath,
+                    packing_version=packing_version,
+                    # Yes, the tolerance parameter is hardcoded to 0.
+                    # It was particularly convenient for debugging
+                    # purposes, but setting it to other than 0 at
+                    # 'production' time makes no sense.
+                    tolerance=0,
+                    verbose=verbose
+                )
 
             # Concatenate waveforms in a 1D-array
             waveforms = waveforms.flatten(
