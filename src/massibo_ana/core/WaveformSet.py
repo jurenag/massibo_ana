@@ -3026,4 +3026,17 @@ class WaveformSet(OneTypeRTL):
         )
 
         return result
+    
+    def flip_about_baseline(self):
+        """This method flips every waveform in this WaveformSet
+        about its baseline. To do so, for every waveform wvf in
+        this WaveformSet, this method calls wvf.flip_about_baseline().
+        For more information on the flipping process, check the
+        documentation of such Waveform method. Note that this
+        method modifies (inplace) the values of the Signal
+        attribute of every Waveform object."""
 
+        for wvf in self:
+            wvf.flip_about_baseline()
+
+        return
