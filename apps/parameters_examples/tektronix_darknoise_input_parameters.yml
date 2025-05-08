@@ -28,6 +28,9 @@ verbose: true
 # Whether to generate a PDF report
 generate_report: true
 
+# Whether to flip the waveforms about the baseline
+flip_about_baseline: false
+
 ### Parameters for the rebinning process
 # Regarding the waveform signals: this is the
 # number of adjacent points to be merged into
