@@ -416,9 +416,8 @@ class SiPMMeas(ABC):
         delta_t_wf = SiPMMeas.get_value_from_dict(
             kwargs, "delta_t_wf", none_fallback=True)
         
-        # packing_version must be available
         packing_version = SiPMMeas.get_value_from_dict(
-            kwargs, "packing_version", none_fallback=False)
+            kwargs, "packing_version", none_fallback=True)
         
         creation_dt_offset_min = SiPMMeas.get_value_from_dict(
             kwargs, "creation_dt_offset_min", none_fallback=True)

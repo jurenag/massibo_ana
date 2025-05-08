@@ -936,7 +936,7 @@ class WaveformSet(OneTypeRTL):
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
-        packing_version=0,
+        packing_version=None,
         set_name=None,
         ref_datetime=None,
         creation_dt_offset_min=None,
@@ -994,14 +994,14 @@ class WaveformSet(OneTypeRTL):
         a periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide a complete text 
         file with a time stamp. It must be a positive float.
-        - packing_version (integer): It must be a semipositive integer. This
-        parameter is only used for the case of a homemade binary file, i.e.
-        for the case when the extension of the input file matches '.npy' or
-        '.bin'. In such case, it is given to the packing_version parameter
-        of the WaveformSet.read_wvfs(), which is in charge of checking the
-        well-formedness of this parameter method. This parameter tells
-        such method how to unpack the binary data in the input file. For
-        more information, check the documentation of the mentioned method.
+        - packing_version (integer): This parameter only makes a difference
+        if the input file is a '.npy' or a '.bin' (homemade binary) file,
+        in which case, this parameter must be a semipositive integer. It
+        is given to the packing_version parameter of the WaveformSet.read_wvfs(),
+        which is in charge of checking the well-formedness of this parameter
+        method. This parameter tells such method how to unpack the binary
+        data in the input file. For more information, check the documentation
+        of the mentioned method.
         - set_name (string): It is passed to cls.__init__ as set_name.
         - ref_datetime (datetime): It is passed to cls.__init__ as
         ref_datetime. This parameter is interpreted as the reference
@@ -1148,7 +1148,7 @@ class WaveformSet(OneTypeRTL):
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
-        packing_version=0,
+        packing_version=None,
         verbose=True
     ):
         """This method takes the following mandatory positional argument:
@@ -1202,12 +1202,12 @@ class WaveformSet(OneTypeRTL):
         periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide one time stamp 
         per waveform. It must be a positive float.
-        - packing_version (integer): It must be a semipositive integer. This
-        parameter is only used for the case of a homemade binary file, i.e.
-        for the case when the extension of the input file matches '.npy' or
-        '.bin'. In such case, it is given to the packing_version parameter
-        of the WaveformSet._extract_core_data() method. This parameter tells
-        such method how to unpack the binary data in the input file. For more
+        - packing_version (integer): This parameter only makes a difference
+        if the extension of the given input file is '.npy' or '.bin' (homemade
+        binary file), in which case this parameter must be a semipositive
+        integer. It is given to the packing_version parameter of the
+        WaveformSet._extract_core_data() method. This parameter tells such
+        method how to unpack the binary data in the input file. For more
         information, check the documentation of the mentioned method.
         - verbose (bool): Whether to print functioning related messages.
 
@@ -1446,7 +1446,7 @@ class WaveformSet(OneTypeRTL):
         skiprows=0,
         data_delimiter=",",
         tek_wfm_metadata=None,
-        packing_version=0,
+        packing_version=None,
         verbose=True
     ):
         """This static method is a helper method which should only be called 
@@ -1483,9 +1483,11 @@ class WaveformSet(OneTypeRTL):
         the keys which these dictionaries should contain, check such method
         documentation.
 
-        - packing_version (integer): It must be a semipositive integer. This
-        parameter is only used for the cases when file_type_code is 3. In such
-        case, it is given to the packing_version parameter of the
+        - packing_version (integer): If file_type_code is 3, then this
+        parameter must be a semipositive integer. This check is not performed
+        by this function. The caller (p.e. WaveformSet.read_wvfs()) is
+        responsible for this. In such case, this parameter is given to the
+        packing_version parameter of the
         NumpyDataPreprocessor.extract_homemade_bin_coredata() method. This
         parameter tells such method how to unpack the binary data in the input
         file. For more information, check the documentation of the mentioned
