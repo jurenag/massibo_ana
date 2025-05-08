@@ -207,7 +207,15 @@ class NumpyDataPreprocessor:
         NumpyDataPreprocessor.get_metadata() method. It refers to the version of
         the procedure which was used to pack the data read by Daphne into a binary
         numpy file. I.e. this version determines how the meta-data was packed, and
-        so, how it should be retrieved.
+        so, how it should be retrieved. One could argue that this parameter should
+        be retrieved from the default-values JSON file. However, the 
+        'path_to_json_default_values' parameter is not mandatory, and requiring
+        another input (but mandatory) JSON file to retrieve the packing_version
+        parameter is as unpractical as just asking for packing_version as a
+        parameter of this method. Note that the packing_version parameter is
+        necessary to retrieve the metadata from the binary input files, so it
+        should be necessarily defined in order to access other parameters such
+        as 'time_resolution' or 'points_per_wvf'.
         - path_to_json_default_values (string): If it is not none, it should be
         the path to a json file from which some default values may be read.
         - sipms_per_strip (positive integer): The number of SiPMs per strip. If
@@ -674,7 +682,8 @@ class NumpyDataPreprocessor:
                 {
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
-                    translator["FastFrame Count"][1]: aux["FastFrame Count"]
+                    translator["FastFrame Count"][1]: aux["FastFrame Count"],
+                    "packing_version": packing_version,
                 }
             )
 
@@ -800,6 +809,7 @@ class NumpyDataPreprocessor:
                     translator["Sample Interval"][1]: aux["Sample Interval"],
                     translator["Record Length"][1]: aux["Record Length"],
                     translator["FastFrame Count"][1]: aux["FastFrame Count"],
+                    "packing_version": packing_version,
                 }
             )
 
