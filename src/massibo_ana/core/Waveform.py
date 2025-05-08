@@ -1186,3 +1186,25 @@ class Waveform:
         self.__npoints = len(self.__time)
 
         return
+    
+    def flip_about_baseline(self):
+        """This method flips the signal of this Waveform object about its
+        baseline, which is considered to match self.__signs['first_peak_baseline'].
+        I.e. the waveform baseline must have been computed before calling this
+        method, p.e. by calling the Waveform.compute_first_peak_baseline() method.
+        The flipped signal is stored back into self.__signal."""
+
+        try:
+            self.__signal = (2. * self.__signs["first_peak_baseline"][0]) - self.__signal
+
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "Waveform.flip_about_baseline",
+                    1,
+                    extra_info="The baseline of the first peak must "
+                    "have been computed before calling this method.",
+                )
+            )
+
+        return
