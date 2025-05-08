@@ -44,7 +44,7 @@ merged_points: 8
 # in mHz per mm2.
 sipm_sensitive_surface_area_in_mm2: 36.
 
-### Parameters for the configuration of the peakdetection algorithm
+### Parameters for the configuration of the peak detection algorithm
 # It must belong to the interval [0.0, 1.0]. For
 # each waveform, this value represents the fraction
 # of the signal which is used to compute the
