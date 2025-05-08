@@ -100,8 +100,8 @@ class SiPMMeas(ABC):
         - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
-        delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
-        wvf_extra_info (string). To understand these arguments, please refer to the
+        delta_t_wf (float), packing_version (int), set_name (string), creation_dt_offset_min (float)
+        and wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
 
         All of the keyword arguments, except for **kwargs, are loaded into object-attributes whose
@@ -416,6 +416,10 @@ class SiPMMeas(ABC):
         delta_t_wf = SiPMMeas.get_value_from_dict(
             kwargs, "delta_t_wf", none_fallback=True)
         
+        # packing_version must be available
+        packing_version = SiPMMeas.get_value_from_dict(
+            kwargs, "packing_version", none_fallback=False)
+        
         creation_dt_offset_min = SiPMMeas.get_value_from_dict(
             kwargs, "creation_dt_offset_min", none_fallback=True)
         
@@ -444,6 +448,7 @@ class SiPMMeas(ABC):
             points_per_wvf,
             timestamp_filepath=timestamp_filepath,
             delta_t_wf=delta_t_wf,
+            packing_version=packing_version,
             ref_datetime=self.__date,
             creation_dt_offset_min=creation_dt_offset_min,
             wvf_extra_info=wvf_extra_info,
@@ -1475,9 +1480,9 @@ class SiPMMeas(ABC):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
-        "set_name", "creation_dt_offset_min" and
-        "wvf_extra_info".
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf",
+        "packing_version",  "set_name", "creation_dt_offset_min"
+        and "wvf_extra_info".
 
         Here, we do not expect a date because the date information
         is taken from the SiPMMeas json file.
@@ -1543,6 +1548,7 @@ class SiPMMeas(ABC):
             "wvfs_to_read": int,
             "timestamp_filepath": str,
             "delta_t_wf": float,
+            "packing_version": int,
             "set_name": str,
             "creation_dt_offset_min": float,
             "wvf_extra_info": str,
