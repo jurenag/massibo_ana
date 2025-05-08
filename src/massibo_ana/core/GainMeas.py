@@ -109,8 +109,8 @@ class GainMeas(SiPMMeas):
         - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
-        delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
-        wvf_extra_info (string). To understand these arguments, please refer to the
+        delta_t_wf (float), packing_version (int), set_name (string), creation_dt_offset_min (float)
+        and wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
 
         All of the keyword arguments, except for **kwargs, are loaded into object-attributes whose
@@ -972,9 +972,9 @@ class GainMeas(SiPMMeas):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
-        "set_name", "creation_dt_offset_min" and
-        "wvf_extra_info".
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf",
+        "packing_version", "set_name", "creation_dt_offset_min"
+        and "wvf_extra_info".
 
         Here, we do not expect a date because the date information
         is taken from the GainMeas json file.
@@ -1044,6 +1044,7 @@ class GainMeas(SiPMMeas):
             "wvfs_to_read": int,
             "timestamp_filepath": str,
             "delta_t_wf": float,
+            "packing_version": int,
             "set_name": str,
             "creation_dt_offset_min": float,
             "wvf_extra_info": str,
