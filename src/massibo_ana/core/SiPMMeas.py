@@ -11,6 +11,8 @@ from scipy import optimize as spopt
 import massibo_ana.utils.htype as htype
 import massibo_ana.utils.custom_exceptions as cuex
 from massibo_ana.custom_types.RigidKeyDictionary import RigidKeyDictionary
+from massibo_ana.preprocess.DataPreprocessor import DataPreprocessor
+from massibo_ana.preprocess.NumpyDataPreprocessor import NumpyDataPreprocessor
 from massibo_ana.core.WaveformSet import WaveformSet
 
 
@@ -50,9 +52,9 @@ class SiPMMeas(ABC):
         indicated. This initializer gets the following positional arguments:
 
         - args: These positional arguments are given to WaveformSet.from_files. They must be
-        two positional arguments: input_filepath (string) and time_resolution (positive float),
+        two positional arguments: input_filepath (string) and time_resolution_s (positive float),
         in such order. For more information on these arguments, please refer to
-        WaveformSet.from_files docstring. Particularly, time_resolution is assumed to be expressed
+        WaveformSet.from_files docstring. Particularly, time_resolution_s is assumed to be expressed
         in seconds. If applicable (i.e. if the given sampling_ns is None), its value is converted
         to nanosecons and assigned to the self.__sampling_ns attribute.
 
@@ -1470,7 +1472,7 @@ class SiPMMeas(ABC):
 
         Although "sampling_ns" appears here, it is not meant to be
         read from sipmmeas_config_json. The value for
-        self.__sampling_ns will be duplicated from the value given to
+        self.__sampling_ns will be computed from the value given to
         "time_resolution" in the file given to wvfset_json_filepath.
 
         The second one, say RKD2, concerns the WaveformSet.from_files
@@ -1501,8 +1503,12 @@ class SiPMMeas(ABC):
         is called with **RKD1, **RKD2. The only exceptions are the
         values given to "wvf_filepath" and "time_resolution" in RKD1,
         which are passed as positional arguments, in such order, to
-        the class initializer. "wvfset_json_filepath" is also an exception,
-        since it is used to populate RKD2, and it's deleted afterwards.
+        the class initializer. Particularly, the "time_resolution"
+        parameter is converted to seconds using the time unit
+        information which is read from the file whose path is given by
+        the "wvf_extra_info" entry of RKD2. "wvfset_json_filepath" is
+        also an exception, since it is used to populate RKD2, and it's
+        deleted afterwards.
         """
 
         htype.check_type(
@@ -1581,18 +1587,42 @@ class SiPMMeas(ABC):
             input_data = json.load(file)
         RKD2.update(input_data)
 
+        if "wvf_extra_info" not in RKD2.keys():
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "SiPMMeas.from_json_file",
+                    29564,
+                    extra_info="No filepath to the the waveform-extra-info"
+                    " file was provided.",
+                )
+            )
+        else:
+            aux, _ = DataPreprocessor.try_grabbing_from_json(
+                # Assuming that the 'time_unit' entry of the wvf_extra_info
+                # file is a list which contains one string, i.e. the time unit
+                {'time_unit': list},
+                RKD2['wvf_extra_info'],
+                verbose=False
+            )
+
+            # NumpyDataPreprocessor.interpret_time_unit_in_seconds() takes
+            # care of type-checking aux[0]
+            time_unit_in_s = NumpyDataPreprocessor.interpret_time_unit_in_seconds(
+                aux[0]
+            )
+
+            time_resolution_s = RKD2["time_resolution"] * time_unit_in_s
+            del RKD2["time_resolution"]
+
         # Unless otherwise stated, all of the time values are given in seconds.
         # However, as its name indicates, sampling_ns is expressed in nanoseconds.
-        # Thus, here I am converting time_resolution, which is given in seconds, to nanoseconds.
-        RKD1["sampling_ns"] = 1e9 * RKD2["time_resolution"]
+        # Thus, here I am converting time_resolution_s, which is given in seconds, to nanoseconds.
+        RKD1["sampling_ns"] = 1e9 * time_resolution_s
 
         input_filepath = RKD2["wvf_filepath"]
         del RKD2["wvf_filepath"]
 
-        time_resolution = RKD2["time_resolution"]
-        del RKD2["time_resolution"]
-
-        return cls(input_filepath, time_resolution, **RKD1, **RKD2)
+        return cls(input_filepath, time_resolution_s, **RKD1, **RKD2)
 
     def output_summary(
         self,
