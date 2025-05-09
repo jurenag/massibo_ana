@@ -930,7 +930,7 @@ class WaveformSet(OneTypeRTL):
     def from_files(
         cls,
         input_filepath,
-        time_resolution,
+        time_resolution_s,
         points_per_wvf,
         timestamp_filepath=None,
         headers_end_identifier="TIME,",
@@ -955,7 +955,7 @@ class WaveformSet(OneTypeRTL):
         must match either '.csv', '.txt', '.dat', '.wfm', '.npy' or '.bin'.
         For more information, check the WaveformSet.read_wvfs() method
         documentation.
-        - time_resolution (float): It is interpreted as the time step
+        - time_resolution_s (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
         It must be a positive float.
         - points_per_wvf (int): The expected number of points per 
@@ -1048,14 +1048,14 @@ class WaveformSet(OneTypeRTL):
                 )
             )
         htype.check_type(
-            time_resolution,
+            time_resolution_s,
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
                 "WaveformSet.from_files", 3
             ),
         )
-        if time_resolution <= 0.0:
+        if time_resolution_s <= 0.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message("WaveformSet.from_files", 4)
             )
@@ -1129,7 +1129,9 @@ class WaveformSet(OneTypeRTL):
             waveform_holder = Waveform(
                 timestamps[i],
                 signal_holder,
-                t_step=time_resolution,
+                # Note that, the Waveform.__init__() docstring implies that
+                # the t_step parameter should be expressed in seconds.
+                t_step=time_resolution_s,
                 signs=extra_info_,
             )
             waveforms_pack.append(waveform_holder)
