@@ -1339,20 +1339,6 @@ class NumpyDataPreprocessor:
                 return_overflow_idcs=False
             )
 
-        sample_interval_s = metadata['Sample Interval'] * \
-            NumpyDataPreprocessor.interpret_time_unit_in_seconds(
-                metadata['Horizontal Units']
-            )
-
-        # N.B. 1: An UFuncTypeError is raised if no previous casting is
-        # done here
-        # N.B. 2: Casting 8-bytes integers (np.uint64) to 8-bytes floats
-        # (np.float64) introduces a rounding error only if the integers
-        # are bigger than 2**53, which won't happen for our case where
-        # (at ~24 ns of sampling rate), 2**53 corrresponds to a ~6.9 years
-        # non-stop data-taking.
-        timestamp = sample_interval_s * timestamp.astype(np.float64)
-
         # N.B. 1: The following concatenation fixes the fact that the timestamp
         # definition in the docstring of this function is different from that of
         # the definition of the numpy.diff function.
@@ -1367,7 +1353,21 @@ class NumpyDataPreprocessor:
         # measurement is started. Therefore, although it potentially makes us 
         # lose the time lapse between the start of the measurement and the
         # first trigger, the np.diff() operation is necessary.
-        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
+        timestamp = np.concatenate((np.array([0]), np.diff(timestamp)), axis=0)
+
+        sample_interval_s = metadata['Sample Interval'] * \
+            NumpyDataPreprocessor.interpret_time_unit_in_seconds(
+                metadata['Horizontal Units']
+            )
+
+        # N.B. 1: An UFuncTypeError is raised if no previous casting is
+        # done here
+        # N.B. 2: Casting 8-bytes integers (np.uint64) to 8-bytes floats
+        # (np.float64) introduces a rounding error only if the integers
+        # are bigger than 2**53, which won't happen for our case where
+        # (at ~24 ns of sampling rate), 2**53 corrresponds to a ~6.9 years
+        # non-stop data-taking.
+        timestamp = sample_interval_s * timestamp.astype(np.float64)
 
         return timestamp, waveforms
         
