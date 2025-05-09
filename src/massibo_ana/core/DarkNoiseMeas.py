@@ -1021,7 +1021,7 @@ class DarkNoiseMeas(SiPMMeas):
         "cover_type", "operation_voltage_V", "overvoltage_V", 
         "PDE", "status", "threshold_mV" and "wvfset_json_filepath".
 
-        Although "sampling_ns" appears here, it's is not meant to be
+        Although "sampling_ns" appears here, it is not meant to be
         read from darknoisemeas_config_json. The value for
         self.__sampling_ns will be duplicated from the value given to
         "time_resolution" in the file given to wvfset_json_filepath.

@@ -961,7 +961,7 @@ class GainMeas(SiPMMeas):
         "LED_pulse_shape", "LED_high_width_ns" and
         "wvfset_json_filepath".
 
-        Although "sampling_ns" appears here, it's is not meant to be
+        Although "sampling_ns" appears here, it is not meant to be
         read from gainmeas_config_json. The value for
         self.__sampling_ns will be duplicated from the value given to
         "time_resolution" in the file given to wvfset_json_filepath.
