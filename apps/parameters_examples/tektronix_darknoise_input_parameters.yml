@@ -70,7 +70,7 @@ signal_fraction_for_median_cutoff: 0.2
 # In any case, this parameter must not be set to a
 # value which is bigger than half of the single-PE
 # amplitude.
-minimal_height_wrt_baseline_in_V: 0.011
+minimal_height_wrt_baseline_in_AU: 0.011 # 0.011 is given in volts
             
 # The amplitude of 1-PE in massibo is normally 22 mV.
 # Implicitly assuming the units of the analyzed data.
