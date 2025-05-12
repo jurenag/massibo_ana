@@ -133,16 +133,17 @@ timedelay_cut: 1.e-4
 # and is discarded.
 minimum_integral: 0.4e-8
 
-# The following three parameters have to do with
+# The following four parameters have to do with
 # the integration window for the integral filter.
 # Either specify the two first variables, which
 # are used in an 'smart' method to infer the integration
-# window (this method is prone to errors), or just
-# specify the 'integral_window_width_s' parameter,
+# window (this method is prone to errors), or specify
+# 'window_start_s' and 'integral_window_width_s',
 # which is a 'fixed' method but but has worked OK so
 # far
 tolerance_for_beginning_of_rise: 0.4       # Currently not used
 delta_t_from_beginning_of_rise: 0.08e-5    # Currently not used
+window_start_s: 0.0
 integral_window_width_s: 0.45e-5
 
 ### Quality-control parameters
