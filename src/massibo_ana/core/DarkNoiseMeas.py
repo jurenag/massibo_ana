@@ -920,6 +920,14 @@ class DarkNoiseMeas(SiPMMeas):
         y, mask = Waveform.filter_infs_and_nans(self.__amplitude, get_mask=True)
         x = self.__timedelay[mask]
 
+        if np.min(x) <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.plot_timedelay_vs_amplitude", 56394,
+                    extra_info="The time delay values must be positive. Please check the input data."
+                )
+            )
+
         axes.set_title(axes_title)
 
         if "signal_magnitude" in self.Waveforms[0].Signs.keys():
