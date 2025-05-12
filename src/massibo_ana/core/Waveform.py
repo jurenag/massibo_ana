@@ -366,11 +366,14 @@ class Waveform:
                     "Waveform.plot", 5
                 ),
             )
-        # ax.set_title('Temporary title')
-        if "time_unit" in self.__signs.keys():
-            ax.set_xlabel(f"Time ({self.__signs['time_unit'][0]})")
-        else:
-            ax.set_xlabel("Time (a.u.)")
+
+        # Although self.__signs['time_unit'] may contain a time unit
+        # other than seconds, these are units in which the raw data
+        # was represented, but they should have been converted to
+        # seconds prior to calling Waveform.__init__(). Indeed, this
+        # is an assumption that is specified in the initializer docstring.
+        ax.set_xlabel("Time (s)")
+
         if "signal_magnitude" in self.__signs.keys():
             if "signal_unit" in self.__signs.keys():
                 ax.set_ylabel(
