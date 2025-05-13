@@ -127,7 +127,7 @@ timedelay_cut: 1.e-4
 
 ### Parameters for integral filter
 # Cut for the integral of each waveform. I.e.
-# every wveform whose integral is less than this
+# every waveform whose integral is less than this
 # value (in a certain integration window) is
 # considered to be a fake (noise-induced) trigger
 # and is discarded.
