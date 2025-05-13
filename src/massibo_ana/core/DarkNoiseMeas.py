@@ -10,6 +10,8 @@ import massibo_ana.utils.custom_exceptions as cuex
 from massibo_ana.custom_types.RigidKeyDictionary import RigidKeyDictionary
 from massibo_ana.core.Waveform import Waveform
 from massibo_ana.core.SiPMMeas import SiPMMeas
+from massibo_ana.preprocess.DataPreprocessor import DataPreprocessor
+from massibo_ana.preprocess.NumpyDataPreprocessor import NumpyDataPreprocessor
 
 
 class DarkNoiseMeas(SiPMMeas):
@@ -39,6 +41,7 @@ class DarkNoiseMeas(SiPMMeas):
         PDE=None,
         status=None,
         threshold_mV=None,
+        verbose=True,
         **kwargs,
     ):
         """This class, which derives from SiPMMeas class, aims to implement a SiPM dark
@@ -47,9 +50,9 @@ class DarkNoiseMeas(SiPMMeas):
         the following positional argument:
 
         - args: These positional arguments are given to WaveformSet.from_files. They must be
-        two positional arguments: input_filepath (string) and time_resolution (positive float),
+        two positional arguments: input_filepath (string) and time_resolution_s (positive float),
         in such order. For more information on these arguments, please refer to
-        WaveformSet.from_files docstring. Particularly, time_resolution is assumed to be expressed
+        WaveformSet.from_files docstring. Particularly, time_resolution_s is assumed to be expressed
         in seconds. If applicable (i.e. if the given sampling_ns is None), its value is converted
         to nanosecons and assigned to the self.__sampling_ns attribute.
 
@@ -95,10 +98,11 @@ class DarkNoiseMeas(SiPMMeas):
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
         - status (string): String which identifies the status of the measured SiPM.
         - threshold_mV (float): Trigger threshold which was used for acquiring the waveforms.
+        - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
         are points_per_wvf (int), wvfs_to_read (int), timestamp_filepath (string),
-        delta_t_wf (float), set_name (string), creation_dt_offset_min (float) and
-        wvf_extra_info (string). To understand these arguments, please refer to the
+        delta_t_wf (float), packing_version (int), set_name (string), creation_dt_offset_min (float)
+        and wvf_extra_info (string). To understand these arguments, please refer to the
         WaveformSet.from_files docstring.
 
         All of the keyword arguments, except for **kwargs, are loaded into object-attributes whose
@@ -185,6 +189,7 @@ class DarkNoiseMeas(SiPMMeas):
             overvoltage_V=overvoltage_V,
             PDE=PDE,
             status=status,
+            verbose=verbose,
             **kwargs,
         )
 
@@ -915,6 +920,14 @@ class DarkNoiseMeas(SiPMMeas):
         y, mask = Waveform.filter_infs_and_nans(self.__amplitude, get_mask=True)
         x = self.__timedelay[mask]
 
+        if np.min(x) <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.plot_timedelay_vs_amplitude", 56394,
+                    extra_info="The time delay values must be positive. Please check the input data."
+                )
+            )
+
         axes.set_title(axes_title)
 
         if "signal_magnitude" in self.Waveforms[0].Signs.keys():
@@ -1018,9 +1031,9 @@ class DarkNoiseMeas(SiPMMeas):
         "cover_type", "operation_voltage_V", "overvoltage_V", 
         "PDE", "status", "threshold_mV" and "wvfset_json_filepath".
 
-        Although "sampling_ns" appears here, it's is not meant to be
+        Although "sampling_ns" appears here, it is not meant to be
         read from darknoisemeas_config_json. The value for
-        self.__sampling_ns will be duplicated from the value given to
+        self.__sampling_ns will be computed from the value given to
         "time_resolution" in the file given to wvfset_json_filepath.
 
         The second one, say RKD2, concerns the WaveformSet.from_files
@@ -1029,9 +1042,9 @@ class DarkNoiseMeas(SiPMMeas):
         potential keys:
 
         "wvf_filepath", "time_resolution", "points_per_wvf",
-        "wvfs_to_read", "timestamp_filepath", "delta_t_wf", 
-        "set_name", "creation_dt_offset_min" and
-        "wvf_extra_info".
+        "wvfs_to_read", "timestamp_filepath", "delta_t_wf",
+        "packing_version",  "set_name", "creation_dt_offset_min"
+        and "wvf_extra_info".
 
         Here, we do not expect a date because the date information
         is taken from the DarkNoiseMeas json file.
@@ -1051,9 +1064,12 @@ class DarkNoiseMeas(SiPMMeas):
         initializer is called with **RKD1, **RKD2. The only exceptions
         are the values given to "wvf_filepath" and "time_resolution" in
         RKD1, which are passed as positional arguments, in such order,
-        to the class initializer. "wvfset_json_filepath" is also an
-        exception, since it is used to populate RKD2, and it's deleted
-        afterwards."""
+        to the class initializer. Particularly, the "time_resolution"
+        parameter is converted to seconds using the time unit information
+        which is read from the file whose path is given by the
+        "wvf_extra_info" entry of RKD2. "wvfset_json_filepath" is also
+        an exception, since it is used to populate RKD2, and it's
+        deleted afterwards."""
 
         htype.check_type(
             darknoisemeas_config_json,
@@ -1098,6 +1114,7 @@ class DarkNoiseMeas(SiPMMeas):
             "wvfs_to_read": int,
             "timestamp_filepath": str,
             "delta_t_wf": float,
+            "packing_version": int,
             "set_name": str,
             "creation_dt_offset_min": float,
             "wvf_extra_info": str,
@@ -1131,18 +1148,42 @@ class DarkNoiseMeas(SiPMMeas):
             input_data = json.load(file)
         RKD2.update(input_data)
 
+        if "wvf_extra_info" not in RKD2.keys():
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.from_json_file",
+                    24391,
+                    extra_info="No filepath to the the waveform-extra-info"
+                    " file was provided.",
+                )
+            )
+        else:
+            aux, _ = DataPreprocessor.try_grabbing_from_json(
+                # Assuming that the 'time_unit' entry of the wvf_extra_info
+                # file is a list which contains one string, i.e. the time unit
+                {'time_unit': list},
+                RKD2['wvf_extra_info'],
+                verbose=False
+            )
+
+            # NumpyDataPreprocessor.interpret_time_unit_in_seconds() takes
+            # care of type-checking aux['time_unit'][0]
+            time_unit_in_s = NumpyDataPreprocessor.interpret_time_unit_in_seconds(
+                aux['time_unit'][0]
+            )
+
+            time_resolution_s = RKD2["time_resolution"] * time_unit_in_s
+            del RKD2["time_resolution"]
+
         # Unless otherwise stated, all of the time values are given in seconds.
         # However, as its name indicates, sampling_ns is expressed in nanoseconds.
-        # Thus, here I am converting time_resolution, which is given in seconds, to nanoseconds.
-        RKD1["sampling_ns"] = 1e9 * RKD2["time_resolution"]
+        # Thus, here I am converting time_resolution_s, which is given in seconds, to nanoseconds.
+        RKD1["sampling_ns"] = 1e9 * time_resolution_s
 
         input_filepath = RKD2["wvf_filepath"]
         del RKD2["wvf_filepath"]
 
-        time_resolution = RKD2["time_resolution"]
-        del RKD2["time_resolution"]
-
-        return cls(input_filepath, time_resolution, **RKD1, **RKD2)
+        return cls(input_filepath, time_resolution_s, **RKD1, **RKD2)
 
     # The default values for these parameters are given in M. García et al paper.
     @classmethod

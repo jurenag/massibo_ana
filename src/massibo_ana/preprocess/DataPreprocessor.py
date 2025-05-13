@@ -55,11 +55,14 @@ class DataPreprocessor:
         format of a measurement file is ASCII or the Tektronix .wfm file
         format.
         - key_separator (string): All of the filepaths that are definitely
-        considered a measurement candidate must contain at least two
-        occurrences of key_separator after its base. For gain (resp. dark
-        noise) measurements, its base is gain_base (resp. darknoise_base).
-        The substring that takes place in between such two occurrences,
-        is casted to integer by DataPreprocessor.find_integer_after_base,
+        considered a measurement candidate may contain an occurrence of
+        key_separator after its base and before its extension. For gain
+        (resp. dark noise) measurements, its base is gain_base (resp.
+        darknoise_base). The substring that takes place somewhere after
+        the first occurrence of the base and before the extension of
+        the file (for more information check the documentation string of
+        the DataPreprocessor.find_integer_after_base static method) is
+        casted to an integer by DataPreprocessor.find_integer_after_base,
         and later used as a key for dictionary population.
         - verbose (boolean): Whether to print functioning-related messages.
 
@@ -76,7 +79,7 @@ class DataPreprocessor:
         for every value that is added to such dictionary attributes is
         extracted from the corresponding filepath by
         DataPreprocessor.find_integer_after_base. Check the key_separator
-        parameter documentation or the DataPreprocessor.find_integer_after_base
+        parameter documentation of the DataPreprocessor.find_integer_after_base
         docstring for more information.
         """
 
@@ -154,7 +157,9 @@ class DataPreprocessor:
                     # anticipated within
                     # find_integer_after_base
                     aux = DataPreprocessor.find_integer_after_base(
-                        filename, self.__gain_base, separator=key_separator
+                        os.path.splitext(filename)[0],
+                        self.__gain_base,
+                        separator=key_separator
                     )
 
                     DataPreprocessor.bin_ascii_splitter(
@@ -175,7 +180,9 @@ class DataPreprocessor:
                     # anticipated within
                     # find_integer_after_base
                     aux = DataPreprocessor.find_integer_after_base(
-                        filename, self.__darknoise_base, separator=key_separator
+                        os.path.splitext(filename)[0],
+                        self.__darknoise_base,
+                        separator=key_separator
                     )
 
                     DataPreprocessor.bin_ascii_splitter(
@@ -780,7 +787,7 @@ class DataPreprocessor:
             "Sample Interval": [float, "time_resolution"],
             "Record Length": [int, "points_per_wvf"],
             "FastFrame Count": [int, "wvfs_to_read"],
-            # The casuistry for the following one is as follows:
+            # N.B. 1: The casuistry for the following one is as follows:
             # - ASCII gain: There's no timestamp from which to compute this, so
             #               this value may be computed from LED_frequency_kHz
             # - ASCII dark noise: The value is computed from the input timestamp
@@ -791,6 +798,9 @@ class DataPreprocessor:
             #                   results in 0.0, the code should alternatively compute it
             #                   using LED_frequency_kHz.
             # - Binary dark noise: The value is computed from the input timestamp
+            # N.B . 2: Neither 'average_delta_t_wf' nor 'acquisition_time' are
+            # extracted or computed at the pre-processing stage anymore. They are kept
+            # here for reference, though. They are now computed in WaveformSet.read_wvfs().
             "average_delta_t_wf": [float, "delta_t_wf"],
             "acquisition_time": [float, "acquisition_time_min"],
         }
@@ -1336,25 +1346,35 @@ class DataPreprocessor:
 
     @staticmethod
     def find_integer_after_base(input_string, base, separator="_"):
-        """This static method gets the following mandatory poisitional
+        """This static method gets the following mandatory positional
         argument:
 
         - input_string (string): Must contain at least one occurrence
-        of base. It must also contain at least two occurrences of separator
-        after the first occurrence of base.
+        of base. It may also contain occurences of separator after
+        the first occurrence of base.
         - base (string)
 
         And the following optional keyword argument:
 
-        - separator (string):
+        - separator (string)
 
         This method searches for the first occurrence of base in
         input_string. Then takes the substring that goes after such
         occurrence, and looks for the first two occurrences of separator.
-        This method takes what's in between such occurrences of separator
-        and tries to cast it to integer. This function returns the result
-        of the casting process if it is successful. It raises an
-        InvalidParameterDefinition exception otherwise."""
+        Then
+
+            - If they both were found, then this method takes the substring
+            that is in between such occurrences of separator and tries to
+            cast it to integer.
+            - Else, if only one occurrence was found, then this method takes
+            the substring that is left after this occurrence, and tries to
+            cast it to integer.
+            - Else, if no occurrence was found, then this method takes the
+            substring that is left after the first occurrence of base,
+            and tries to cast it to integer.
+
+        This function returns the result of the casting process if it is
+        successful. It raises an InvalidParameterDefinition exception otherwise."""
 
         htype.check_type(
             input_string,
@@ -1391,21 +1411,19 @@ class DataPreprocessor:
         idx = input_string.find(base, 0) + len(base)
         aux = input_string[idx:]
 
-        if DataPreprocessor.count_occurrences(aux, separator) < 2:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DataPreprocessor.find_integer_after_base",
-                    42225,
-                    extra_info=f"There must be at least two occurrences of the separator, {separator}, in {aux}.",
-                )
-            )
+        separator_occurrences = DataPreprocessor.count_occurrences(aux, separator)
 
-        # Take what's in between
-        # both occurrences of separator
-        idx = aux.find(separator, 0) + len(separator)
-        aux = aux[idx:]
-        idx = aux.find(separator, 0)
-        aux = aux[:idx]
+        if separator_occurrences >= 1:
+            # If there is at least one occurrence of separator, then take out the substring
+            # which happens before the first separator, including the first separator
+            idx = aux.find(separator, 0) + len(separator)
+            aux = aux[idx:]
+
+            if separator_occurrences > 1:
+                # If there are more than one occurrences of the separator, then
+                # take out the substring which happens after the second separator
+                idx = aux.find(separator, 0)
+                aux = aux[:idx]
 
         try:
             return int(aux)
@@ -2284,6 +2302,176 @@ class DataPreprocessor:
             )
 
         return result
+    
+    @staticmethod
+    def extract_tek_wfm_coredata(filepath, metadata):
+        """This static method gets the following mandatory positional arguments:
+
+        - filepath (string): Path to the binary file (Tektronix WFM file format),
+        which must host a FastFrame set and whose core data should be extracted.
+        DataPreprocessor._extract_tek_wfm_metadata() should have previously checked
+        that, indeed, the input file hosts a FastFrame set. It is a check based
+        on the 4-bytes integer which you can find at offset 78 of the WFM file.
+        - metadata (dictionary): It is a dictionary which contains meta-data of
+        the input file which is necessary to extract the core data. It should
+        contain the union of the two dictionaries returned by
+        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
+        the data contained in such dictionaries, check such method documentation.
+
+        This method returns two arrays. The first one is an unidimensional array
+        of length M, which stores timestamp information. The second one is a
+        bidimensional array which stores the waveforms of the FastFrame set of
+        the given input file. Say such array has shape NxM: then N is the number
+        of (user-accesible) points per waveform, while M is the number of
+        waveforms. The waveform entries in such array are already expressed in
+        the vertical units which are extracted to the key 'Vertical Units' by
+        DataPreprocessor._extract_tek_wfm_metadata(). In this context, the i-th
+        entry of the first array returned by this function gives the time
+        difference, in seconds, between the trigger of the i-th waveform and
+        the trigger of the (i-1)-th waveform. The first entry, which is undefined
+        up to the given definition, is manually set to zero."""
+
+        htype.check_type(
+            filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.extract_tek_wfm_coredata", 82855
+            ),
+        )
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(
+                htype.generate_exception_message(
+                    "DataPreprocessor.extract_tek_wfm_coredata",
+                    58749,
+                    extra_info=f"Path {filepath} does not exist or is not a file.",
+                )
+            )
+        else:
+            _, extension = os.path.splitext(filepath)
+            if extension != ".wfm":
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DataPreprocessor.extract_tek_wfm_coredata",
+                        21667,
+                        extra_info=f"The extension of the input file must match '.wfm'.",
+                    )
+                )
+        htype.check_type(
+            metadata,
+            dict,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.extract_tek_wfm_coredata", 35772
+            ),
+        )
+
+        # Fraction of the sample time
+        # from the trigger time stamp
+        # to the next sample.
+        first_sample_delay = np.empty((metadata["FastFrame Count"],), dtype=np.double)
+
+        # The fraction of the second
+        # when the trigger occurred.
+        triggers_second_fractions = np.empty(
+            (metadata["FastFrame Count"],), dtype=np.double
+        )
+
+        # GMT (in seconds from the epoch)
+        # when the trigger occurred.
+        gmt_in_seconds = np.empty((metadata["FastFrame Count"],), dtype=np.double)
+
+        first_sample_delay[0] = metadata["tfrac[0]"]  # Add info of the first frame
+        triggers_second_fractions[0] = metadata["tdatefrac[0]"]
+        gmt_in_seconds[0] = metadata["tdate[0]"]
+
+        # For FastFrame, we've got a chunk of metadata['FastFrame Count']*54
+        # bytes which store WfmUpdateSpec and WfmCurveSpec objects, containing
+        # data on the timestamp and the number of points of each frame.
+
+        with open(filepath, "rb") as file:  # Binary read mode
+            _ = file.read(838)  # Throw away the header bytes (838 bytes)
+
+            # WUS stands for Waveform Update Specification. WUS objects count on a 4 bytes
+            # unsigned long, a 8 bytes double, another 8 bytes double and a 4 bytes long.
+
+            # Structure of the output array of np.fromfile
+            # The first element of each tuple is the name
+            # of the field, whereas the second element is the
+            # data type of each field
+            dtype = [
+                ("_", "i4"),
+                ("first_sample_delay", "f8"),
+                ("trigger_second_fraction", "f8"),
+                ("gmt_in_seconds", "i4"),
+            ]
+
+            # Within the same 'with' context,
+            # np.fromfile continues the reading
+            # process as of the already-read
+            # 838 bytes. Also, we are taking into
+            # account that the time information
+            # of the first frame was already read.
+            data = np.fromfile(
+                file, dtype=dtype, count=(metadata["FastFrame Count"] - 1)
+            )
+
+            # Merge first frame trigger
+            # info. with info. from the
+            # the rest of the frames.
+            first_sample_delay[1:] = data["first_sample_delay"]
+            triggers_second_fractions[1:] = data["trigger_second_fraction"]
+            gmt_in_seconds[1:] = data["gmt_in_seconds"]
+
+            # N.B. For binary gain measurements (with external trigger),
+            # it was observed that all of the entries of
+            # triggers_second_fractions, and gmt_in_seconds are null at this point.
+
+            # Read waveforms
+            waveforms = np.memmap(
+                file,
+                dtype=metadata["samples_datatype"],
+                mode="r",
+                offset=metadata["curve_buffer_offset"],
+                # Shape of the returned array
+                # Running along second dimension
+                # gives different waveforms
+                shape=(metadata["samples_no"], metadata["FastFrame Count"]),
+                order="F",
+            )
+
+        # While the numbers in gmt_in_seconds are O(9)
+        # The fractions of seconds are O(-1). Summing
+        # the fractions of the second to the GMT could
+        # result in losing the second fraction info. due
+        # to rounding error. It's better to shift the
+        # time origin to the first trigger, then add the
+        # seconds fractions.
+        seconds_from_first_trigger = gmt_in_seconds - gmt_in_seconds[0]
+        timestamp = seconds_from_first_trigger + triggers_second_fractions
+
+        # N.B. 1: The following concatenation fixes the fact that the timestamp
+        # definition in the docstring of this function is different from that of
+        # the definition of the numpy.diff function.
+        # N.B. 2: One could think that computing the np.diff() here is just a
+        # way of unifying the computation pipeline with the ASCII case (where
+        # the timestamp contains time increments by default, and a cumulative
+        # sum needs to be done later in WaveformSet.read_wvfs()). However,
+        # this is not the only reason. The other (and more important) reason is
+        # that the timestamps stored in the .WFM files have an arbitrary time
+        # origin (probably the epoch). Therefore, although it makes us lose the
+        # time lapse between the start of the measurement and the first trigger,
+        # the np.diff() operation is necessary.
+        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
+
+        # Filter out the oscilloscope interpolation samples
+        waveforms = waveforms[
+            metadata["pre-values_no"] : metadata["samples_no"]
+            - metadata["post-values_no"],
+            :,
+        ]
+
+        # 2D array of waveforms, in vertical units
+        waveforms = (waveforms * metadata["vscale"]) + metadata["voffset"]
+        return timestamp, waveforms
 
     @staticmethod
     def rename_file(filepath, new_filename, overwrite=False, verbose=False):
@@ -2731,6 +2919,7 @@ class DataPreprocessor:
 
         return first_split, second_split
 
+    @staticmethod
     def path_is_contained_in_dir(path, dir_path):
         """This function gets the following positional arguments:
 

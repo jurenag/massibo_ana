@@ -89,6 +89,17 @@ class WfmReadException(Exception):
         return "This exception is meant for situations where something " \
         "went wrong reading a .WFM file (binary waveform file for " \
         "Tektronix performance oscilloscope)."
+    
+class BinReadException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        return
+
+    @classmethod
+    def why(self):
+        return "This exception is meant for situations where something " \
+        "went wrong reading a .NPY or .BIN file (numpy or homemade binary " \
+        "waveform file)."
 
 
 class InvalidPhysicalConfiguration(Exception):

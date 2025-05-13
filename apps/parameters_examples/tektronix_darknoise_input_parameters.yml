@@ -12,9 +12,9 @@ workspace_dir: ''
 # is elegible for analysis, eventually depending
 # on the analyzable_marks list
 strips_to_analyze:
-  - '151'
-  - '152'
-  - '153'
+  - '450'
+  - '225'
+  - '1088'
 
 # A file in the load-directory must contain
 # in its name at least one of the strings in
@@ -29,13 +29,13 @@ verbose: true
 generate_report: true
 
 # Whether to flip the waveforms about the baseline
-flip_about_baseline: true
+flip_about_baseline: false
 
 ### Parameters for the rebinning process
 # Regarding the waveform signals: this is the
 # number of adjacent points to be merged into
 # a single point
-merged_points: 2 # This value has not been fine-tuned yet
+merged_points: 8
 
 ### Physical parameters
 # Area of the sensitive surface of the measured
@@ -70,15 +70,21 @@ signal_fraction_for_median_cutoff: 0.2
 # In any case, this parameter must not be set to a
 # value which is bigger than half of the single-PE
 # amplitude.
-minimal_height_wrt_baseline_in_AU: 6 # 6 is given in ADCs
+minimal_height_wrt_baseline_in_AU: 0.011 # 0.011 is given in volts
             
-# The amplitude of 1-PE in massibo is normally ~13 ADCs.
+# The amplitude of 1-PE in massibo is normally 22 mV.
 # Implicitly assuming the units of the analyzed data.
 # Going for a bigger minimal prominence rules out
 # after-pulses, which are not as prominent as the
 # main pulses, because they are 'mounted' on top of
 # a vanishing tail of the main pulse.
-minimum_peaks_prominence: 3 # This value has not been fine-tuned yet
+minimum_peaks_prominence: 0.006
+
+# N.B.: The parameter above was rised from 0.005 to 0.006
+# when analyzing the data for meas 4 of set 4, because
+# it was counting as actual peaks just sinusoidal noises.
+# N.B.2: The parameter above was set to 0.01 in the
+# analysis which overlooked the afterpulses.
 
 # Required minimal width of the peaks. Setting a cut
 # in this magnitude helps to avoid detecting peaks
@@ -89,11 +95,10 @@ minimum_peaks_prominence: 3 # This value has not been fine-tuned yet
 # set, they won't contribute to the figures of merit
 # (DCR, XTP and APP) since there will be no detected
 # peaks within those.
-minimum_peak_width_in_s: 0.01e-5 # This value has not been fine-tuned yet
+minimum_peak_width_in_s: 0.02e-5
 
 # N.B.: The parameter above was set to 0.04e-5 in the
-# analysis which overlooked the afterpulses for the
-# tektronix data.
+# analysis which overlooked the afterpulses.
 
 # This parameter is used for peak_width calculation. The
 # height at which the peak width is computed is
@@ -103,7 +108,7 @@ minimum_peak_width_in_s: 0.01e-5 # This value has not been fine-tuned yet
 # Thus, setting rel_height_for_peak_width to 0.75 means
 # that the width of the peak is computed at a height of
 # one fourth of the peak's prominence.
-rel_height_for_peak_width: 0.75 
+rel_height_for_peak_width: 0.75
 
 ### Parameters for the configuration of the analysis (0.5pe-level computation) algorithm
 # The following parameters are given to the
@@ -126,7 +131,7 @@ timedelay_cut: 1.e-4
 # value (in a certain integration window) is
 # considered to be a fake (noise-induced) trigger
 # and is discarded.
-minimum_integral: 1.5e-6 # A previous number that was found to work particularly well here is 1.25e-6
+minimum_integral: 0.4e-8
 
 # The following four parameters have to do with
 # the integration window for the integral filter.
@@ -138,8 +143,8 @@ minimum_integral: 1.5e-6 # A previous number that was found to work particularly
 # far
 tolerance_for_beginning_of_rise: 0.4       # Currently not used
 delta_t_from_beginning_of_rise: 0.08e-5    # Currently not used
-window_start_s: 0.125e-5
-integral_window_width_s: 0.06e-5
+window_start_s: 0.0
+integral_window_width_s: 0.45e-5
 
 ### Quality-control parameters
 # If after applying the filter, the number of waveforms

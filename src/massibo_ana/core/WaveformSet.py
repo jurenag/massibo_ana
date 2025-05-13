@@ -14,6 +14,7 @@ import massibo_ana.utils.custom_exceptions as cuex
 from massibo_ana.custom_types.OneTypeRTL import OneTypeRTL
 from massibo_ana.core.Waveform import Waveform
 from massibo_ana.preprocess.DataPreprocessor import DataPreprocessor
+from massibo_ana.preprocess.NumpyDataPreprocessor import NumpyDataPreprocessor
 
 
 class WaveformSet(OneTypeRTL):
@@ -929,29 +930,32 @@ class WaveformSet(OneTypeRTL):
     def from_files(
         cls,
         input_filepath,
-        time_resolution,
+        time_resolution_s,
         points_per_wvf,
         timestamp_filepath=None,
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
+        packing_version=None,
         set_name=None,
         ref_datetime=None,
         creation_dt_offset_min=None,
         wvf_extra_info=None,
+        verbose=True
     ):
         """This class method is meant to be an alternative initializer.
-        It creates a WaveformSet out of an ASCII or binary (in the 
-        Tektronix WFM format) input file. Optionally, in the case of 
-        an ASCII input file, this initializer could make use of another 
-        file which stores the timestamp of the waveforms. This class 
-        method gets the following mandatory positional arguments:
+        It creates a WaveformSet out of an ASCII or binary input file.
+        Optionally, in the case of an ASCII input file, this initializer
+        could make use of another file which stores the timestamp of the
+        waveforms. This class method gets the following mandatory
+        positional arguments:
 
         - input_filepath (string): File from which to read the waveforms.
         It is given to the WaveformSet.read_wvfs() method. Its extension
-        must match either '.csv', '.txt', '.dat' or '.wfm'. For more
-        information, check the WaveformSet.read_wvfs() method documentation.
-        - time_resolution (float): It is interpreted as the time step
+        must match either '.csv', '.txt', '.dat', '.wfm', '.npy' or '.bin'.
+        For more information, check the WaveformSet.read_wvfs() method
+        documentation.
+        - time_resolution_s (float): It is interpreted as the time step
         between two consecutive points of a waveform in seconds.
         It must be a positive float.
         - points_per_wvf (int): The expected number of points per 
@@ -973,7 +977,7 @@ class WaveformSet(OneTypeRTL):
         the timestamp are broadcastable to an strictly positive float.
         - headers_end_identifier (string): This parameter is given to the 
         'headers_end_identifier' parameter of the WaveformSet.read_wvfs()
-        method. It is a string which is used to find the end of the headers
+        method. It is an string which is used to find the end of the headers
         in the input file, in case an ASCII file is provided. For more 
         information, check the documentation of the 'headers_end_identifier'
         parameter of the WaveformSet.read_wvfs().
@@ -990,6 +994,14 @@ class WaveformSet(OneTypeRTL):
         a periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide a complete text 
         file with a time stamp. It must be a positive float.
+        - packing_version (integer): This parameter only makes a difference
+        if the input file is a '.npy' or a '.bin' (homemade binary) file,
+        in which case, this parameter must be a semipositive integer. It
+        is given to the packing_version parameter of the WaveformSet.read_wvfs(),
+        which is in charge of checking the well-formedness of this parameter
+        method. This parameter tells such method how to unpack the binary
+        data in the input file. For more information, check the documentation
+        of the mentioned method.
         - set_name (string): It is passed to cls.__init__ as set_name.
         - ref_datetime (datetime): It is passed to cls.__init__ as
         ref_datetime. This parameter is interpreted as the reference
@@ -1006,6 +1018,7 @@ class WaveformSet(OneTypeRTL):
         Waveform object in the WaveformSet. For more information on which keys 
         should you use when building the json file, see the Waveform class 
         documentation.
+        - verbose (bool): Whether to print functioning related messages.
 
         For the case of an ASCII input file, at least one of [timestamp_filepath, 
         delta_t_wf] must be different from None. In other case, there's not 
@@ -1035,14 +1048,14 @@ class WaveformSet(OneTypeRTL):
                 )
             )
         htype.check_type(
-            time_resolution,
+            time_resolution_s,
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
                 "WaveformSet.from_files", 3
             ),
         )
-        if time_resolution <= 0.0:
+        if time_resolution_s <= 0.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message("WaveformSet.from_files", 4)
             )
@@ -1105,6 +1118,8 @@ class WaveformSet(OneTypeRTL):
             headers_end_identifier=headers_end_identifier,
             data_delimiter=data_delimiter,
             delta_t_wf=delta_t_wf,
+            packing_version=packing_version,
+            verbose=verbose
         )
 
         waveforms_pack = []
@@ -1114,7 +1129,9 @@ class WaveformSet(OneTypeRTL):
             waveform_holder = Waveform(
                 timestamps[i],
                 signal_holder,
-                t_step=time_resolution,
+                # Note that, the Waveform.__init__() docstring implies that
+                # the t_step parameter should be expressed in seconds.
+                t_step=time_resolution_s,
                 signs=extra_info_,
             )
             waveforms_pack.append(waveform_holder)
@@ -1133,6 +1150,8 @@ class WaveformSet(OneTypeRTL):
         headers_end_identifier="TIME,",
         data_delimiter=",",
         delta_t_wf=None,
+        packing_version=None,
+        verbose=True
     ):
         """This method takes the following mandatory positional argument:
 
@@ -1140,14 +1159,17 @@ class WaveformSet(OneTypeRTL):
         If its extension matches either '.txt', '.csv' or '.dat', it will 
         be interpreted as an ASCII file. If its extension matches '.wfm',
         it will be interpreted as a binary file in the Tektronix WFM format.
-        If any other extension is found, an exception is raised. 
+        If its extension matches '.npy' or '.bin', it will be interpreted
+        as a homemade binary file. If any other extension is found, an
+        exception is raised.
+
         - points_per_wvf (int): The expected number of points per 
         waveform in the input filepath. It must be a positive integer.
 
         This method also takes the following optional keyword arguments:
 
         - timestamp_filepath (string): This parameter only makes a difference
-        if the input file is ASCII. File path to the file which hosts a
+        if the input file is ASCII. File path to the file which hosts
         an ASCII time stamp (its extension must match either '.txt', '.csv' 
         or '.dat') of the waveforms which are hosted in input_filepath. 
         The i-th entry of this file is considered to be the initial time of
@@ -1182,11 +1204,18 @@ class WaveformSet(OneTypeRTL):
         periodic external signal. Then, delta_t_wf can be set to the period 
         of such external signal without needing to provide one time stamp 
         per waveform. It must be a positive float.
+        - packing_version (integer): This parameter only makes a difference
+        if the extension of the given input file is '.npy' or '.bin' (homemade
+        binary file), in which case this parameter must be a semipositive
+        integer. It is given to the packing_version parameter of the
+        WaveformSet._extract_core_data() method. This parameter tells such
+        method how to unpack the binary data in the input file. For more
+        information, check the documentation of the mentioned method.
+        - verbose (bool): Whether to print functioning related messages.
 
         For the case of an ASCII input file, at least one of [timestamp_filepath, 
         delta_t_wf] must be different from None. In other case, there's not 
         enough information to write the keys of the goal dictionary.
-        This class method returns a WaveformSet.
 
         This function returns three parameters, in the following order:
 
@@ -1206,14 +1235,22 @@ class WaveformSet(OneTypeRTL):
 
         _, extension = os.path.splitext(input_filepath)
 
-        if extension not in (".txt", ".csv", ".dat", ".wfm"):
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message("WaveformSet.read_wvfs", 1)
-            )
+        if extension in (".txt", ".csv", ".dat"):
+            file_type_code = 0
 
-        fIsBinary = False
-        if extension == ".wfm":
-            fIsBinary = True
+        elif extension == ".wfm":
+            file_type_code = 1
+
+        elif extension in (".npy", ".bin"):
+            file_type_code = 2
+
+        else:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.read_wvfs",
+                    1,
+                    extra_info=f"Extension '{extension}' is not supported.",)
+            )
 
         htype.check_type(
             points_per_wvf,
@@ -1228,7 +1265,7 @@ class WaveformSet(OneTypeRTL):
             )
 
         fUseTStamp = False
-        if not fIsBinary:
+        if file_type_code == 0:  # ASCII file
             if timestamp_filepath is not None:
                 htype.check_type(
                     timestamp_filepath,
@@ -1274,7 +1311,7 @@ class WaveformSet(OneTypeRTL):
                     )
 
         # These parameters are only used in the ASCII case
-        if not fIsBinary:   
+        if file_type_code == 0:
 
             htype.check_type(
                 headers_end_identifier,
@@ -1290,8 +1327,24 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.read_wvfs", 11
                 ),
             )
+        
+        elif file_type_code == 2: # Homemade binary file
+            htype.check_type(
+                packing_version,
+                int,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.read_wvfs", 12
+                ),
+            )
 
-        if not fIsBinary:
+            if packing_version < 0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.read_wvfs", 13
+                    )
+                )
+
+        if file_type_code == 0:  # ASCII file
 
             headers_endline = DataPreprocessor.find_skiprows(
                 input_filepath, 
@@ -1303,13 +1356,14 @@ class WaveformSet(OneTypeRTL):
                 0,
                 skiprows=headers_endline,
                 data_delimiter=data_delimiter,
+                verbose=verbose
             )
 
             if len(waveforms) % points_per_wvf != 0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
                         "WaveformSet.read_wvfs", 
-                        12,
+                        14,
                         extra_info=f"The number of data-points in the concatenation "
                         f"of waveforms ({len(waveforms)}) must be a multiple of "
                         f"points_per_wvf ({points_per_wvf}).",
@@ -1331,6 +1385,7 @@ class WaveformSet(OneTypeRTL):
                         1,
                         skiprows=headers_endline,
                         data_delimiter=data_delimiter,
+                        verbose=verbose
                     )
 
                 # In WaveformSet._extract_core_data(), it is
@@ -1353,20 +1408,35 @@ class WaveformSet(OneTypeRTL):
                     "average_delta_t_wf": delta_t_wf,
                     "acquisition_time": waveforms_no * delta_t_wf,
                 }
-        else:
 
-            parameters, supplementary_extraction = (
-                DataPreprocessor._extract_tek_wfm_metadata(input_filepath)
-            )
-            tek_wfm_metadata = parameters | supplementary_extraction
-
-            timestamps, waveforms, additional_dict = \
-                WaveformSet._extract_core_data(
-                    input_filepath,
-                    2,
-                    tek_wfm_metadata=tek_wfm_metadata,
-                )
+        else:  # file_type_code in (1,2)
             
+            if file_type_code == 1: # Tektronix WFM file format
+                parameters, supplementary_extraction = (
+                    DataPreprocessor._extract_tek_wfm_metadata(input_filepath)
+                )
+                tek_wfm_metadata = parameters | supplementary_extraction
+
+                timestamps, waveforms, additional_dict = \
+                    WaveformSet._extract_core_data(
+                        input_filepath,
+                        2,
+                        tek_wfm_metadata=tek_wfm_metadata,
+                        verbose=verbose
+                    )
+
+            else: # file_type_code == 2, homemade binary file
+
+                timestamps, waveforms, additional_dict = \
+                    WaveformSet._extract_core_data(
+                        input_filepath,
+                        3,
+                        packing_version=packing_version,
+                        verbose=verbose
+                    )
+
+            # The cumulative sum applies
+            # in any of the two binary cases
             timestamps = np.cumsum(timestamps)
 
         return timestamps, waveforms, additional_dict
@@ -1378,6 +1448,8 @@ class WaveformSet(OneTypeRTL):
         skiprows=0,
         data_delimiter=",",
         tek_wfm_metadata=None,
+        packing_version=None,
+        verbose=True
     ):
         """This static method is a helper method which should only be called 
         by the WaveformSet.read_wvfs() method. It gets the following mandatory 
@@ -1385,10 +1457,13 @@ class WaveformSet(OneTypeRTL):
 
         - filepath (string): Path to the file whose data will be extracted.
 
-        - file_type_code (scalar integer): It must be either 0, 1 or 2.
-        This integer indicates the type of file which should be processed.
-        0 matches an ASCII waveform dataset, 1 matches an ASCII timestamp
-        and 2 matches a binary (Tektronix WFM file format).
+        - file_type_code (scalar integer): It must be either 0, 1, 2 or 3.
+        This integer indicates the type of file which should be processed:
+            - 0: An ASCII waveform dataset
+            - 1: An ASCII timestamp
+            - 2: A binary file (Tektronix WFM file format)
+            - 3: A binary file with a homemade memory map which packs
+            metadata and waveforms
 
         This function also gets the following optional keyword arguments:
 
@@ -1403,22 +1478,34 @@ class WaveformSet(OneTypeRTL):
         uses it to separate entries of the different columns of the input file.
 
         - tek_wfm_metadata (None or dictionary): This parameter is only used
-        for the case of binary input files, i.e. file_type_code is 2. In such 
-        case, it must be defined. It is a dictionary containing the metadata 
-        of the provided input file. It must be the union of the two dictionaries 
-        returned by DataPreprocessor._extract_tek_wfm_metadata(). For more 
-        information on the keys which these dictionaries should contain, check 
-        such method documentation.
+        for the cases when file_type_code is 2. In such case, it must be defined.
+        It is a dictionary containing the metadata of the provided input file.
+        It must be the union of the two dictionaries returned by
+        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
+        the keys which these dictionaries should contain, check such method
+        documentation.
+
+        - packing_version (integer): If file_type_code is 3, then this
+        parameter must be a semipositive integer. This check is not performed
+        by this function. The caller (p.e. WaveformSet.read_wvfs()) is
+        responsible for this. In such case, this parameter is given to the
+        packing_version parameter of the
+        NumpyDataPreprocessor.extract_homemade_bin_coredata() method. This
+        parameter tells such method how to unpack the binary data in the input
+        file. For more information, check the documentation of the mentioned
+        method.
+
+        - verbose (bool): Whether to print functioning related messages.
 
         If file_type_code is 0, then this method returns an unidimensional
         numpy array which contains the waveform dataset. I.e. this array is
         the result of concatenating all of the waveforms in the input file.
         If file_type_code is 1, then this method returns a unidimensional 
         numpy array which contains the time stamp of the waveforms. If 
-        file_type_code is 2, then this method returns two unidimensional 
+        file_type_code is 2 or 3, then this method returns two unidimensional 
         numpy arrays. The first one contains the time stamp of the waveforms. 
         The second one contains the concatenation of the waveforms. If 
-        file_type_code is 1 or 2, then this method returns an additional 
+        file_type_code is 1, 2 or 3, then this method returns an additional 
         dictionary which contains two entries. The first one is saved under 
         the key 'average_delta_t_wf' and is the average of the time differences 
         between consecutive triggers in the waveforms dataset. The second one 
@@ -1440,7 +1527,7 @@ class WaveformSet(OneTypeRTL):
                 "WaveformSet._extract_core_data", 1
             ),
         )
-        if file_type_code < 0 or file_type_code > 2:
+        if file_type_code < 0 or file_type_code > 3:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "WaveformSet._extract_core_data", 2
@@ -1459,7 +1546,7 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet._extract_core_data", 4
                 )
             )
-        if file_type_code > 1:
+        if file_type_code == 2:
             htype.check_type(
                 tek_wfm_metadata,
                 dict,
@@ -1467,6 +1554,8 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet._extract_core_data", 5
                 ),
             )
+
+        # packing_version is checked by the WaveformSet.read_wvfs() method
 
         result = None
         additional_dict = {}
@@ -1507,9 +1596,22 @@ class WaveformSet(OneTypeRTL):
 
         else:  # Binary input
 
-            timestamp, waveforms = WaveformSet.extract_tek_wfm_coredata(
-                filepath, tek_wfm_metadata
-            )
+            if file_type_code == 2: # Binary .WFM file
+                timestamp, waveforms = DataPreprocessor.extract_tek_wfm_coredata(
+                    filepath, tek_wfm_metadata
+                )
+            else: # file_type_code == 3, homemade binary file
+
+                timestamp, waveforms = NumpyDataPreprocessor.extract_homemade_bin_coredata(
+                    filepath,
+                    packing_version=packing_version,
+                    # Yes, the tolerance parameter is hardcoded to 0.
+                    # It was particularly convenient for debugging
+                    # purposes, but setting it to other than 0 at
+                    # 'production' time makes no sense.
+                    tolerance=0,
+                    verbose=verbose
+                )
 
             # Concatenate waveforms in a 1D-array
             waveforms = waveforms.flatten(
@@ -1522,7 +1624,7 @@ class WaveformSet(OneTypeRTL):
             additional_dict["acquisition_time"] = np.sum(timestamp)
 
             # The time stamp, as returned by
-            # WaveformSet.extract_tek_wfm_coredata(),
+            # DataPreprocessor.extract_tek_wfm_coredata(),
             # contains as many entries as waveforms in
             # in the FastFrame set. The first one is null.
             additional_dict["average_delta_t_wf"] = additional_dict["acquisition_time"] / (
@@ -1532,164 +1634,6 @@ class WaveformSet(OneTypeRTL):
             result = (timestamp, waveforms, additional_dict)
 
         return result
-
-    @staticmethod
-    def extract_tek_wfm_coredata(filepath, metadata):
-        """This static method gets the following mandatory positional arguments:
-
-        - filepath (string): Path to the binary file (Tektronix WFM file format),
-        which must host a FastFrame set and whose core data should be extracted.
-        DataPreprocessor._extract_tek_wfm_metadata() should have previously checked
-        that, indeed, the input file hosts a FastFrame set. It is a check based
-        on the 4-bytes integer which you can find at offset 78 of the WFM file.
-        - metadata (dictionary): It is a dictionary which contains meta-data of
-        the input file which is necessary to extract the core data. It should
-        contain the union of the two dictionaries returned by
-        DataPreprocessor._extract_tek_wfm_metadata(). For more information on
-        the data contained in such dictionaries, check such method documentation.
-
-        This method returns two arrays. The first one is an unidimensional array
-        of length M, which stores timestamp information. The second one is a
-        bidimensional array which stores the waveforms of the FastFrame set of
-        the given input file. Say such array has shape NxM: then N is the number
-        of (user-accesible) points per waveform, while M is the number of
-        waveforms. The waveform entries in such array are already expressed in
-        the vertical units which are extracted to the key 'Vertical Units' by
-        DataPreprocessor._extract_tek_wfm_metadata(). In this context, the i-th
-        entry of the first array returned by this function gives the time
-        difference, in seconds, between the trigger of the i-th waveform and
-        the trigger of the (i-1)-th waveform. The first entry, which is undefined
-        up to the given definition, is manually set to zero."""
-
-        htype.check_type(
-            filepath,
-            str,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.extract_tek_wfm_coredata", 82855
-            ),
-        )
-        if not os.path.isfile(filepath):
-            raise FileNotFoundError(
-                htype.generate_exception_message(
-                    "WaveformSet.extract_tek_wfm_coredata",
-                    58749,
-                    extra_info=f"Path {filepath} does not exist or is not a file.",
-                )
-            )
-        else:
-            _, extension = os.path.splitext(filepath)
-            if extension != ".wfm":
-                raise cuex.InvalidParameterDefinition(
-                    htype.generate_exception_message(
-                        "WaveformSet.extract_tek_wfm_coredata",
-                        21667,
-                        extra_info=f"The extension of the input file must match '.wfm'.",
-                    )
-                )
-        htype.check_type(
-            metadata,
-            dict,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.extract_tek_wfm_coredata", 35772
-            ),
-        )
-
-        # Fraction of the sample time
-        # from the trigger time stamp
-        # to the next sample.
-        first_sample_delay = np.empty((metadata["FastFrame Count"],), dtype=np.double)
-
-        # The fraction of the second
-        # when the trigger occurred.
-        triggers_second_fractions = np.empty(
-            (metadata["FastFrame Count"],), dtype=np.double
-        )
-
-        # GMT (in seconds from the epoch)
-        # when the trigger occurred.
-        gmt_in_seconds = np.empty((metadata["FastFrame Count"],), dtype=np.double)
-
-        first_sample_delay[0] = metadata["tfrac[0]"]  # Add info of the first frame
-        triggers_second_fractions[0] = metadata["tdatefrac[0]"]
-        gmt_in_seconds[0] = metadata["tdate[0]"]
-
-        # For FastFrame, we've got a chunk of metadata['FastFrame Count']*54
-        # bytes which store WfmUpdateSpec and WfmCurveSpec objects, containing
-        # data on the timestamp and the number of points of each frame.
-
-        with open(filepath, "rb") as file:  # Binary read mode
-            _ = file.read(838)  # Throw away the header bytes (838 bytes)
-
-            # WUS stands for Waveform Update Specification. WUS objects count on a 4 bytes
-            # unsigned long, a 8 bytes double, another 8 bytes double and a 4 bytes long.
-
-            # Structure of the output array of np.fromfile
-            # The first element of each tuple is the name
-            # of the field, whereas the second element is the
-            # data type of each field
-            dtype = [
-                ("_", "i4"),
-                ("first_sample_delay", "f8"),
-                ("trigger_second_fraction", "f8"),
-                ("gmt_in_seconds", "i4"),
-            ]
-
-            # Within the same 'with' context,
-            # np.fromfile continues the reading
-            # process as of the already-read
-            # 838 bytes. Also, we are taking into
-            # account that the time information
-            # of the first frame was already read.
-            data = np.fromfile(
-                file, dtype=dtype, count=(metadata["FastFrame Count"] - 1)
-            )
-
-            # Merge first frame trigger
-            # info. with info. from the
-            # the rest of the frames.
-            first_sample_delay[1:] = data["first_sample_delay"]
-            triggers_second_fractions[1:] = data["trigger_second_fraction"]
-            gmt_in_seconds[1:] = data["gmt_in_seconds"]
-
-            # N.B. For binary gain measurements (with external trigger),
-            # it was observed that all of the entries of
-            # triggers_second_fractions, and gmt_in_seconds are null at this point.
-
-            # Read waveforms
-            waveforms = np.memmap(
-                file,
-                dtype=metadata["samples_datatype"],
-                mode="r",
-                offset=metadata["curve_buffer_offset"],
-                # Shape of the returned array
-                # Running along second dimension
-                # gives different waveforms
-                shape=(metadata["samples_no"], metadata["FastFrame Count"]),
-                order="F",
-            )
-
-        # While the numbers in gmt_in_seconds are O(9)
-        # The fractions of seconds are O(-1). Summing
-        # the fractions of the second to the GMT could
-        # result in losing the second fraction info. due
-        # to rounding error. It's better to shift the
-        # time origin to the first trigger, then add the
-        # seconds fractions.
-        seconds_from_first_trigger = gmt_in_seconds - gmt_in_seconds[0]
-        timestamp = seconds_from_first_trigger + triggers_second_fractions
-
-        timestamp = np.concatenate((np.array([0.0]), np.diff(timestamp)), axis=0)
-
-        # Filter out the oscilloscope interpolation samples
-        waveforms = waveforms[
-            metadata["pre-values_no"] : metadata["samples_no"]
-            - metadata["post-values_no"],
-            :,
-        ]
-
-        # 2D array of waveforms, in vertical units
-        waveforms = (waveforms * metadata["vscale"]) + metadata["voffset"]
-        return timestamp, waveforms
 
     @staticmethod
     def swap(x, y):
@@ -3086,4 +3030,17 @@ class WaveformSet(OneTypeRTL):
         )
 
         return result
+    
+    def flip_about_baseline(self):
+        """This method flips every waveform in this WaveformSet
+        about its baseline. To do so, for every waveform wvf in
+        this WaveformSet, this method calls wvf.flip_about_baseline().
+        For more information on the flipping process, check the
+        documentation of such Waveform method. Note that this
+        method modifies (inplace) the values of the Signal
+        attribute of every Waveform object."""
 
+        for wvf in self:
+            wvf.flip_about_baseline()
+
+        return

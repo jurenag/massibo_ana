@@ -17,3 +17,9 @@ workspace_dir: ''
 
 # Whether to print functioning related messages
 verbose: true
+
+# Whether to use the traditional DataPreprocessor class (which
+# can handle the tektronix scope ASCII/binary (WFM) data) or
+# the NumpyDataPreprocessor class (which can handle the numpy
+# binary packing of the Daphne data).
+data_from_tektronix_scope: false
