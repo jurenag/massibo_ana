@@ -153,6 +153,14 @@ minimum_number_of_waveforms: 100
 # Number of waveforms per persistency plot
 superimposed_waveforms: 400
 
+# Vertical (signal magnitude) range for the
+# persistency plots. Set it to null in case
+# you want to use the default range, which is
+# inferred by matplotlib.
+persistency_plot_range:
+ - 0.045
+ - 0.2
+
 # Line width for the persistency plots
 persistency_wvf_linewidth: 0.2
 
