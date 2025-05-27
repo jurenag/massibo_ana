@@ -169,6 +169,11 @@ persistency_plot_range:
  - 0.045
  - 0.2
 
+# Whether to subtract the baseline (waveform per
+# waveform) in the persistency plot. This parameter
+# only affects the visualization.
+subtract_baseline_in_persistency_plot: false
+
 # Line width for the persistency plots
 persistency_wvf_linewidth: 0.2
 
