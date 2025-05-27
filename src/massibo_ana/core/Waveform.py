@@ -81,10 +81,24 @@ class Waveform:
                                             acquisition window of this waveform.
                                             (non stackable)
             -> "median_cutoff":             Its value must be a list with one float. The
-                                            first-peak baseline is computed as the median
-                                            of the signal points which happen below a
-                                            certain cutoff-time. That cutoff-time is what
-                                            we call the median cutoff. (non stackable)
+                                            first-peak baseline is computed as the mean
+                                            of a subset of the signal points which happen
+                                            below a certain cutoff-time. That cutoff-time
+                                            is what we call the median cutoff. To know
+                                            more about how the subset of averaged signal
+                                            points is computed, check the documentation
+                                            for the "half_width_about_median" parameter.
+                                            (non stackable)
+            -> "half_width_about_median":   Its value must be a list with one float. To
+                                            compute the first-peak baseline, first the
+                                            median of all of the points which happen
+                                            below the median cutoff-time is computed.
+                                            Finally, the baseline is computed as the
+                                            mean of the signal points which deviate
+                                            from such median by less than
+                                            half_width_about_median. Therefore, this
+                                            quantity is expressed in the signal units.
+                                            (non stackable)
             -> "peaks_pos":                 Its value must be a list whose elements have
                                             type float. They represent the time position
                                             where a peak has been detected. (stackable)
@@ -175,7 +189,7 @@ class Waveform:
         self.__signs = ListsRKD(
             Waveform.nonstackable_aks + Waveform.stackable_aks,  # potential_keys
             is_subtyped=True,  # is_subtyped=False
-            values_subtypes=[str, str, str, float, float, float, float, float, float],
+            values_subtypes=[str, str, str, float, float, float, float, float, float, float],
         )  # values_subtypes=None
         if signs is not None:
             htype.check_type(
@@ -226,6 +240,7 @@ class Waveform:
         "integration_ul",
         "first_peak_baseline",
         "median_cutoff",
+        "half_width_about_median",
     ]
 
     stackable_aks = ["peaks_pos", "peaks_top"]
@@ -258,13 +273,26 @@ class Waveform:
     def get_absolute_time(self):
         return self.__t0 + self.__time
 
-    def compute_first_peak_baseline(self, signal_fraction_for_median_cutoff=0.2):
+    def compute_first_peak_baseline(
+            self,
+            signal_fraction_for_median_cutoff=0.2,
+            half_width_about_median=None
+        ):
         """This method gets the following optional keyword argument:
 
         - signal_fraction_for_median_cutoff (scalar float): It must belong to the
         interval [0.0, 1.0]. This value represents the fraction of the signal
-        which is used to compute the baseline. P.e. 0.2 means that only the first
-        20% (in time) of the signal is used to compute the baseline.
+        which is potentially used to compute the baseline. P.e. 0.2 means that,
+        as an intermediate step in the process of computing the baseline, the
+        median of the first 20% (in time) of the signal will be computed.
+
+        - half_width_about_median (None or scalar float): If this parameter is
+        None, then the computed median is assumed to be baseline. If this parameter
+        is defined, then only the signal points (within the starting fraction given
+        by the signal_fraction_for_median_cutoff parameter) which deviate from the
+        computed median by less than np.abs(half_width_about_median) are used
+        to compute the baseline. In this case, the baseline is computed as the mean
+        of such signal points.
 
         This method computes the baseline of the first peak within the waveform.
         This value may not match the physical baseline for any other secondary peak
@@ -276,16 +304,25 @@ class Waveform:
         This method computes the baseline in the following way. First, it computes
         the time cutoff below which the signal is considered. Then it filters out
         infinite or undefined points from such considered piece of the signal, using
-        Waveform.filter_infs_and_nans(). The baseline is computed as the median of
-        the remaining points. Check the signal_fraction_for_median_cutoff parameter
-        documentation for more information. The maximum time below which the signal
-        points are used to compute the baseline, is also added by this method to the
-        self.__signs dictionary under the key 'median_cutoff', overwritting any
-        previous value for such key, if applicable. The reason why only an initial
-        (in time) fraction of the signal is used to compute the baseline is that the
-        rest of the signal may be affected by the undershoot of the first peak. In
-        this context, the median of a signal which is affected by a deep long
-        undershoot would result in a baseline which is biased towards smaller values.
+        Waveform.filter_infs_and_nans(). Then, the median of the remaining points
+        is computed. If the half_width_about_median parameter is not defined,
+        then the computed median is considered to be the baseline. Otherwise, the
+        baseline is computed as the mean of the signal points (in the specified
+        starting fraction of the signal) which deviate from the computed median
+        by less than np.abs(half_width_about_median). The maximum time below
+        which the signal points are used to compute the baseline, is also added by
+        this method to the self.__signs dictionary under the key 'median_cutoff',
+        overwritting any previous value for such key, if applicable. If the 
+        half_width_about_median is defined, then it is also added to the self.__signs
+        dictionary under the key 'half_width_about_median', overwritting any previous
+        value for such key, if applicable. The reason why only an initial (in time)
+        fraction of the signal is used to compute the baseline is that the rest of
+        the signal may be affected by the undershoot of the first peak. In this
+        context, the median of a signal which is affected by a deep long undershoot
+        would result in a baseline which is biased towards smaller values. On the
+        other hand, an average of close-to-median points is computed because
+        otherwise we are constraining the baseline to be equal to the value taken
+        by one of the signal points, which may not be the case.
         """
 
         htype.check_type(
@@ -305,6 +342,19 @@ class Waveform:
                     "Waveform.compute_first_peak_baseline", 2
                 )
             )
+        
+        fAverage = False
+        if half_width_about_median is not None:
+            htype.check_type(
+                half_width_about_median,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "Waveform.compute_first_peak_baseline", 3
+                ),
+            )
+            fAverage = True
+
         cutoff_idx = round(signal_fraction_for_median_cutoff * len(self.__signal))
         signal_chunk = Waveform.filter_infs_and_nans(
             self.__signal[:cutoff_idx], get_mask=False
@@ -318,14 +368,42 @@ class Waveform:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "Waveform.compute_first_peak_baseline",
-                    3,
+                    4,
                     extra_info=f"The {signal_fraction_for_median_cutoff} initial fraction of the signal is either infinite or undefined. A baseline cannot be computed.",
                 )
             )
 
-        baseline = np.median(signal_chunk)
-        self.Signs = ("first_peak_baseline", [baseline], True)
+        median = np.median(signal_chunk)
         self.Signs = ("median_cutoff", [self.__time[cutoff_idx]], True)
+
+        baseline = 0.
+        if fAverage:
+            count = 0
+            for aux in signal_chunk:
+                if np.abs(aux - median) < np.abs(half_width_about_median):
+                    baseline += aux
+                    count += 1
+        
+            if count == 0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "Waveform.compute_first_peak_baseline",
+                        5,
+                        extra_info="Could not found a single signal point (in the defined "
+                        "starting fraction) which deviates from the computed median by less "
+                        f"than {np.abs(half_width_about_median)} (AU). A baseline cannot "
+                        "be computed."
+                    )
+                )
+            
+            baseline *= (1.0 / count)
+            self.Signs = ("half_width_about_median", [half_width_about_median], True)
+
+        else:
+            baseline = median
+
+        self.Signs = ("first_peak_baseline", [baseline], True)
+
         return
 
     def plot(
@@ -514,10 +592,24 @@ class Waveform:
                                             acquisition window of this waveform.
                                             (non stackable)
             -> "median_cutoff":             Its value must be a list with one float. The
-                                            first-peak baseline is computed as the median
-                                            of the signal points which happen below a
-                                            certain cutoff-time. That cutoff-time is what
-                                            we call the median cutoff. (non stackable)
+                                            first-peak baseline is computed as the mean
+                                            of a subset of the signal points which happen
+                                            below a certain cutoff-time. That cutoff-time
+                                            is what we call the median cutoff. To know
+                                            more about how the subset of averaged signal
+                                            points is computed, check the documentation
+                                            for the "half_width_about_median" parameter.
+                                            (non stackable)
+            -> "half_width_about_median":   Its value must be a list with one float. To
+                                            compute the first-peak baseline, first the
+                                            median of all of the points which happen
+                                            below the median cutoff-time is computed.
+                                            Finally, the baseline is computed as the
+                                            mean of the signal points which deviate
+                                            from such median by less than
+                                            half_width_about_median. Therefore, this
+                                            quantity is expressed in the signal units.
+                                            (non stackable)
             -> "peaks_pos":                 Its value must be a list whose elements have
                                             type float. They represent the time position
                                             where a peak has been detected. (stackable)
@@ -597,6 +689,7 @@ class Waveform:
             "integration_ul",
             "first_peak_baseline",
             "median_cutoff",
+            "half_width_about_median"
         ]:
             for element in value:
                 htype.check_type(
