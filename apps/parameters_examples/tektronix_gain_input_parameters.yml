@@ -51,6 +51,14 @@ merged_points: 4
 # to compute the baseline.
 signal_fraction_for_median_cutoff: 0.15
 
+# If defined, then the baseline is computed as the
+# average of the points (which are defined and belong
+# to the starting fraction of the signal, specified
+# by the signal_fraction_for_median_cutoff parameter)
+# which deviate from the computed median by less than
+# the absolute value of this parameter.
+half_width_about_median: null
+
 ### Parameters used for finding the integration window
 # This value is interpreted as a fraction of the
 # following quantity: the maximum of mean waveform
