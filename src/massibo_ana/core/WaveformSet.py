@@ -390,6 +390,7 @@ class WaveformSet(OneTypeRTL):
         wvf_linewidth=1.0,
         x0=[],
         y0=[],
+        subtract_baseline=False,
         fig_width = None,
         fig_height = None,
         show_plots = True
@@ -442,6 +443,13 @@ class WaveformSet(OneTypeRTL):
         keyword argument of Waveform.plot(). Each selected waveform is
         plotted along with a set of vertical (resp. horizontal) lines at
         the positions given by the entries in this list.
+        - subtract_baseline (boolean): It is given to the subtract_baseline
+        parameter of the Waveform.subtract_baseline() method of each
+        selected waveform. If True, then the computed first-peak baseline
+        of each selected waveform is subtracted from its signal before
+        plotting. To this end, the Waveform.subtract_baseline() method
+        checks whether the 'first_peak_baseline' key is available
+        within the Waveform.Signs dictionary.
         - fig_width (resp. fig_height) (None or positive float): If both
         parameters are defined at the same time, then they are given, as
         (fig_width, fig_height), to the 'figsize' parameter of the 
@@ -652,6 +660,13 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.plot", 28
                 ),
             )
+        htype.check_type(
+            subtract_baseline,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 29
+            ),
+        )
 
         fSetFigSize = False
         if fig_width is not None:
@@ -660,13 +675,13 @@ class WaveformSet(OneTypeRTL):
                 float,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.plot", 29
+                    "WaveformSet.plot", 30
                 ),
             )
             if fig_width <= 0.0:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "WaveformSet.plot", 30)
+                        "WaveformSet.plot", 31)
                 )
             
             # Only check fig_height if fig_width is well-defined
@@ -676,13 +691,13 @@ class WaveformSet(OneTypeRTL):
                     float,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "WaveformSet.plot", 31
+                        "WaveformSet.plot", 32
                     ),
                 )
                 if fig_height <= 0.0:
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "WaveformSet.plot", 32)
+                            "WaveformSet.plot", 33)
                     )
                 fSetFigSize = True
 
@@ -690,7 +705,7 @@ class WaveformSet(OneTypeRTL):
             show_plots,
             bool,
             exception_message=htype.generate_exception_message(
-                "WaveformSet.plot", 33
+                "WaveformSet.plot", 34
             ),
         )        
 
@@ -717,6 +732,7 @@ class WaveformSet(OneTypeRTL):
                             wvf_linewidth=wvf_linewidth,
                             x0=x0,
                             y0=y0,
+                            subtract_baseline=subtract_baseline,
                         )
                         axs[iterator].set_title(f"Nº {wvfs_indices[counter]}")
                         WaveformSet.set_custom_labels_visibility(
@@ -756,6 +772,7 @@ class WaveformSet(OneTypeRTL):
                     wvf_linewidth=wvf_linewidth,
                     x0=x0,
                     y0=y0,
+                    subtract_baseline=subtract_baseline,
                 )
             fig.suptitle(
                 fig_title,
