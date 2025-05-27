@@ -105,32 +105,34 @@ class WaveformSet(OneTypeRTL):
         return self.__set_time_window
 
     def compute_first_peak_baseline(
-        self, signal_fraction_for_median_cutoff=0.2
+        self,
+        signal_fraction_for_median_cutoff=0.2,
+        half_width_about_median=None
     ):
         """This method gets the following optional keyword argument:
 
-        - signal_fraction_for_median_cutoff (scalar float): It must belong to the
-        interval [0.0, 1.0]. For each waveform within this WaveformSet object,
-        this value represents the fraction of the signal which is used to compute
-        the baseline. P.e. 0.2 means that, for each waveform, only its first 20%
-        (in time) of the signal is used to compute the baseline.
+        - signal_fraction_for_median_cutoff (scalar float): For each waveform,
+        wvf, in this waveform set, this parameter is given to the
+        signal_fraction_for_median_cutoff input parameter of the
+        wvf.compute_first_peak_baseline() method. Check its documentation for
+        more information. 
 
-        This method computes the baseline of the first peak within the waveform
-        for each waveform within this WaveformSet object. To do so, this method
-        iterates over the whole waveform set and, for each waveform, it populates
-        the 'first_peak_baseline' and 'median_cutoff' keys of its self.__signs
-        dictionary by calling its Waveform.compute_first_peak_baseline() method,
-        overwritting any previous value for such keys, if applicable. For each
-        waveform, the computed value may not match the physical baseline for any
-        other secondary peak within the acquisition window of this waveform.
-        For more information, check the Waveform.compute_first_peak_baseline()
-        docstring.
+        - half_width_about_median (None or scalar float): For each waveform,
+        wvf, in this waveform set, this parameter is given to the
+        half_width_about_median input parameter of the
+        wvf.compute_first_peak_baseline() method. Check its documentation for
+        more information.
 
-        The reason why only an initial (in time) fraction of the signal is used to
-        compute the baseline is that the rest of the signal may be affected by the
-        undershoot of the first peak. In this context, the median of a signal which
-        is affected by a deep long undershoot would result in a baseline which
-        is biased towards smaller values."""
+        For every waveform in this WaveformSet object, this method computes its
+        first-peak baseline. To do so, this method iterates over the whole
+        waveform set and, for each waveform, it populates the 'first_peak_baseline'
+        and 'median_cutoff' keys of its self.__signs dictionary by calling its
+        Waveform.compute_first_peak_baseline() method, overwritting any previous
+        value for such keys, if applicable. The 'half_width_about_median' entry
+        of the such dictionaries may be also overwritten. For each waveform, the
+        computed value may not match the physical baseline for any other secondary
+        peak within the acquisition window of this waveform. For more information,
+        check the Waveform.compute_first_peak_baseline() docstring."""
 
         htype.check_type(
             signal_fraction_for_median_cutoff,
@@ -150,9 +152,20 @@ class WaveformSet(OneTypeRTL):
                     2,
                 )
             )
+        if half_width_about_median is not None:
+            htype.check_type(
+                half_width_about_median,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.compute_first_peak_baseline", 3
+                ),
+            )
+
         for wvf in self:
             wvf.compute_first_peak_baseline(
-                signal_fraction_for_median_cutoff=signal_fraction_for_median_cutoff
+                signal_fraction_for_median_cutoff=signal_fraction_for_median_cutoff,
+                half_width_about_median=half_width_about_median
             )
         return
 
@@ -2972,17 +2985,21 @@ class WaveformSet(OneTypeRTL):
     def find_mean_beginning_of_raise(
         self,
         signal_fraction_for_median_cutoff=0.2,
+        half_width_about_median=None,
         tolerance=0.05,
         return_iterator=True
     ):
         
         """This method gets the following optional keyword arguments:
 
-        - signal_fraction_for_median_cutoff (scalar float): It must belong
-        to the interval [0.0, 1.0]. This value represents the fraction of the
-        signal of the mean waveform which is used to compute its baseline. P.e.
-        0.2 means that, for each waveform, only its first 20% (in time) of the
-        signal is used to compute the baseline.
+        - signal_fraction_for_median_cutoff (scalar float): This parameter
+        is given to the 'signal_fraction_for_median_cutoff' parameter of the
+        Waveform.compute_first_peak_baseline() method of the average
+        waveform. Check such method documentation for more information.
+        - half_width_about_median (None or scalar float): This parameter is
+        given to the 'half_width_about_median' parameter of the
+        Waveform.compute_first_peak_baseline() method of the average
+        waveform. Check such method documentation for more information.
         - tolerance (scalar float): It must be positive (>0.0) and
         smaller than 1 (<1.0). It is given to the 'tolerance' parameter of the
         Waveform.find_beginning_of_raise() method, on a waveform basis. For more
@@ -3020,7 +3037,8 @@ class WaveformSet(OneTypeRTL):
 
         # Then, compute the first peak baseline of the mean waveform
         mean_waveform.compute_first_peak_baseline(
-            signal_fraction_for_median_cutoff = signal_fraction_for_median_cutoff
+            signal_fraction_for_median_cutoff=signal_fraction_for_median_cutoff,
+            half_width_about_median=half_width_about_median
         )
 
         # Then, find the beginning of the rise of the mean waveform
