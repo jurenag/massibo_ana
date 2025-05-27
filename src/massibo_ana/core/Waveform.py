@@ -407,7 +407,15 @@ class Waveform:
         return
 
     def plot(
-        self, ax, xlim=None, ylim=None, plot_peaks=True, wvf_linewidth=1.0, x0=[], y0=[]
+        self,
+        ax,
+        xlim=None,
+        ylim=None,
+        plot_peaks=True,
+        wvf_linewidth=1.0,
+        x0=[],
+        y0=[],
+        subtract_baseline=False
     ):
         """Still under development"""
 
@@ -445,6 +453,14 @@ class Waveform:
                 ),
             )
 
+        if subtract_baseline and "first_peak_baseline" not in self.__signs.keys():
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "Waveform.plot", 6
+                )
+            )
+                    
+
         # Although self.__signs['time_unit'] may contain a time unit
         # other than seconds, these are units in which the raw data
         # was represented, but they should have been converted to
@@ -476,13 +492,39 @@ class Waveform:
                 label="Int. UL",
             )
         if "first_peak_baseline" in self.__signs.keys():
+
+            aux = self.__signs["first_peak_baseline"][0] if not subtract_baseline else 0.0
+
             ax.axhline(
-                y=self.__signs["first_peak_baseline"],
+                y=aux,
                 linestyle="-",
                 linewidth=0.5,
                 color="blue",
                 label="T.P. Baseline",
             )
+
+            if "half_width_about_median" in self.__signs.keys():
+
+                aux = self.__signs["first_peak_baseline"][0]+self.__signs["half_width_about_median"][0] if not subtract_baseline else self.__signs["half_width_about_median"][0]
+
+                ax.axhline(
+                    y=aux,
+                    linestyle="-",
+                    linewidth=0.5,
+                    color="green",
+                    label="Upper limit for baseline average",
+                )
+
+                aux = self.__signs["first_peak_baseline"][0]-self.__signs["half_width_about_median"][0] if not subtract_baseline else -1.*self.__signs["half_width_about_median"][0]
+
+                ax.axhline(
+                    y=aux,
+                    linestyle="-",
+                    linewidth=0.5,
+                    color="green",
+                    label="Lower limit for baseline average",
+                )
+
         if "median_cutoff" in self.__signs.keys():
             ax.axvline(
                 x=self.__signs["median_cutoff"][0],
@@ -542,7 +584,10 @@ class Waveform:
             ax.axhline(y=y, linestyle="-", linewidth=0.5, color="green")
 
         ax.plot(
-            self.__time, self.__signal, linewidth=wvf_linewidth, color="black"
+            self.__time,
+            self.__signal if not subtract_baseline else self.__signal - self.__signs["first_peak_baseline"][0],
+            linewidth=wvf_linewidth,
+            color="black"
         )  # , label="Signal")
 
         ax.set_xlim(xlim)
