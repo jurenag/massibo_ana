@@ -383,7 +383,7 @@ class Waveform:
                 ax.set_ylabel(f"{self.__signs['signal_magnitude'][0]} (a.u.)")
         if "integration_ll" in self.__signs.keys():
             ax.axvline(
-                x=self.__signs["integration_ll"],
+                x=self.__signs["integration_ll"][0],
                 linestyle="-",
                 linewidth=0.5,
                 color="red",
@@ -391,7 +391,7 @@ class Waveform:
             )
         if "integration_ul" in self.__signs.keys():
             ax.axvline(
-                x=self.__signs["integration_ul"],
+                x=self.__signs["integration_ul"][0],
                 linestyle="-",
                 linewidth=0.5,
                 color="red",
@@ -407,7 +407,7 @@ class Waveform:
             )
         if "median_cutoff" in self.__signs.keys():
             ax.axvline(
-                x=self.__signs["median_cutoff"],
+                x=self.__signs["median_cutoff"][0],
                 linestyle="-",
                 linewidth=0.5,
                 color="blue",
