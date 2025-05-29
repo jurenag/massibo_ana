@@ -126,7 +126,7 @@ timedelay_cut: 1.e-4
 # value (in a certain integration window) is
 # considered to be a fake (noise-induced) trigger
 # and is discarded.
-minimum_integral: 1.5e-6 # A previous number that was found to work particularly well here is 1.25e-6
+minimum_integral: 1.7e-6 # This number was fine-tuned using the data for the boards 7281 and 7291
 
 # The following four parameters have to do with
 # the integration window for the integral filter.
