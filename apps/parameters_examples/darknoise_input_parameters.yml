@@ -72,13 +72,24 @@ signal_fraction_for_median_cutoff: 0.2
 # amplitude.
 minimal_height_wrt_baseline_in_AU: 6 # 6 is given in ADUs
             
-# The amplitude of 1-PE in massibo is normally ~13 ADCs.
-# Implicitly assuming the units of the analyzed data.
-# Going for a bigger minimal prominence rules out
-# after-pulses, which are not as prominent as the
-# main pulses, because they are 'mounted' on top of
-# a vanishing tail of the main pulse.
-minimum_peaks_prominence: 3 # This value has not been fine-tuned yet
+# The amplitude of 1-PE in massibo (read with Daphne)
+# is normally ~13 ADUs. We are implicitly assuming
+# the units of the analyzed data. Setting a cut
+# in this magnitude has a twofold effect:
+# 1)  it helps to avoid detecting peaks in the
+#     noisy baseline which somehow made it above
+#     the minimal_height_wrt_baseline_in_AU
+#     height cut
+# 2)  it can also rule out after-pulses which are
+#     not as prominent as the main pulses, because
+#     they are 'mounted' on top of a vanishing
+#     tail of the main pulse.
+# Both contributions cannot be completely separated
+# (at least using only a prominence+height cut).
+# A compromise must be found so that the proportion
+# of detected noises makes up for the overlooked
+# actual after-pulses.
+minimum_peaks_prominence: 5 # This number was fine-tuned using the data for the boards 7281 and 7291
 
 # Required minimal width of the peaks. Setting a cut
 # in this magnitude helps to avoid detecting peaks
