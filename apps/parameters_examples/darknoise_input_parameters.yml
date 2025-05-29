@@ -56,13 +56,13 @@ signal_fraction_for_median_cutoff: 0.2
 # Required minimal height of the peaks, measured
 # from the baseline of each waveform. Setting a cut
 # in this magnitude has a twofold effect:
-# - it helps to avoid detecting peaks in the
-#   noise-induced triggers, and in the spurious
-#   bipolar signals that sneaked into the correctly
-#   triggered waveforms.
-# - it makes the algorithm overlook some actual
-#   peaks, particularly those which happen in the
-#   undershooted tail of high-N-PE pulses.
+# 1)  it helps to avoid detecting peaks in the
+#     noisy baseline (which is typically contained
+#     below half of the 1-PE amplitude, i.e. below
+#     ~6 ADUs)
+# 2)  it makes the algorithm overlook some actual
+#     peaks, particularly those which happen in the
+#     undershooted tail of high-N-PE pulses.
 # Both contributions cannot be completely separated
 # (at least using only a height cut). A compromise
 # must be found so that the proportion of detected
@@ -70,7 +70,7 @@ signal_fraction_for_median_cutoff: 0.2
 # In any case, this parameter must not be set to a
 # value which is bigger than half of the single-PE
 # amplitude.
-minimal_height_wrt_baseline_in_AU: 6 # 6 is given in ADCs
+minimal_height_wrt_baseline_in_AU: 6 # 6 is given in ADUs
             
 # The amplitude of 1-PE in massibo is normally ~13 ADCs.
 # Implicitly assuming the units of the analyzed data.
