@@ -190,7 +190,7 @@ resulting_distributions_nbins: 40
 # Whether to plot vertical red lines signaling the
 # soft and hard thresholds in the resulting gain
 # distributions
-plot_vertical_red_threshold: False
+plot_vertical_red_threshold: false
 
 # Number of standard deviations to consider for the
 # soft and hard thresholds in the resulting gain
