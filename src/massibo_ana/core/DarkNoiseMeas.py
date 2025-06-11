@@ -440,6 +440,15 @@ class DarkNoiseMeas(SiPMMeas):
         aux_t, aux_a, aux_i = np.array(aux_t), np.array(aux_a), np.array(aux_i)
 
         self.__timedelay = np.diff(aux_t)
+
+        if np.min(self.__timedelay) <= 0.0:
+            raise cuex.NonPositiveTimeDelay(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.analyze", 97429,
+                    extra_info="The time delay values must be positive. Please check the input data."
+                )
+            )
+
         self.__amplitude = aux_a[1:]
         self.__frame_idx = aux_i[1:]
 
@@ -921,7 +930,7 @@ class DarkNoiseMeas(SiPMMeas):
         x = self.__timedelay[mask]
 
         if np.min(x) <= 0.0:
-            raise cuex.InvalidParameterDefinition(
+            raise cuex.NonPositiveTimeDelay(
                 htype.generate_exception_message(
                     "DarkNoiseMeas.plot_timedelay_vs_amplitude", 56394,
                     extra_info="The time delay values must be positive. Please check the input data."
