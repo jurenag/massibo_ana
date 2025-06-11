@@ -121,7 +121,7 @@ class RestrictiveTimedelay(Exception):
     def why(self):
         return "This exception is not meant for a general situation. " \
         "This exception is meant for the case where, in the " \
-        "DarkNoiseMeas.compute_amplitude_levels() method, the" \
+        "DarkNoiseMeas.compute_amplitude_levels() method, the " \
         "value given to the timedelay_cut variable is so big that " \
         "no samples were left."
     
@@ -145,3 +145,14 @@ class RequestedPeaksNotFound(Exception):
     def why(self):
         return "This exception is meant for situations where the " \
         "number of requested peaks were not found."
+    
+class NonPositiveTimeDelay(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        return
+
+    @classmethod
+    def why(self):
+        return "This exception is meant for situations where a " \
+        "non-positive time-delay value between consecutive peaks " \
+        "was encountered."
