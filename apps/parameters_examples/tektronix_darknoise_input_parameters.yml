@@ -129,6 +129,7 @@ max_gaussian_fit_std_no: 4.0
 # 175 or above should be enough.
 amplitudes_histogram_bins_no: 175
 timedelay_cut: 1.e-4
+amplitude_cut: null
 
 ### Parameters for integral filter
 # Cut for the integral of each waveform. I.e.

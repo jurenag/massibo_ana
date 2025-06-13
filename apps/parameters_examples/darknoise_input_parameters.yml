@@ -131,10 +131,12 @@ gaussian_fit_std_no: 3.0
 max_gaussian_fit_std_no: 5.0
 # The following parameter should be big enough to
 # enable two gaussian fits with 3 free parameters
-# each of the amplitudes histogram. Keeping it to
-# 175 or above should be enough.
-amplitudes_histogram_bins_no: 175
+# each of the amplitudes histogram. Note also that
+# this parameter is very dependent on the amplitude_cut
+# parameter below
+amplitudes_histogram_bins_no: 40
 timedelay_cut: 1.e-4
+amplitude_cut: 60.
 
 ### Parameters for integral filter
 # Cut for the integral of each waveform. I.e.
