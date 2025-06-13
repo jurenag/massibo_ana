@@ -464,6 +464,7 @@ class DarkNoiseMeas(SiPMMeas):
         minimal_prominence_wrt_max=0.0,
         std_no=3.0,
         timedelay_cut=0.0,
+        amplitude_cut=None
     ):
         """This method gets the following optional keyword arguments:
 
@@ -516,6 +517,11 @@ class DarkNoiseMeas(SiPMMeas):
         I.e. the entries within self.__amplitude which are histogrammed in
         order to fit the 1-PE and 2-PE peaks, are those whose matching
         time-delay value is bigger or equal to timedelay_cut.
+        - amplitude_cut (None or scalar float): If it is None, then no
+        amplitude cut is applied. If it is a float, then it must be positive
+        (>0.0) and it is used as an inclusive upper bound for the amplitude
+        values within self.__amplitude which are histogrammed in order to fit
+        the 1-PE and 2-PE peaks.
 
         This method computes the voltage amplitudes matching 0.5 and 1.5
         photoelectrons. Those values are stored into the self.__half_a_pe and
@@ -524,14 +530,16 @@ class DarkNoiseMeas(SiPMMeas):
 
         1) filters out the entries within self.__amplitude whose matching entry
         within self.__timedelay is lower than timedelay_cut,
-        2) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        2) if amplitude_cut is defined, then it filters out the entries within
+        self.__amplitude which are bigger than amplitude_cut,
+        3) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
         which generates an histogram of the filtered self.__amplitude entries,
-        3) then generates a probability distribution function (pdf) out of such
+        4) then generates a probability distribution function (pdf) out of such
         histogram,
-        4) then targets the two highest peaks of such pdf which have the lowest
+        5) then targets the two highest peaks of such pdf which have the lowest
         amplitude value, via SiPMMeas.tune_peak_height() and scipy.signal.find_peaks(),
-        5) then fits one gaussian function to each one of these two peaks
-        6) and uses the fit mean of both gaussian functions to compute the desired
+        6) then fits one gaussian function to each one of these two peaks
+        7) and uses the fit mean of both gaussian functions to compute the desired
         attributes. Say that the fit mean of the gaussian function which fits to the
         1-PE (resp. 2-PE) peak is mu_1 (resp. mu_2), then the attributes are
         computed in the following way:
@@ -616,9 +624,35 @@ class DarkNoiseMeas(SiPMMeas):
             ),
         )
 
-        # Applying time-delay cut and filtering out infs and nans
+        fApplyAmplitudeCut = False
+        if amplitude_cut is not None:
+            htype.check_type(
+                amplitude_cut,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_amplitude_levels", 12043
+                )
+            )
+            if amplitude_cut <= 0.0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas.compute_amplitude_levels", 72089
+                    )
+                )
+            fApplyAmplitudeCut = True
+
+        # Applying time-delay cut
+        samples = self.__amplitude[self.__timedelay >= timedelay_cut]
+
+        if fApplyAmplitudeCut:
+            # Applying amplitude cut
+            samples = samples[samples <= amplitude_cut]
+
+        # Filtering out infs and nans
         samples = Waveform.filter_infs_and_nans(
-            self.__amplitude[self.__timedelay >= timedelay_cut], get_mask=False
+            samples,
+            get_mask=False
         )
 
         if len(samples) == 0:
