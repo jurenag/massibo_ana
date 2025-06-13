@@ -622,6 +622,7 @@ class SiPMMeas(ABC):
         peaks_to_detect=2,
         peaks_to_fit=None,
         bins_no=125,
+        histogram_range=None,
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
@@ -645,6 +646,10 @@ class SiPMMeas(ABC):
         peak will be fit.
         - bins_no (scalar integer): It must be positive (>0). It is the number
         of bins which are used to histogram the given samples.
+        - histogram_range (None or tuple): If None, then numpy.histogram
+        automatically sets the histogram range to the minimum and maximum values
+        of the samples array. Otherwise, it should be a tuple of two elements,
+        say (min, max), that defines the lower and upper range of the histogram.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the 'initial_percentage'
         parameter of the static method
@@ -773,6 +778,33 @@ class SiPMMeas(ABC):
                     "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 11025
                 )
             )
+        
+        if histogram_range is not None:
+            htype.check_type(
+                histogram_range,
+                tuple,
+                exception_message=htype.generate_exception_message(
+                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 47289
+                ),
+            )
+            if len(histogram_range) != 2:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 29866
+                    )
+                )
+            for elem in histogram_range:
+                htype.check_type(
+                    elem,
+                    int,
+                    float,
+                    np.int64,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 19276
+                    ),
+                )
+
         htype.check_type(
             starting_fraction,
             float,
@@ -830,7 +862,9 @@ class SiPMMeas(ABC):
                 )
             )
         y_values, bin_edges = np.histogram(
-            samples, bins=bins_no
+            samples,
+            bins=bins_no,
+            range=histogram_range,
         )
 
         # We need at least 3 points per gaussian
