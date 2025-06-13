@@ -124,6 +124,11 @@ starting_fraction: 0.1
 step_fraction: 0.01
 minimal_prominence_wrt_max: 0.04
 gaussian_fit_std_no: 3.0
+# The following parameter has to do with how the
+# NotEnoughFitSamples exception is handled when
+# attempting the gaussian fits to the first two
+# peaks of the amplitudes histogram.
+max_gaussian_fit_std_no: 5.0
 # The following parameter should be big enough to
 # enable two gaussian fits with 3 free parameters
 # each of the amplitudes histogram. Keeping it to
