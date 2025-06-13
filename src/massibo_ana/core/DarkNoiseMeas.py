@@ -671,6 +671,16 @@ class DarkNoiseMeas(SiPMMeas):
             peaks_to_detect=peaks_to_detect,
             peaks_to_fit=(0, 1),
             bins_no=bins_no,
+            # N.B.: In the following line, we enforce the beginning of
+            # the histogram range to be 0 so that the 1-PE peak can be
+            # correctly identified as a peak. Otherwise, it may happen
+            # (it is improbable, but it has happened in the past) that
+            # the smallest 1-PE amplitude is the most sampled one,
+            # which makes the 1-PE peak of the amplitude histogram to
+            # be monotonically decreasing. I.e. the increasing first-
+            # half of the peak is not seen, and so, it is not identified
+            # as a peak by scipy.signal.find_peaks().
+            histogram_range=(0., np.max(samples)),
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,

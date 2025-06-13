@@ -586,6 +586,7 @@ class GainMeas(SiPMMeas):
             peaks_to_detect=peaks_to_detect,
             peaks_to_fit=peaks_to_fit,
             bins_no=bins_no,
+            histogram_range=None,
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
