@@ -674,6 +674,7 @@ class GainMeas(SiPMMeas):
         peaks_to_detect=3,
         peaks_to_fit=None,
         bins_no=200,
+        histogram_range=None,
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
@@ -710,6 +711,15 @@ class GainMeas(SiPMMeas):
         - bins_no (scalar integer): It must be positive (>0). It is eventually
         given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
         number of bins which are used to histogram the self.__charge_entries.
+        - histogram_range (None or tuple): This parameter is given to the
+        GainMeas.fit_peaks_histogram() method. If None, then numpy.histogram
+        automatically sets the charge histogram range to the minimum and
+        maximum values of the samples array, which in this case is
+        self.__charge_entries. Otherwise, it should be a tuple of two
+        elements, say (min, max), that defines the lower and upper range of
+        the charge histogram to fit. This function does not check the
+        well-formedness of this parameter. Eventually,
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() does.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
@@ -885,6 +895,7 @@ class GainMeas(SiPMMeas):
             peaks_to_detect=peaks_to_detect,
             peaks_to_fit=peaks_to_fit_,
             bins_no=bins_no,
+            histogram_range=histogram_range,
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
