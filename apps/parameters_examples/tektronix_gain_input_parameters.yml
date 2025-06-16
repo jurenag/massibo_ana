@@ -147,9 +147,22 @@ bins_no_points: 4
 # Plot range of the charge histogram. Set it to null in case
 # you want to use the default range, which is inferred by
 # matplotlib.
-charge_histogram_range:
-  - -2.e-13
-  - 25.e-13
+plot_charge_histogram_range:
+  2.:
+    - -2.e-13
+    - 25.e-13
+  2.6:
+    - -2.e-13
+    - 25.e-13
+  3.:
+    - -2.e-13
+    - 25.e-13
+  3.4:
+    - -2.e-13
+    - 25.e-13
+  4.:
+    - -2.e-13
+    - 25.e-13
 
 ### Quality-control parameters
 # If the number of waveforms for a certain SiPM is smaller
