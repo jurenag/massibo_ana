@@ -606,9 +606,11 @@ class GainMeas(SiPMMeas):
             _, _, _ = plot_axes.hist(
                 self.__charge_entries,
                 bins_no,
+                range=histogram_range,
                 log=logarithmic_plot,
-                histtype="step")
-            
+                histtype="step"
+            )
+
             # Do not extend the vertical axis down to order of
             # magnitudes which are senseless for a hits-histogram.
             if logarithmic_plot:
