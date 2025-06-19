@@ -113,7 +113,7 @@ peak_search_step_fraction: 0.01
 # those whose prominence is bigger or equal to a fraction
 # of the histogram maximum. It must belong to the
 # [0.0, 1.0] range.
-minimal_prominence_wrt_max: 0.05
+minimal_prominence_wrt_max: 0.075
 
 # Number of standard deviations at both sides of the 
 # mean seed to consider for the gaussian fit. It should
@@ -123,7 +123,7 @@ minimal_prominence_wrt_max: 0.05
 # (the mean of the gaussian, the std and an scaling factor).
 # Therefore, the number of points should be big enough so
 # as to allow this 3-parameters fit.
-gaussian_fit_std_no: 5. 
+gaussian_fit_std_no: 3. # Setting this one to 4. for boards 7296, 8549 and 8550 gave worse results.
 
 # Regarding the following five parameters: The charge
 # histogram fit is performed for every
@@ -136,13 +136,13 @@ gaussian_fit_std_no: 5.
 # Minimum (resp. maximum) number of peaks to look for
 # in the charge histogram. 
 min_peaks_to_detect: 2
-max_peaks_to_detect: 4
+max_peaks_to_detect: 3
 
 # The bins_no samples are computed as
 # np.linspace(min_bins_no, max_bins_no, bins_no_points)
-min_bins_no: 35
-max_bins_no: 55
-bins_no_points: 4
+min_bins_no: 25
+max_bins_no: 40
+bins_no_points: 3
 
 # Plot range of the charge histogram. Set it to null in case
 # you want to use the default range, which is inferred by
