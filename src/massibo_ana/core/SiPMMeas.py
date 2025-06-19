@@ -1068,6 +1068,57 @@ class SiPMMeas(ABC):
             return (True, spsi_output)
         else:
             return (False, spsi_output)
+        
+    @staticmethod
+    def __filter_out_same_height_peaks_from_spsi_find_peaks_output(
+        spsi_output,
+        signal,
+    ):
+        """This helper method gets the following positional
+        arguments:
+
+        - spsi_output (tuple of (np.ndarray, dict,)): The output
+        of a call to scipy.signal.find_peaks(). No checks are
+        performed here regarding the well-formedness of this input.
+        - signal (unidimensional numpy array, int or float): The
+        first positional argument that was given to
+        scipy.signal.find_peaks() when generating spsi_output.
+        The caller is responsible for ensuring the well-formedness
+        of this input.
+
+        This helper method should only be called by
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        This function gets the output of a certain call to
+        scipy.signal.find_peaks() and, for any group of peaks
+        which reach the exact same height, it keeps only the
+        first one, i.e. the one which occurs for the smallest
+        index in the original signal. The rest of them are discarded.
+        To this end, this function also gets the original signal,
+        which is used to evaluate the height of each spotted peak.
+        """
+
+        original_peaks_idx = spsi_output[0]
+        original_peaks_properties = spsi_output[1]
+
+        if len(original_peaks_idx) < 2:
+            return spsi_output
+
+        already_seen_peaks_top = set()
+        filtered_peaks_idx = []
+        filtered_peaks_properties = {}
+
+        for i in range(len(original_peaks_idx)):
+
+            if signal[original_peaks_idx[i]] not in already_seen_peaks_top:
+                already_seen_peaks_top.add(signal[original_peaks_idx[i]])
+                filtered_peaks_idx.append(original_peaks_idx[i])
+
+                for key, value in original_peaks_properties.items():
+                    if key not in filtered_peaks_properties:
+                        filtered_peaks_properties[key] = []
+                    filtered_peaks_properties[key].append(value[i])
+
+        return (np.array(filtered_peaks_idx), filtered_peaks_properties)
     
     @staticmethod
     def __select_peaks_from_spsi_find_peaks_output(
