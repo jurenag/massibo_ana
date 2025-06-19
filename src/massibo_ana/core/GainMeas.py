@@ -618,18 +618,31 @@ class GainMeas(SiPMMeas):
 
             if plot_fit:
 
-                # SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() gives
-                # scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
+                # SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()
+                # gives scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
                 # therefore this is the fitting function.
                 gaussian = lambda z, mean, std, scaling: scaling * math.exp(
                     -0.5 * (z - mean) * (z - mean) / (std * std)
                 )
                 gaussian = np.vectorize(gaussian, excluded=(1, 2, 3))
 
-                # G. mean minus std_no times the g. std.    # G. mean plus std_no times the g. std.
+                # Note that the gaussian fits are plotted in a x-range which
+                # spans a number of standard deviations, where the standard
+                # deviation is the one which has been optimized for each
+                # gaussian. However, to decide which points are fit using
+                # the a number of standard deviations, the used standard
+                # deviation is the one computed out of the FWHM returned by
+                # the peak-finding algorithm, which happens before the
+                # the gaussian fits and gives the initial seeds for the
+                # gaussian fits. The fit is done in SiPMMeas.piecewise_gaussian_fits().
+                # This means that the superposition of the charge histogram
+                # and the gaussian plots are not a good indicator of which
+                # points were exactly used for the fit.
                 piecewise_xs = [
                     np.linspace(
+                        # Gaussian mean minus std_no times the gaussian std.
                         popt[i][0] - (popt[i][1] * std_no),
+                        # Gaussian mean plus std_no times the gaussian std.
                         popt[i][0] + (popt[i][1] * std_no),
                         num=gaussian_plot_npoints,
                     )
