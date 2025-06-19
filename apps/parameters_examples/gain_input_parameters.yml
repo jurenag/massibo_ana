@@ -69,10 +69,10 @@ rising_edge_tolerance: 0.20 # With the Daphne SNR, at 0.15 we already see mis-id
 
 # Time increment to be used to correct the lower
 # limit time tick given by the rising_edge_tolerance.
-integration_lower_lim_correction_s: -9.e-08
+integration_lower_lim_correction_s: -4.e-08
 
 # Integration window width, in seconds
-integration_lim_width_s: 0.7e-6
+integration_lim_width_s: 0.6e-6
 
 ### Parameters for waveform-integration
 # Input electrical resistance of the DAQ system.
