@@ -1047,6 +1047,18 @@ class SiPMMeas(ABC):
                 width=0,
                 rel_height=0.5
             )
+
+            # scipy.signal.find_peaks() spots peaks as double peaks
+            # when they reach exactly the same top value. For the
+            # massibo case, this can happen due to the electronics
+            # noise which introduces some fluctuations in the whole
+            # signal, and particularly in the peaks. Here, we are
+            # filtering out the doubly spotted peaks.
+            spsi_output = \
+                SiPMMeas.__filter_out_same_height_peaks_from_spsi_find_peaks_output(
+                    spsi_output,
+                    signal[0:points],
+                )
             
             if len(spsi_output[0]) >= max_peaks:
 
