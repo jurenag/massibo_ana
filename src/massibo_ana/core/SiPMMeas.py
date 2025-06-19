@@ -1077,7 +1077,7 @@ class SiPMMeas(ABC):
         """This helper method gets the following positional
         arguments:
 
-        - spsi_output (tuple of (np.ndarray, dict,): The output
+        - spsi_output (tuple of (np.ndarray, dict,)): The output
         of a call to scipy.signal.find_peaks(). No checks are
         performed here regarding the well-formedness of this input.
         - peaks_to_select (tuple of int): Its length must comply
