@@ -128,7 +128,15 @@ max_gaussian_fit_std_no: 4.0
 # each of the amplitudes histogram. Keeping it to
 # 175 or above should be enough.
 amplitudes_histogram_bins_no: 175
+# Only the spotted peaks whose time-delay value
+# is equal or bigger than this threshold, will
+# contribute to the amplitudes histogram which
+# is fitted to find the 1.5-PE level.
 timedelay_cut_for_gaussian_fit: 1.e-4
+# Only the spotted peaks whose amplitude value
+# is equal or smaller than this threshold, will
+# contribute to the amplitudes histogram which
+# is fitted to find the 1.5-PE level.
 amplitude_cut_for_gaussian_fit: null
 
 ### Parameters for integral filter

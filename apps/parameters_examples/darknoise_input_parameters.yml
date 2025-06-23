@@ -135,7 +135,15 @@ max_gaussian_fit_std_no: 5.0
 # this parameter is very dependent on the
 # amplitude_cut_for_gaussian_fit parameter below
 amplitudes_histogram_bins_no: 40
+# Only the spotted peaks whose time-delay value
+# is equal or bigger than this threshold, will
+# contribute to the amplitudes histogram which
+# is fitted to find the 1.5-PE level.
 timedelay_cut_for_gaussian_fit: 1.e-4
+# Only the spotted peaks whose amplitude value
+# is equal or smaller than this threshold, will
+# contribute to the amplitudes histogram which
+# is fitted to find the 1.5-PE level.
 amplitude_cut_for_gaussian_fit: 60.
 
 ### Parameters for integral filter
