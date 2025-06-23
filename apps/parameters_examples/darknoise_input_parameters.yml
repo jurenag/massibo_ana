@@ -129,12 +129,25 @@ gaussian_fit_std_no: 3.0
 # attempting the gaussian fits to the first two
 # peaks of the amplitudes histogram.
 max_gaussian_fit_std_no: 5.0
-# The following parameter should be big enough to
-# enable two gaussian fits with 3 free parameters
-# each of the amplitudes histogram. Note also that
-# this parameter is very dependent on the
-# amplitude_cut_for_gaussian_fit parameter below
-amplitudes_histogram_bins_no: 40
+# The bins number used for the amplitudes histogram,
+# which is used to find the 1.5-PE level, is
+# first set to the value of
+# maximum_first_amplitudes_histogram_bins_no.
+# Then it is reduced by the
+# amplitudes_histogram_bins_no_step parameter
+# until a successful gaussian fit is achieved.
+# Note that this scan should find a case where
+# the bins number is big enough to allow
+# the gaussian fit to be performed (i.e. to 
+# have enough samples in the histogram to do
+# a 3-parameters gaussian fit), but small enough
+# to avoid fluctuations which could be
+# misinterpreted as peaks. Note that these
+# parameters should be set jointly with the
+# amplitude_cut_for_gaussian_fit parameter below.
+maximum_first_amplitudes_histogram_bins_no: 40
+minimum_amplitudes_histogram_bins_no: 35
+amplitudes_histogram_bins_no_step: 2
 # Only the spotted peaks whose time-delay value
 # is equal or bigger than this threshold, will
 # contribute to the amplitudes histogram which
