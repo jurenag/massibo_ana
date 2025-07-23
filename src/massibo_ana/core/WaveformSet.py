@@ -2680,7 +2680,8 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.get_average_baseline",
                     3,
                     extra_info="The baseline of the first peak of every "
-                    "waveform have been computed before calling this method."
+                    "waveform must have been computed before calling this "
+                    "method."
                 )
             )
 
