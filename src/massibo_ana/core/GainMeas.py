@@ -603,7 +603,7 @@ class GainMeas(SiPMMeas):
             std_no=std_no
         )
         if fPlot:
-            _, _, _ = plot_axes.hist(
+            bins_values, _, _ = plot_axes.hist(
                 self.__charge_entries,
                 bins_no,
                 range=histogram_range,
@@ -678,6 +678,7 @@ class GainMeas(SiPMMeas):
             plot_axes.set_xlabel(f"Charge (C)")
             plot_axes.set_ylabel(f"Hits")
             plot_axes.set_xlim(plot_charge_range)
+            plot_axes.set_ylim((0, 1.1*np.max(bins_values)))
             plot_axes.set_title(axes_title)
             plot_axes.grid()
 
