@@ -2512,6 +2512,87 @@ class WaveformSet(OneTypeRTL):
             return result >= threshold
         else:
             return result >= threshold, result
+        
+    @staticmethod
+    def pretrigger_oscillation_filter(
+        waveform: Waveform,
+        maximum_deviation_in_AU,
+        i_up
+    ) -> bool:
+        """This method gets the following positional arguments:
+
+        - waveform (Waveform): Waveform object which will be
+        filtered based on the deviations of its signal with
+        respect to its baseline, in the pre-trigger region.
+
+        - maximum_deviation_in_AU (float): The maximum allowed
+        deviation, in arbitrary units, for the waveform signal
+        with respect to its baseline, in the pre-trigger region.
+
+        - i_up (int): Positive integer, so that it is assumed
+        that the pre-trigger region spans from waveform.Time[0]
+        to waveform.Time[i_up].
+
+        If, in the pre-trigger region, the waveform signal
+        deviates from its baseline by an amount which is bigger
+        than maximum_deviation_in_AU, then this function returns
+        False. Otherwise, it returns True. Namely, this function
+        checks the following condition: 
+
+            np.max(
+                np.abs(
+                    waveform.Signal[:i_up] - waveform.Signal['first_peak_baseline']
+                )
+            ) < np.abs(maximum_deviation_in_AU)
+
+        If it is True, then this function returns True. Otherwise,
+        it returns False."""
+
+        htype.check_type(
+            waveform,
+            Waveform,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.pretrigger_oscillation_filter", 1
+            ),
+        )
+        htype.check_type(
+            maximum_deviation_in_AU,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.pretrigger_oscillation_filter", 2
+            ),
+        )
+        htype.check_type(
+            i_up,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.pretrigger_oscillation_filter", 3
+            ),
+        )
+        if i_up < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.pretrigger_oscillation_filter", 4
+                )
+            )
+
+        try:
+            aux = waveform.Signal[:i_up] - waveform.Signs['first_peak_baseline']
+
+        except KeyError:
+            raise cuex.NoAvailableData(
+                htype.generate_exception_message(
+                    "WaveformSet.pretrigger_oscillation_filter",
+                    5,
+                    extra_info="The baseline of the first peak of the "
+                    "waveform must have been computed before calling "
+                    "this method."
+                )
+            )
+        
+        return np.max(np.abs(aux)) < maximum_deviation_in_AU
 
     @staticmethod
     def peaks_no_filter(waveform: Waveform, n_peaks, filter_out_below=True) -> bool:
