@@ -175,6 +175,13 @@ delta_t_from_beginning_of_rise: 0.08e-5    # Currently not used
 window_start_s: 0.0
 integral_window_width_s: 0.45e-5
 
+# The following parameter is used to filter out
+# the waveforms whose signal deviates from its
+# baseline, negatively or positively, by more
+# than this value. If it is set to null, then
+# no filtering is applied.
+maximum_allowed_pretrigger_oscillation_in_AU: null
+
 ### Quality-control parameters
 # If after applying the filter, the number of waveforms
 # for a certain SiPM is less than this value, the
