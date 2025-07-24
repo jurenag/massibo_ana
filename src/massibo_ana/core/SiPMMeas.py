@@ -1345,7 +1345,13 @@ class SiPMMeas(ABC):
 
     @staticmethod
     def piecewise_gaussian_fits(
-        x, y, mean_seeds, std_seeds, scaling_seeds=None, std_no=3.0
+        x,
+        y,
+        mean_seeds,
+        std_seeds,
+        scaling_seeds=None,
+        fit_parameters_bounds=None,
+        std_no=3.0
     ):
         """This static method gets the following mandatory positional arguments:
 
@@ -1364,6 +1370,18 @@ class SiPMMeas(ABC):
         are piecewise fitted are not normalized, but the exponential term is
         scaled by a certain factor. In such case, scaling_seeds[i] is the seed
         for such scale factor in the i-th fit.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It is
+        eventually given to the 'bounds' keyword argument of
+        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
+        gaussian fit parameters, i.e. for the gaussian mean and standard
+        deviation. Note that, additionally, if the scaling_seeds are defined,
+        then the bounds for the scaling should also be set. If it is None,
+        then no bounds are set, i.e. the bounds for every parameter are set to
+        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
+        many entries as fit parameters. The i-th entry of the first (resp.
+        second) element of the tuple contains the lower (resp. upper) bound for
+        the i-th fit parameter. If defined, this parameter is not checked, but
+        given to scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). This number determines
         the x-range of the input data which is used for each fit. Namely, the x-y
         points which are used for the i-th fit are those which fall within the
@@ -1529,11 +1547,43 @@ class SiPMMeas(ABC):
 
             seeds_package = [mean_seeds[i], std_seeds[i], scaling_seeds_[i]]
             p0 = seeds_package if fWithScaling else seeds_package[:-1]
+
+            if fit_parameters_bounds is None:
+                fit_parameters_bounds_ = (-np.inf, np.inf)
+            else:
+                fit_parameters_bounds_ = fit_parameters_bounds
+
+                for i in range(len(p0)):
+                    try:
+                        if p0[i] < fit_parameters_bounds_[0][i] or p0[i] > fit_parameters_bounds_[1][i]:
+                            print(
+                                "In function SiPMMeas.piecewise_gaussian_fits(): "
+                                f"The seed value {p0[i]} for the {i}-th fit parameter"
+                                " is not within the specified bounds "
+                                f"({fit_parameters_bounds_[0][i]}, {fit_parameters_bounds_[1][i]})."
+                                " This seed will be replaced by the mean value of the bounds."
+                            )
+
+                            p0[i] = (
+                                fit_parameters_bounds_[0][i] +
+                                fit_parameters_bounds_[1][i]
+                            ) / 2.0
+
+                    except IndexError:
+                        raise cuex.InvalidParameterDefinition(
+                            htype.generate_exception_message(
+                                "SiPMMeas.piecewise_gaussian_fits",
+                                54013,
+                                extra_info=f"The fit_parameters_bounds_ parameter is ill-formed."
+                            )
+                        )
+
             aux_popt, aux_pcov = spopt.curve_fit(
                 gaussian,
                 fit_x,
                 fit_y,
                 p0=p0,
+                bounds=fit_parameters_bounds_,
                 # **kwargs are pased to leastsq for method='lm' or least_squares otherwise
                 # Got this information from https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html
                 maxfev=2000,
