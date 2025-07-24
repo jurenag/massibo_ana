@@ -335,6 +335,7 @@ class GainMeas(SiPMMeas):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
+        fit_parameters_bounds=None,
         std_no=3.0,
         plot_axes=None,
         logarithmic_plot=False,
@@ -395,6 +396,18 @@ class GainMeas(SiPMMeas):
         to a fraction of the self.ChargeEntries histogram maximum. For more
         information check the
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It is
+        eventually given to the 'bounds' keyword argument of
+        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
+        gaussian fit parameters, i.e. for the gaussian mean and standard
+        deviation. Note that, additionally, if the scaling_seeds are defined,
+        then the bounds for the scaling should also be set. If it is None,
+        then no bounds are set, i.e. the bounds for every parameter are set to
+        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
+        many entries as fit parameters. The i-th entry of the first (resp.
+        second) element of the tuple contains the lower (resp. upper) bound for
+        the i-th fit parameter. If defined, this parameter is not checked, but
+        given to scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). It is given to
         the static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check
@@ -600,6 +613,7 @@ class GainMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
+            fit_parameters_bounds=fit_parameters_bounds,
             std_no=std_no
         )
         if fPlot:
@@ -694,6 +708,7 @@ class GainMeas(SiPMMeas):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
+        fit_parameters_bounds=None,
         std_no=3.0,
         gain_fit_axes=None,
         errorbars_scaling=1.0,
@@ -761,6 +776,18 @@ class GainMeas(SiPMMeas):
         whose prominence is bigger or equal to a fraction
         np.max(self.ChargeEntries) histogram maximum. For more information
         check the SiPMMeas.fit_peaks_histogram() docstring.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It is
+        eventually given to the 'bounds' keyword argument of
+        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
+        gaussian fit parameters, i.e. for the gaussian mean and standard
+        deviation. Note that, additionally, if the scaling_seeds are defined,
+        then the bounds for the scaling should also be set. If it is None,
+        then no bounds are set, i.e. the bounds for every parameter are set to
+        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
+        many entries as fit parameters. The i-th entry of the first (resp.
+        second) element of the tuple contains the lower (resp. upper) bound for
+        the i-th fit parameter. If defined, this parameter is not checked, but
+        given to scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
@@ -915,6 +942,7 @@ class GainMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
+            fit_parameters_bounds=fit_parameters_bounds,
             std_no=std_no,
             plot_axes=histogram_fit_axes,
             logarithmic_plot=logarithmic_plot,

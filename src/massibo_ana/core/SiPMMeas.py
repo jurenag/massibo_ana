@@ -626,6 +626,7 @@ class SiPMMeas(ABC):
         starting_fraction=0.0,
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
+        fit_parameters_bounds=None,
         std_no=3.0
     ):
         """This static method gets the following optional keyword arguments:
@@ -669,6 +670,18 @@ class SiPMMeas(ABC):
         fraction of the samples histogram amplitude. For more information
         check the SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
         docstring.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It is
+        eventually given to the 'bounds' keyword argument of
+        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
+        gaussian fit parameters, i.e. for the gaussian mean and standard
+        deviation. Note that, additionally, if the scaling_seeds are defined,
+        then the bounds for the scaling should also be set. If it is None,
+        then no bounds are set, i.e. the bounds for every parameter are set to
+        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
+        many entries as fit parameters. The i-th entry of the first (resp.
+        second) element of the tuple contains the lower (resp. upper) bound for
+        the i-th fit parameter. If defined, this parameter is not checked, but
+        given to scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). This parameter
         is given to the std_no keyword argument of
         SiPMMeas.piecewise_gaussian_fits(). Check its docstring for more
@@ -948,6 +961,7 @@ class SiPMMeas(ABC):
             mean_seeds,
             std_seeds,
             scaling_seeds=scaling_seeds,
+            fit_parameters_bounds=fit_parameters_bounds,
             std_no=std_no,
         )
         return popt, pcov
