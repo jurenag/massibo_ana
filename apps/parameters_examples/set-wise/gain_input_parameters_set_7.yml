@@ -7,31 +7,24 @@
 # directory.
 workspace_dir: ''
 
-# Every file in the load-directory whose name
-# starts with one of the strings in this list
-# is elegible for analysis, eventually depending
-# on the analyzable_marks list
-strips_to_analyze:
-  - '5787'
-  - '5788'
-  - '5790'
-  - '7299'
-  - '7300'
-  - '7304'
-  - '7306'
-  - '7308'
-  - '7309'
-  - '7310'
-  - '7315'
-  - '7317'
-  - '7337'
-  - '7343'
-  - '7350'
-  - '7320'
-  - '7330'
-  - '7334'
-  - '7352'
-  - '7353'
+# If this parameter is not null, then it must
+# be set to an integer which identifies the
+# measurements set to be analyzed. I.e. the
+# strip IDs to be analyzed will be taken from
+# a list of strip IDs which is tabulated elsewhere
+# and which is referred to the specified set
+# number. If this parameter is null, then the
+# strips_to_analyze list below is used to
+# determine which strips are to be analyzed.
+set_to_analyze: 7 # 1, 2, ...
+
+# This parameter only makes a difference if
+# the set_to_analyze parameter is null. In
+# that case, every file in the load-directory
+# whose name starts with one of the strings in
+# this list is elegible for analysis, eventually
+# depending on the analyzable_marks list.
+strips_to_analyze: null
 
 # A file in the load-directory must contain
 # in its name at least one of the strings in
