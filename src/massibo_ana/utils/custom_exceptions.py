@@ -101,7 +101,6 @@ class BinReadException(Exception):
         "went wrong reading a .NPY or .BIN file (numpy or homemade binary " \
         "waveform file)."
 
-
 class InvalidPhysicalConfiguration(Exception):
     def __init__(self, message):
         super().__init__(message)
