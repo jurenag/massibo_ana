@@ -24,10 +24,7 @@ set_to_analyze: null # 1, 2, ...
 # whose name starts with one of the strings in
 # this list is elegible for analysis, eventually
 # depending on the analyzable_marks list.
-strips_to_analyze:
-  - '450'
-  - '225'
-  - '1088'
+strips_to_analyze: null
 
 # A file in the load-directory must contain
 # in its name at least one of the strings in
