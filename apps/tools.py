@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate as spinter
 from scipy import optimize as spopt
-from typing import List
+from typing import List, Optional
 
 strip_ids_of_set = {
     1: [
@@ -750,6 +750,7 @@ def build_list_of_SiPMMeas_objects(
         jsons_folder_path: str,
         strips_to_analyze: List[str],
         analyzable_marks: List[str],
+        set_to_analyze: Optional[int] = None,
         is_gain_meas: bool = False,
         verbose: bool = False
 ) -> List[SiPMMeas]:
@@ -759,14 +760,23 @@ def build_list_of_SiPMMeas_objects(
     for the JSON files from which SiPMMeas objects (either GainMeas
     or DarkNoiseMeas objects, up to the is_gain_meas parameter)
     will be loaded.
-    - strips_to_analyze (list of strings): The strip IDs of the
-    strips whose measurements are to be analyzed.
+    - strips_to_analyze (list of strings): This parameter only makes
+    a difference if set_to_analyze is None. In such case, it gives
+    the strip IDs of the strips whose measurements are to be analyzed.
     - analyzable_marks (list of strings): For a JSON file to be
     loaded, its name must contain at least one of the strings
     contained within the analyzable_marks list.
 
     This function gets the following keyword arguments:
 
+    - set_to_analyze (int or None): If this parameter is not null,
+    then it must be set to an integer which identifies the measurements
+    set to be analyzed. I.e. the strip IDs to be analyzed will be
+    taken from a global variable called strip_ids_of_set, which is a
+    dictionary whose keys are integers (set numbers) and whose values
+    are lists of strip IDs. If this parameter is null, then the
+    strips_to_analyze parameter above is used to determine which strips
+    are to be analyzed.
     - is_gain_meas (bool): Whether the SiPMMeas objects to be
     loaded are GainMeas or DarkNoiseMeas objects. If True (resp.
     False), only JSON files whose name contains the 'gain' (resp.
@@ -776,6 +786,26 @@ def build_list_of_SiPMMeas_objects(
     This function returns a list of SiPMMeas objects, each of
     which has been loaded from a single JSON file in the specified
     folder."""
+
+    if set_to_analyze is None:
+        strips_to_analyze_ = strips_to_analyze
+
+    else:
+        try:
+            strips_to_analyze_ = strip_ids_of_set[set_to_analyze]
+
+        except KeyError:
+            raise cuex.NoAvailableData(
+                "In function build_list_of_SiPMMeas_objects(): "
+                f"Set {set_to_analyze} not found in available "
+                f"sets: {tuple(strip_ids_of_set.keys())}"
+            )
+        
+    if verbose:
+        print(
+            "In function build_list_of_SiPMMeas_objects(): "
+            f"Targetting the following strip IDs: {tuple(strips_to_analyze_)}"
+        )
 
     if is_gain_meas:
         cls = GainMeas
@@ -788,7 +818,7 @@ def build_list_of_SiPMMeas_objects(
         if analyze_it(
             json_file, 
             analyzable_prefixes=[
-                strip_id+'-' for strip_id in strips_to_analyze
+                strip_id+'-' for strip_id in strips_to_analyze_
             ],
             conjuntive_analyzable_marks=['gain'] if is_gain_meas else ['darknoise'],
             disyuntive_analyzable_marks=analyzable_marks
