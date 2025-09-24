@@ -62,7 +62,7 @@ merged_points: 2
 # baseline. P.e. 0.2 means that, for each waveform,
 # only its first 20% (in time) of the signal is used
 # to compute the baseline.
-signal_fraction_for_median_cutoff: 0.15
+signal_fraction_for_median_cutoff: 0.15 # Below 15%, fluctuations in the charge histogram start to be misidentified as peaks (set 7)
 
 # If defined, then the baseline is computed as the
 # average of the points (which are defined and belong
@@ -153,9 +153,9 @@ max_peaks_to_detect: 3
 
 # The bins_no samples are computed as
 # np.linspace(min_bins_no, max_bins_no, bins_no_points)
-min_bins_no: 25
-max_bins_no: 40
-bins_no_points: 3
+min_bins_no: 20
+max_bins_no: 35 # Above 35, fluctuations in the charge histogram start to be misidentified as peaks (set 7)
+bins_no_points: 6
 
 # Fit range of the charge histogram. Set it to null in case
 # you want to use the default range, which is inferred by
