@@ -3304,9 +3304,10 @@ class DataPreprocessor:
     def check_structure_of_input_folder(
         input_folderpath,
         subfolders_no=7,
-        json_files_no_at_2nd_level=1,
-        json_files_no_at_3rd_level=1,
-        non_json_files_no_at_2nd_and_3rd_level=18,
+        json_files_no_at_second_to_deepest_level=1,
+        json_files_no_at_deepest_level=1,
+        non_json_files_no_at_deepest_and_second_to_deepest_level=18,
+        three_boards_multiplexing=False
     ):
         """This function gets the following positional argument:
 
@@ -3320,19 +3321,60 @@ class DataPreprocessor:
         names of these sub-folders must be set so that for each integer
         in [1, ..., subfolders_no], say i, there is at least one sub-
         folder that contains the string str(i).
-        - json_files_no_at_2nd_level (positive integer): It must match
-        the number of json files at every second level. I.e. any folder
-        within the given input folder must contain exactly this number
-        of json files.
-        - json_files_no_at_3rd_level (positive integer): It must match
-        the number of json files at every third level. I.e. any folder
-        within any folder within the given input folder must contain
-        exactly this number of json files.
-        - non_json_files_no_at_2nd_and_3rd_level (positive integer): It 
-        must match the number of non-json files at every second or 
-        third level. I.e. any folder within the given input folder, 
-        or any folder within any folder within the given input folder, 
-        must contain exactly this number of non-json files.
+        - json_files_no_at_second_to_deepest_level (positive integer):
+        It must match the number of json files at every
+        second-to-deepest level.
+        - json_files_no_at_deepest_level (positive integer): It must
+        match the number of json files at every deepest level.
+        - non_json_files_no_at_deepest_and_second_to_deepest_level
+        (positive integer): It must match the number of non-json files
+        at every deepest or second-to-deepest level.
+        - three_boards_multiplexing (bool): If False, then expected
+        file pattern is:
+            
+            - input_folderpath
+                - subfolder_1
+                    - json_file
+                    - non_json_files
+                    - subfolder_1_1
+                        - json_file
+                        - non_json_files
+                    - subfolder_1_2
+                        - json_file
+                        - non_json_files
+                    - ...
+                - subfolder_2
+                    - ...
+                - ...
+                - subfolder_<subfolders_no>
+                    - ...
+
+        If True, then the expected file pattern is:
+
+            - input_folderpath
+                - subfolder_1
+                    - board_0
+                        - json_file
+                        - non_json_files
+                        - subfolder_101
+                            - json_file
+                            - non_json_files
+                        - subfolder_102
+                            - json_file
+                            - non_json_files
+                        - ...
+                    - board_1
+                        - ...
+                    - board_2
+                        - ...
+                - subfolder_2
+                    - board_0
+                        - ...
+                    - ...
+                    - board_2
+                        - ...
+                - subfolder_<subfolders_no>
+                    - ...
 
         This function gets the path to a folder, and checks that the
         file structure within that folder follows the expected pattern.
@@ -3373,44 +3415,51 @@ class DataPreprocessor:
                 )
             )
         htype.check_type(
-            json_files_no_at_2nd_level,
+            json_files_no_at_second_to_deepest_level,
             int,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.check_structure_of_input_folder", 95821
             ),
         )
-        if json_files_no_at_2nd_level < 1:
+        if json_files_no_at_second_to_deepest_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "DataPreprocessor.check_structure_of_input_folder", 36144
                 )
             )
         htype.check_type(
-            json_files_no_at_3rd_level,
+            json_files_no_at_deepest_level,
             int,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.check_structure_of_input_folder", 47829
             ),
         )
-        if json_files_no_at_3rd_level < 1:
+        if json_files_no_at_deepest_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "DataPreprocessor.check_structure_of_input_folder", 12311
                 )
             )
         htype.check_type(
-            non_json_files_no_at_2nd_and_3rd_level,
+            non_json_files_no_at_deepest_and_second_to_deepest_level,
             int,
             exception_message=htype.generate_exception_message(
                 "DataPreprocessor.check_structure_of_input_folder", 45829
             ),
         )
-        if non_json_files_no_at_2nd_and_3rd_level < 1:
+        if non_json_files_no_at_deepest_and_second_to_deepest_level < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "DataPreprocessor.check_structure_of_input_folder", 58821
                 )
             )
+        htype.check_type(
+            three_boards_multiplexing,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DataPreprocessor.check_structure_of_input_folder", 48294
+            ),
+        )
         
         warnings = []
         analysable_folderpaths = []
@@ -3432,6 +3481,15 @@ class DataPreprocessor:
         for i in reversed(range(len(folders_names_copy))):
             for j in range(1, subfolders_no + 1):
 
+                # N.B: For future reference, when we preprocess only
+                # one measurement folder at once, p.e. 'meas_3' (setting
+                # subfolders_no to 1) we will get a warning stating that
+                # such folder is not integer-labelled, although it
+                # contains the substring '3'. This is due to the fact
+                # that the integers that are looked for here are only
+                # those in the range [1, subfolders_no], i.e. [1, 1] in
+                # this case.
+
                 if str(j) in folders_names_copy[i]:
                     del folders_names_copy[i]
                     break
@@ -3445,15 +3503,67 @@ class DataPreprocessor:
                 f"The following sub-folder(s) of the given root folder are not integer-labelled: {folders_names_copy}"
             )
 
-        for folder_name in folders_names:
-            aux_warnings, aux_analysable_folderpaths = DataPreprocessor.__check_well_formedness_of_subfolder(
-                os.path.join(input_folderpath, folder_name),
-                json_files_no_at_1st_level=json_files_no_at_2nd_level,
-                json_files_no_at_2nd_level=json_files_no_at_3rd_level,
-                non_json_files_no_at_1st_and_2nd_level=non_json_files_no_at_2nd_and_3rd_level,
-            )
-            warnings += aux_warnings
-            analysable_folderpaths += aux_analysable_folderpaths
+        if not three_boards_multiplexing: 
+            for folder_name in folders_names:
+                aux_warnings, aux_analysable_folderpaths = DataPreprocessor.__check_well_formedness_of_subfolder(
+                    os.path.join(input_folderpath, folder_name),
+                    json_files_no_at_1st_level=json_files_no_at_second_to_deepest_level,
+                    json_files_no_at_2nd_level=json_files_no_at_deepest_level,
+                    non_json_files_no_at_1st_and_2nd_level=non_json_files_no_at_deepest_and_second_to_deepest_level,
+                )
+                warnings += aux_warnings
+                analysable_folderpaths += aux_analysable_folderpaths
+        else:
+            for folder_name in folders_names:
+
+                current_folder_path = os.path.join(
+                    input_folderpath,
+                    folder_name
+                )
+
+                board_folders_no, board_folders_names = DataPreprocessor.count_folders(
+                    current_folder_path,
+                    ignore_hidden_folders=True,
+                    return_foldernames=True
+                )
+                board_folders_names.sort()
+
+                fRaiseException = False
+                if board_folders_no != 3:
+                    fRaiseException = True
+                
+                if not fRaiseException:
+                    if board_folders_names != ['board_0', 'board_1', 'board_2']:
+                        fRaiseException = True
+
+                if fRaiseException:
+                    raise Exception(
+                        htype.generate_exception_message(
+                            "DataPreprocessor.check_structure_of_input_folder", 
+                            93710,
+                            extra_info="If the three_boards_multiplexing parameter "
+                            "is set to True, then the subfolders of the given "
+                            f"folderpath ({input_folderpath}) must (only) contain "
+                            "the folders 'board_0', 'board_1' and 'board_2'. However, "
+                            f"for the subfolder '{current_folder_path}', the following "
+                            f"subsubfolders were found: {board_folders_names}."
+                        )
+                    )
+
+                # If board_folders_names is different from the following
+                # list, then an exception would have been raised before
+                for board_folder_name in ['board_0', 'board_1', 'board_2']:
+                    aux_warnings, aux_analysable_folderpaths = DataPreprocessor.__check_well_formedness_of_subfolder(
+                        os.path.join(
+                            current_folder_path,
+                            board_folder_name
+                        ),
+                        json_files_no_at_1st_level=json_files_no_at_second_to_deepest_level,
+                        json_files_no_at_2nd_level=json_files_no_at_deepest_level,
+                        non_json_files_no_at_1st_and_2nd_level=non_json_files_no_at_deepest_and_second_to_deepest_level,
+                    )
+                    warnings += aux_warnings
+                    analysable_folderpaths += aux_analysable_folderpaths
         
         return warnings, analysable_folderpaths
 
