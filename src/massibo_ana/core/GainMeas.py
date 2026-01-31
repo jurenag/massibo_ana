@@ -443,7 +443,7 @@ class GainMeas(SiPMMeas):
         addition, if plot_axes is provided, then the resulting histogram is
         plotted in the given axes. Furthermore, if plot_fit is True, then the
         fit functions are plotted together with the histogram. To end with,
-        this method returns the output of
+        this method returns the first two outputs of
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which are
         two lists, say popt and pcov, so that popt[i] (resp. pcov[i]) is the
         set of optimal values (resp. covariance matrix) for the fit of the
@@ -604,18 +604,19 @@ class GainMeas(SiPMMeas):
         # Assuming popt[i][0], popt[i][1] and popt[i][2]
         # to be the optimal value for the gaussian mean,
         # standard deviation and scaling, respectively.
-        popt, pcov = SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(
-            self.__charge_entries,
-            peaks_to_detect=peaks_to_detect,
-            peaks_to_fit=peaks_to_fit,
-            bins_no=bins_no,
-            histogram_range=histogram_range,
-            starting_fraction=starting_fraction,
-            step_fraction=step_fraction,
-            minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            fit_parameters_bounds=fit_parameters_bounds,
-            std_no=std_no
-        )
+        popt, pcov, _ = \
+            SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(
+                self.__charge_entries,
+                peaks_to_detect=peaks_to_detect,
+                peaks_to_fit=peaks_to_fit,
+                bins_no=bins_no,
+                histogram_range=histogram_range,
+                starting_fraction=starting_fraction,
+                step_fraction=step_fraction,
+                minimal_prominence_wrt_max=minimal_prominence_wrt_max,
+                fit_parameters_bounds=fit_parameters_bounds,
+                std_no=std_no
+            )
         if fPlot:
             bins_values, _, _ = plot_axes.hist(
                 self.__charge_entries,
@@ -644,7 +645,7 @@ class GainMeas(SiPMMeas):
                 # spans a number of standard deviations, where the standard
                 # deviation is the one which has been optimized for each
                 # gaussian. However, to decide which points are fit using
-                # the a number of standard deviations, the used standard
+                # the number of standard deviations, the used standard
                 # deviation is the one computed out of the FWHM returned by
                 # the peak-finding algorithm, which happens before the
                 # the gaussian fits and gives the initial seeds for the

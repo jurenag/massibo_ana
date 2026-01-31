@@ -691,8 +691,9 @@ class SiPMMeas(ABC):
         peaks_to_detect first peaks of the histogram of samples. By 'first
         peaks', we mean those which happen for smaller values of the histogram
         array iterator. Such subset is defined via peaks_to_fit. This method
-        returns the optimal values for the fitting parameters, as well as
-        the covariance matrix. To do so, this method does the following:
+        returns the optimal values for the fitting parameters, the covariance
+        matrix, and a callable which evaluates the resulting piecewise gaussian
+        fit. To do so, this method does the following:
 
         1) Generates an histogram using samples entries
         2) Detects the peaks_to_detect first peaks of such histogram
@@ -706,11 +707,14 @@ class SiPMMeas(ABC):
         turn, gives them to scipy.optimize.curve_fit()
         5) Fits one gaussian function to each one of the targeted peaks
         6) Returns the output of SiPMMeas.piecewise_gaussian_fits(),
-        which is made up of two lists, say popt and pcov, so that popt[i]
+        which is made up of
+         - two lists, say popt and pcov, so that popt[i]
         (resp. pcov[i]) is the set of optimal values (resp. covariance
-        matrix) for the fit of the i-th fit peak. For more information
-        on such output, check the SiPMMeas.piecewise_gaussian_fits()
-        docstring."""
+        matrix) for the fit of the i-th fit peak,
+         - and a callable, say fit_functions_sum, which evaluates
+        the sum of the piecewise gaussian fits.
+        For more information on such output, check the
+        SiPMMeas.piecewise_gaussian_fits() docstring."""
 
         htype.check_type(
             samples,
@@ -955,7 +959,7 @@ class SiPMMeas(ABC):
             y_values[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
         ]
 
-        popt, pcov = SiPMMeas.piecewise_gaussian_fits(
+        popt, pcov, fit_functions_sum = SiPMMeas.piecewise_gaussian_fits(
             bin_centers,
             y_values,
             mean_seeds,
@@ -964,7 +968,7 @@ class SiPMMeas(ABC):
             fit_parameters_bounds=fit_parameters_bounds,
             std_no=std_no,
         )
-        return popt, pcov
+        return popt, pcov, fit_functions_sum
     
     @staticmethod
     def __spot_first_peaks_in_CalibrationHistogram(
@@ -1411,7 +1415,10 @@ class SiPMMeas(ABC):
         scipy.optimize.curve_fit(). In any case, popt[i][0] (resp. popt[i][1]) is
         the optimal value for the mean (resp. the standard deviation) of the i-th
         gaussian fit. In addition, if scaling_seeds is suitably defined, then
-        popt[i][2] is the optimal value for the scaling of the i-th gaussian fit."""
+        popt[i][2] is the optimal value for the scaling of the i-th gaussian fit.
+        In addition to those two lists, this function returns a callable, say
+        fit_functions_sum, which evaluates the sum of the piecewise gaussian
+        fits."""
 
         htype.check_type(
             x,
@@ -1605,7 +1612,19 @@ class SiPMMeas(ABC):
 
             popt.append(aux_popt)
             pcov.append(aux_pcov)
-        return popt, pcov
+
+        def fit_functions_sum(x):
+            y = 0.
+
+            for i in range(len(mean_seeds)):
+                y += gaussian(
+                    x,
+                    *popt[i]
+                )
+
+            return y
+
+        return popt, pcov, fit_functions_sum
 
     @classmethod
     def from_json_file(cls, sipmmeas_config_json):

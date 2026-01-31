@@ -666,7 +666,7 @@ class DarkNoiseMeas(SiPMMeas):
 
         # Note that we filtered out 'inf' and 'nan' entries JUST FOR 1.5 PE amplitude
         # computation. Such entries may still be contained wihtin self.__amplitude.
-        popt, _ = SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(
+        popt, _, fit_functions_sum = SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(
             samples,
             peaks_to_detect=peaks_to_detect,
             peaks_to_fit=(0, 1),
@@ -699,7 +699,8 @@ class DarkNoiseMeas(SiPMMeas):
             (amplitudes_means[1] - amplitudes_means[0]) / 2.0
         )
         self.__one_and_a_half_pe = (amplitudes_means[0] + amplitudes_means[1]) / 2.0
-        return
+
+        return samples, fit_functions_sum
 
     def get_dark_counts_number(self):
         """This method returns an integer scalar which is the number of peaks which
