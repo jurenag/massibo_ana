@@ -463,8 +463,9 @@ class DarkNoiseMeas(SiPMMeas):
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
         std_no=3.0,
+        fraction_of_extremal_samples_to_discard=0.0,
         timedelay_cut=0.0,
-        amplitude_cut=None
+        amplitude_cut=None,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -511,6 +512,11 @@ class DarkNoiseMeas(SiPMMeas):
         SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
         turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check its
         docstrings for more information.
+        - fraction_of_extremal_samples_to_discard (scalar float): It must be
+        semipositive (>=0.0) and smaller than 0.5 (<0.5). The amplitude samples
+        are sorted in ascending order, and then, the given fraction of the
+        lowest and highest amplitude samples are discarded. This is useful to
+        get rid of outliers which might affect the histogram.
         - timedelay_cut (scalar float): It must be semipositive (>=0.0). It
         is used as an inclusive lower bound for the time-delay value of the
         peaks that have been spotted within the underlying WaveformSet object.
@@ -528,23 +534,32 @@ class DarkNoiseMeas(SiPMMeas):
         self.__one_and_a_half_pe attributes, respectively. To do so, this
         method
 
-        1) filters out the entries within self.__amplitude whose matching entry
-        within self.__timedelay is lower than timedelay_cut,
-        2) if amplitude_cut is defined, then it filters out the entries within
-        self.__amplitude which are bigger than amplitude_cut,
-        3) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        1) creates a filtered version of self.__amplitude, by applying the
+        following cuts, in this order:
+            - The amplitude samples whose matching time-delay value is smaller
+            than timedelay_cut are discarded
+            - If amplitude_cut is defined, then only the amplitude samples
+            which are bigger than amplitude_cut are discarded
+            - All the inf and nan entries are filtered out
+            - The given fraction (fraction_of_extremal_samples_to_discard) of
+            the lowest and highest amplitude samples are discarded
+
+        2) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
         which generates an histogram of the filtered self.__amplitude entries,
-        4) then generates a probability distribution function (pdf) out of such
+        3) then generates a probability distribution function (pdf) out of such
         histogram,
-        5) then targets the two highest peaks of such pdf which have the lowest
+        4) then targets the two highest peaks of such pdf which have the lowest
         amplitude value, via SiPMMeas.tune_peak_height() and scipy.signal.find_peaks(),
-        6) then fits one gaussian function to each one of these two peaks
-        7) and uses the fit mean of both gaussian functions to compute the desired
+        5) then fits one gaussian function to each one of these two peaks
+        6) and uses the fit mean of both gaussian functions to compute the desired
         attributes. Say that the fit mean of the gaussian function which fits to the
         1-PE (resp. 2-PE) peak is mu_1 (resp. mu_2), then the attributes are
         computed in the following way:
             6.1) The 0.5-PE voltage amplitude is computed as mu_1 -((mu_2-mu_1)/2)
-            6.2) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2"""
+            6.2) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2
+        7) Finally, it returns the samples that were used to compute the histogram
+        which was fit, and a callable which evaluates the sum of the resulting
+        gaussian fits."""
 
         htype.check_type(
             bins_no,
@@ -616,6 +631,23 @@ class DarkNoiseMeas(SiPMMeas):
                 )
             )
         htype.check_type(
+            fraction_of_extremal_samples_to_discard,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_amplitude_levels", 81629
+            ),
+        )
+        if (
+            fraction_of_extremal_samples_to_discard < 0.0
+            or fraction_of_extremal_samples_to_discard >= 0.5
+        ):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_amplitude_levels", 42987
+                )
+            )
+        htype.check_type(
             timedelay_cut,
             float,
             np.float64,
@@ -645,6 +677,15 @@ class DarkNoiseMeas(SiPMMeas):
         # Applying time-delay cut
         samples = self.__amplitude[self.__timedelay >= timedelay_cut]
 
+        if len(samples) == 0:
+            raise cuex.RestrictiveTimedelay(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_amplitude_levels",
+                    47289,
+                    extra_info=f"After applying the timedelay cut (timedelay_cut = {timedelay_cut}), no amplitude samples are left. This may be due to a too restrictive timedelay_cut value or to a dataset which is not well-formed.",
+                )
+            )
+
         if fApplyAmplitudeCut:
             # Applying amplitude cut
             samples = samples[samples <= amplitude_cut]
@@ -655,14 +696,18 @@ class DarkNoiseMeas(SiPMMeas):
             get_mask=False
         )
 
-        if len(samples) == 0:
-            raise cuex.RestrictiveTimedelay(
-                htype.generate_exception_message(
-                    "DarkNoiseMeas.compute_amplitude_levels",
-                    47289,
-                    extra_info=f"After applying the timedelay cut (timedelay_cut = {timedelay_cut}), no amplitude samples are left. This may be due to a too restrictive timedelay_cut value or to a dataset which is not well-formed.",
-                )
-            )
+        # Discarding extremal samples
+        # Yes, always use truncation here
+        number_of_samples_to_discard_on_either_side = int(
+            fraction_of_extremal_samples_to_discard * len(samples)
+        )
+
+        if number_of_samples_to_discard_on_either_side > 0:
+            samples.sort()
+            samples = samples[
+                number_of_samples_to_discard_on_either_side:
+                -1 * number_of_samples_to_discard_on_either_side
+            ]
 
         # Note that we filtered out 'inf' and 'nan' entries JUST FOR 1.5 PE amplitude
         # computation. Such entries may still be contained wihtin self.__amplitude.
