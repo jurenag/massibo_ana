@@ -422,7 +422,11 @@ class DarkNoiseMeas(SiPMMeas):
         self.__half_a_pe and self.__one_and_a_half_pe via
         self.compute_amplitude_levels(). For more information on the
         computing-algorithm of such attributes, check the docstring of
-        DarkNoiseMeas.compute_amplitude_levels()."""
+        DarkNoiseMeas.compute_amplitude_levels(). This method returns
+        the output of self.compute_amplitude_levels(), which are the
+        samples that were used to compute the histogram which was fit,
+        and a callable which evaluates the sum of the resulting gaussian
+        fits."""
 
         aux_t, aux_a, aux_i = self.construct_absolute_time_peaks_map()
 
@@ -452,8 +456,7 @@ class DarkNoiseMeas(SiPMMeas):
         self.__amplitude = aux_a[1:]
         self.__frame_idx = aux_i[1:]
 
-        self.compute_amplitude_levels(**kwargs)
-        return
+        return self.compute_amplitude_levels(**kwargs)
 
     def compute_amplitude_levels(
         self,
