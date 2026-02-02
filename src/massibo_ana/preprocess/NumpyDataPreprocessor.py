@@ -543,12 +543,17 @@ class NumpyDataPreprocessor:
                 DataPreprocessor.query_dictionary_splitting(queried_sipmmeas_fields)
             )
 
-        queried_gainmeas_fields = {
-            "LED_voltage_V": float,
-            "LED_frequency_kHz": float,
-            "LED_pulse_shape": str,
-            "LED_high_width_ns": float,
-        }
+        if self.GainCandidates:
+            queried_gainmeas_fields = {
+                "LED_voltage_V": float,
+                "LED_frequency_kHz": float,
+                "LED_pulse_shape": str,
+                "LED_high_width_ns": float,
+            }
+        else:
+            # If there are no gain measurement candidates,
+            # there is no need to query these fields
+            queried_gainmeas_fields = {}
 
         inferred_gainmeas_fields = {}
         if fInferrFields:
@@ -575,7 +580,15 @@ class NumpyDataPreprocessor:
 
         # The acquisition time is not queried because
         # it is computed from the time stamp data
-        queried_darknoisemeas_fields = {"threshold_mV": float}
+        if self.DarkNoiseCandidates:
+            queried_darknoisemeas_fields = {
+                "threshold_mV": float
+            }
+        else:
+            # If there are no dark noise measurement candidates,
+            # there is no need to query these fields
+            queried_darknoisemeas_fields = {}
+
 
         inferred_darknoisemeas_fields = {}
         if fInferrFields:
