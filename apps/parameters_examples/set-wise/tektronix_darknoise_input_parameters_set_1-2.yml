@@ -5,7 +5,7 @@
 # be in the 'load/' directory, and the output
 # of the analyzer is saved in the 'summary/'
 # directory.
-workspace_dir: ''
+workspace_dir: 'ci_workspace/'
 
 # If this parameter is not null, then it must
 # be set to an integer which identifies the

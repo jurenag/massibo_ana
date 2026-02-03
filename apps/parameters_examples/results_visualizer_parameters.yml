@@ -3,7 +3,7 @@
 # are located. Every file (in this directory)
 # whose name ends with '.pkl' will be read
 # read into a pandas dataframe.
-input_dir: ''
+input_dir: 'ci_workspace/summary/'
 
 # Regarding the read dataframes, the columns
 # whose names are in this list will be ignored

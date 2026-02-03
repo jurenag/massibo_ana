@@ -5,7 +5,7 @@
 # be in the 'load/' directory, and the output
 # of the analyzer is saved in the 'summary/'
 # directory.
-workspace_dir: ''
+workspace_dir: 'ci_workspace/'
 
 # If this parameter is not null, then it must
 # be set to an integer which identifies the
@@ -16,7 +16,7 @@ workspace_dir: ''
 # number. If this parameter is null, then the
 # strips_to_analyze list below is used to
 # determine which strips are to be analyzed.
-set_to_analyze: 6 # 1, 2, ...
+set_to_analyze: 6 # 6, 7, ...
 
 # This parameter only makes a difference if
 # the set_to_analyze parameter is null. In
