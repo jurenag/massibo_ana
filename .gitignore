@@ -170,3 +170,6 @@ ci_workspace/*
 
 # PDF files
 *.pdf
+
+# CI backup files
+*.yml.bak
