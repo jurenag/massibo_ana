@@ -38,7 +38,7 @@ jobs:
         run: |
           source venv/bin/activate
           ./ci/analyze_sets.sh 6 \
-            apps/parameters_examples/set-wise/gain_input_parameters_set_6-8_massibo_v1.5.yml \
+            apps/parameters_examples/set-wise/darknoise_input_parameters_set_6-8_massibo_v1.5.yml \
             apps/parameters_examples/set-wise/gain_input_parameters_set_6-8_massibo_v1.5.yml
 
       - name: Upload results
