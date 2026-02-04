@@ -45,7 +45,7 @@ flip_about_baseline: true
 # Regarding the waveform signals: this is the
 # number of adjacent points to be merged into
 # a single point
-merged_points: 3 # This value has not been fine-tuned yet
+merged_points: 2 # This value has not been fine-tuned yet
 
 ### Physical parameters
 # Area of the sensitive surface of the measured
