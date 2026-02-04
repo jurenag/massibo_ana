@@ -23,5 +23,5 @@ fi
 ./ci/aux/b0_download_data.sh "$SET_TO_PROCESS"
 ./ci/aux/b1_run_preprocessor.sh
 ./ci/aux/b2_configure_YAMLs.sh "$SET_TO_PROCESS" "$DARKNOISE_YAML_PATH" "$GAIN_YAML_PATH"
-./ci/aux/b3_run_darknoise_batch_analyzer.sh
-./ci/aux/b4_run_gain_batch_analyzer.sh
+./ci/aux/b3_run_darknoise_batch_analyzer.sh "$DARKNOISE_YAML_PATH"
+./ci/aux/b4_run_gain_batch_analyzer.sh "$GAIN_YAML_PATH"
