@@ -1,0 +1,41 @@
+name: Analyze datasets
+
+on:
+  schedule:
+    - cron: "59 23 * * 0"   # Sunday, 23:59 (UTC)
+    - cron: "59 23 * * 2"   # Tuesday, 23:59 (UTC)
+    - cron: "59 23 * * 4"   # Thursday, 23:59 (UTC)
+
+  workflow_dispatch:
+
+jobs:
+  analyze_set_6:
+    name: Analyze set 6
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.13-slim
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create venv
+        run: |
+          python -m venv venv
+          venv/bin/pip install --upgrade pip
+          venv/bin/pip install -r requirements.txt
+
+      - name: Analyze set 6
+        run: |
+          source venv/bin/activate
+          ./ci/analyze_sets.sh 6 \
+            apps/parameters_examples/set-wise/gain_input_parameters_set_6-8_massibo_v1.5.yml \
+            apps/parameters_examples/set-wise/gain_input_parameters_set_6-8_massibo_v1.5.yml
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyze-set-6-results
+          path: |
+            ci_workspace/summary/*_set_6.pdf
+            ci_workspace/summary/*_set_6.csv
