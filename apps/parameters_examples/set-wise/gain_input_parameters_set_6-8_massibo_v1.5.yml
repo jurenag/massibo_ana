@@ -5,7 +5,7 @@
 # be in the 'load/' directory, and the output
 # of the analyzer is saved in the 'summary/'
 # directory.
-workspace_dir: ''
+workspace_dir: 'ci_workspace/'
 
 # If this parameter is not null, then it must
 # be set to an integer which identifies the
@@ -16,7 +16,7 @@ workspace_dir: ''
 # number. If this parameter is null, then the
 # strips_to_analyze list below is used to
 # determine which strips are to be analyzed.
-set_to_analyze: 7 # 1, 2, ...
+set_to_analyze: null # 1, 2, ...
 
 # This parameter only makes a difference if
 # the set_to_analyze parameter is null. In
@@ -30,7 +30,7 @@ strips_to_analyze: null
 # in its name at least one of the strings in
 # this list to be considered for analysis
 analyzable_marks:
-  - ''
+  - 'gain'
 
 # analyzable_marks:
 #   - '-OV20dV-'
@@ -218,7 +218,7 @@ persistency_wvf_linewidth: 0.2
 # Whether the charge histogram, and potentially the
 # gaussian fits, should be plotted in logarithmic
 # scale
-logarithmic_charge_histogram: false
+logarithmic_charge_histogram: true
 
 ### Parameters for gain distributions report
 # Number of bins in the resulting gain distributions
