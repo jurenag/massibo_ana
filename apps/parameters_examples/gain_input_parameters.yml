@@ -24,16 +24,13 @@ set_to_analyze: null # 1, 2, ...
 # whose name starts with one of the strings in
 # this list is elegible for analysis, eventually
 # depending on the analyzable_marks list.
-strips_to_analyze:
-  - '7281'
-  - '7286'
-  - '7291'
+strips_to_analyze: null
 
 # A file in the load-directory must contain
 # in its name at least one of the strings in
 # this list to be considered for analysis
 analyzable_marks:
-  - ''
+  - 'gain'
 
 # analyzable_marks:
 #   - '-OV20dV-'
@@ -126,7 +123,7 @@ peak_search_step_fraction: 0.01
 # those whose prominence is bigger or equal to a fraction
 # of the histogram maximum. It must belong to the
 # [0.0, 1.0] range.
-minimal_prominence_wrt_max: 0.075
+minimal_prominence_wrt_max: 0.15
 
 # Number of standard deviations at both sides of the 
 # mean seed to consider for the gaussian fit. It should
@@ -154,7 +151,7 @@ max_peaks_to_detect: 3
 # The bins_no samples are computed as
 # np.linspace(min_bins_no, max_bins_no, bins_no_points)
 min_bins_no: 20
-max_bins_no: 35 # Above 35, fluctuations in the charge histogram start to be misidentified as peaks (set 7)
+max_bins_no: 40 # Above 35, fluctuations in the charge histogram may start to be misidentified as peaks (set 7)
 bins_no_points: 6
 
 # Fit range of the charge histogram. Set it to null in case

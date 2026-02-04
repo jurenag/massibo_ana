@@ -24,16 +24,13 @@ set_to_analyze: null # 1, 2, ...
 # whose name starts with one of the strings in
 # this list is elegible for analysis, eventually
 # depending on the analyzable_marks list.
-strips_to_analyze:
-  - '151'
-  - '152'
-  - '153'
+strips_to_analyze: null
 
 # A file in the load-directory must contain
 # in its name at least one of the strings in
 # this list to be considered for analysis
 analyzable_marks:
-  - ''
+  - 'darknoise'
 
 # Whether to print functioning related messages
 verbose: true
@@ -141,7 +138,7 @@ gaussian_fit_std_no: 3.0
 # NotEnoughFitSamples exception is handled when
 # attempting the gaussian fits to the first two
 # peaks of the amplitudes histogram.
-max_gaussian_fit_std_no: 5.0
+max_gaussian_fit_std_no: 4.0
 # The bins number used for the amplitudes histogram,
 # which is used to find the 1.5-PE level, is
 # first set to the value of
@@ -158,9 +155,14 @@ max_gaussian_fit_std_no: 5.0
 # misinterpreted as peaks. Note that these
 # parameters should be set jointly with the
 # amplitude_cut_for_gaussian_fit parameter below.
-maximum_first_amplitudes_histogram_bins_no: 40
+maximum_first_amplitudes_histogram_bins_no: 45
 minimum_amplitudes_histogram_bins_no: 35
 amplitudes_histogram_bins_no_step: 2
+# Fraction of the extremal samples (lowest
+# and highest) to discard from the amplitudes
+# histogram before performing the gaussian
+# fits to find the 1.5-PE level.
+fraction_of_extremal_samples_to_discard: 0.005
 # Only the spotted peaks whose time-delay value
 # is equal or bigger than this threshold, will
 # contribute to the amplitudes histogram which

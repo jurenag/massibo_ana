@@ -1,6 +1,6 @@
 ### General parameters
 # The directory where the input data is located.
-input_data_folderpath: 'ci_workspace/input_data'
+input_data_folderpath: 'ci_workspace/input_data/'
 
 # The directory where the 'aux/', 'load/' and
 # 'data/' directories are located. The pre-processed
@@ -13,7 +13,7 @@ input_data_folderpath: 'ci_workspace/input_data'
 # measurements metadata and the interface to the
 # rest of the data (bulk and auxiliary) will be
 # saved into the 'load/' directory.
-workspace_dir: 'ci_workspace'
+workspace_dir: 'ci_workspace/'
 
 # Whether to print functioning related messages
 verbose: true
