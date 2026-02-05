@@ -9,14 +9,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  analyze_set_6:
-    name: Analyze set 6
+  analyze_ith_set:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        i: [6, 7, 8]
+
+    name: Analyze set ${{ matrix.i }}
     container:
       image: python:3.12-slim
 
     steps:
-      - name: Install git
+      - name: Install git and wget
         run: |
           apt-get update
           apt-get install -y \
@@ -33,18 +37,18 @@ jobs:
           venv/bin/pip install --upgrade pip
           venv/bin/pip install -r requirements.txt
 
-      - name: Analyze set 6
+      - name: Analyze set ${{ matrix.i }}
         shell: bash
         run: |
           source venv/bin/activate
-          ./ci/analyze_sets.sh 6 \
+          ./ci/analyze_sets.sh ${{ matrix.i }} \
             apps/parameters_examples/set-wise/darknoise_input_parameters_set_6-8_massibo_v1.5.yml \
             apps/parameters_examples/set-wise/gain_input_parameters_set_6-8_massibo_v1.5.yml
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: analyze-set-6-results
+          name: analyze-set-${{ matrix.i }}-results
           path: |
-            ci_workspace/summary/*_set_6.pdf
-            ci_workspace/summary/*_set_6.csv
+            ci_workspace/summary/*_set_${{ matrix.i }}.pdf
+            ci_workspace/summary/*_set_${{ matrix.i }}.csv
