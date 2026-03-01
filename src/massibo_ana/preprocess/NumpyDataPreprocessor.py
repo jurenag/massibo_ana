@@ -1340,17 +1340,25 @@ class NumpyDataPreprocessor:
         )
         
         # The operations that happen as of this point and until the
-        # return statement are common to all the packing versions. 
-        timestamp = NumpyDataPreprocessor.fix_timestamp_overflow(
-                timestamp,
-                # Using the inferred bytes number instead of
-                # metadata['Timestamp Bytes'] because the metadata
-                # provided by the operator is not reliable and prone to errors
-                timestamp_bytes,
-                tolerance=tolerance,
-                check_upper_bound=True,
-                return_overflow_idcs=False
-            )
+        # return statement are common to all the packing versions.
+        if timestamp_bytes <= 4:
+            timestamp = NumpyDataPreprocessor.fix_timestamp_overflow(
+                    timestamp,
+                    # Using the inferred bytes number instead of
+                    # metadata['Timestamp Bytes'] because the metadata
+                    # provided by the operator is not reliable and prone
+                    # to errors
+                    timestamp_bytes,
+                    tolerance=tolerance,
+                    check_upper_bound=True,
+                    return_overflow_idcs=False
+                )
+        else:
+            # If the timestamp register is larger than 4 bytes, overflows
+            # are extremely unlikely for any realistic measurement duration
+            # (e.g. at ~24 ns sampling, 5 bytes covers ~7.5 hours). We still
+            # cast to uint64 for consistency with the overflow-corrected path.
+            timestamp = timestamp.astype(np.uint64)
 
         # N.B. 1: The following concatenation fixes the fact that the timestamp
         # definition in the docstring of this function is different from that of
