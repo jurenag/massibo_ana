@@ -3080,7 +3080,52 @@ class WaveformSet(OneTypeRTL):
             wvf.rebin(group, verbose)
 
         return
-    
+
+    def slice_waveforms(
+            self,
+            i_start: int,
+            i_end: int,
+            verbose: bool = False
+        ) -> None:
+        """This method uniformly slices every Waveform object in this
+        WaveformSet, keeping only the data points whose iterator falls
+        within [i_start, i_end). This is a purely index-based operation,
+        so that all waveforms remain uniform in length after the slice,
+        which is required for methods such as mean_waveform() to work.
+
+        This method gets the following positional arguments:
+
+        - i_start (int): The starting index (inclusive) of the slice.
+        It must satisfy 0 <= i_start < i_end.
+        - i_end (int): The ending index (exclusive) of the slice.
+        It must satisfy i_start < i_end <= Npoints (of every waveform)
+        and i_end - i_start >= 2 (so that at least two data points
+        remain per waveform).
+
+        This method gets the following keyword argument:
+
+        - verbose (bool): Whether to print functioning-related messages.
+
+        This method modifies (in-place) the NPoints, Time and Signal
+        attributes of every Waveform object. It also clears any
+        previously computed integrals and invalidates signs that are
+        tied to the old time window (peaks_pos, peaks_top,
+        integration_ll, integration_ul, first_peak_baseline,
+        median_cutoff, half_width_about_median). For more information,
+        check the documentation of Waveform.slice().
+
+        Note: This method assumes that all waveforms in this
+        WaveformSet share the same number of data points. The
+        well-formedness checks are handled by Waveform.slice()."""
+
+        # The well-formedness checks are handled
+        # by the Waveform.slice() method.
+
+        for wvf in self:
+            wvf.slice(i_start, i_end, verbose)
+
+        return
+
     def find_mean_beginning_of_raise(
         self,
         signal_fraction_for_median_cutoff=0.2,
