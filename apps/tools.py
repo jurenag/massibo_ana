@@ -946,10 +946,10 @@ def generate_daq_crosscheck_plots(
         socket_sep_color='grey',
         socket_sep_lw=1.0,
         socket_sep_ls='--',
-        tick_fontsize=10,
-        label_fontsize=12,
+        tick_fontsize=16,
+        label_fontsize=20,
         legend_fontsize=9,
-        title_fontsize=12,
+        title_fontsize=24,
         grid_alpha=0.3,
         strip_label_fontsize=7,
         strip_label_offset=(0.0, 0.0),
@@ -975,9 +975,9 @@ def generate_daq_crosscheck_plots(
 
     This function returns a tuple (fig1, fig2, fig3) where
 
-    - fig1: NEvents vs Acquisition Time scatter plot.
-    - fig2: NEvents vs Channel scatter plot.
-    - fig3: Acquisition Time vs Channel scatter plot.
+    - fig1: NEvents vs Acquisition time scatter plot.
+    - fig2: NEvents vs channel scatter plot.
+    - fig3: Acquisition time vs channel scatter plot.
     """
 
     MEAS_MARKERS = ['o', 's', '^', 'D', 'v', 'P', '*', 'X']
@@ -1077,7 +1077,7 @@ def generate_daq_crosscheck_plots(
 
     ax1.set_xlabel('N events (waveforms)', fontsize=label_fontsize)
     ax1.set_ylabel('Acquisition time (s)', fontsize=label_fontsize)
-    ax1.set_title('NEvents vs Acquisition Time', fontsize=title_fontsize)
+    ax1.set_title('Nº of triggers vs Acquisition time', fontsize=title_fontsize)
     ax1.tick_params(labelsize=tick_fontsize)
     ax1.grid(True, alpha=grid_alpha)
 
@@ -1174,7 +1174,7 @@ def generate_daq_crosscheck_plots(
 
         ax_ch.set_xticks(range(18))
         ax_ch.set_xlabel(
-            'Channel  (socket_1: 0-5 | socket_2: 6-11 | socket_3: 12-17)',
+            'Channel (socket_1: 0-5 | socket_2: 6-11 | socket_3: 12-17)',
             fontsize=label_fontsize,
         )
         ax_ch.tick_params(labelsize=tick_fontsize)
@@ -1196,14 +1196,14 @@ def generate_daq_crosscheck_plots(
         'N events (waveforms)', fontsize=label_fontsize
     )
     ax2.set_title(
-        'NEvents vs Channel', fontsize=title_fontsize
+        'Nº of triggers vs channel', fontsize=title_fontsize
     )
 
     ax3.set_ylabel(
         'Acquisition time (s)', fontsize=label_fontsize
     )
     ax3.set_title(
-        'Acquisition Time vs Channel', fontsize=title_fontsize
+        'Acquisition time vs channel', fontsize=title_fontsize
     )
 
     fig2.tight_layout()
