@@ -1001,6 +1001,13 @@ class NumpyDataPreprocessor:
                 )
             )
 
+        elif packing_version == 2:
+            result.update(
+                NumpyDataPreprocessor.__get_metadata_v2(
+                    filepath
+                )
+            )
+
         else:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
@@ -1149,13 +1156,43 @@ class NumpyDataPreprocessor:
             'PreTrigger length': PRETRIGGER_LENGTH,
             'Timestamp Bytes': TIMESTAMP_BYTES,
         }
+
+    @staticmethod
+    def __get_metadata_v2(
+        filepath
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.get_metadata() method i.e. it is not intended to be
+        called directly by the user. No type checks are done here. Its purpose is
+        to carry out the second bullet of the NumpyDataPreprocessor.get_metadata()
+        docstring, for the particular case when the version parameter is equal to 2.
+        This version is the same as version 0, but with a different sample interval
+        (1000./62.5 instead of 1000/41.66) and a different number of bytes used to
+        store the timestamp information (5 instead of 4).
+        """
+
+        shape, _ = NumpyDataPreprocessor.__get_npy_file_shape_and_dtype(filepath)
+
+        return {
+            'Horizontal Units': 'ns',
+            'Vertical Units': 'ADU',
+            'Sample Interval': 1000./62.5,
+            # The first column is typically the timestamp,
+            # so the number of points per waveform is
+            # actually the number of columns minus one
+            'Record Length': shape[1] - 1,
+            'FastFrame Count': shape[0],
+            'PreTrigger length': 64,
+            'Timestamp Bytes': 5
+        }
     
     @staticmethod
     def __get_npy_file_shape_and_dtype(filepath):
         """This is a helper method which should only be called by the
-        NumpyDataPreprocessor.__get_metadata_v0() method i.e. it is not intended to
-        be called directly by the user. No type checks are done here. This static
-        method gets the following mandatory positional argument:
+        NumpyDataPreprocessor.__get_metadata_v0() or
+        NumpyDataPreprocessor.__get_metadata_v2() method i.e. it is not
+        intended to be called directly by the user. No type checks are done
+        here. This static method gets the following mandatory positional argument:
 
         - filepath (string): Path to a numpy file which was created using the
         numpy.save() function.
@@ -1310,13 +1347,9 @@ class NumpyDataPreprocessor:
                     f" while trying to get the metadata: {e}"
                 )
             )
-            
-        # For packing versions in (0,1), if an erroneous packing_version was defined, then the
-        # NumpyDataPreprocessor.get_metadata() will have raised an exception. I.e. there is no
-        # need to handle exceptions in the calls to NumpyDataPreprocessor.__get_coredata_vi().
-        # This should be revised when a new packing version is added.
 
-        if packing_version == 0:
+        # The core-data packing is the same for packing versions 0 and 2
+        if packing_version in (0, 2):
             timestamp, waveforms = NumpyDataPreprocessor.__get_coredata_v0(
                     filepath
                 )
