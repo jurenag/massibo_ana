@@ -13,9 +13,13 @@ import copy
 import math
 import numpy as np
 import pandas as pd
+from collections import defaultdict
 from scipy import interpolate as spinter
 from scipy import optimize as spopt
 from typing import List, Optional
+
+import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 
 strip_ids_of_set = {
     1: [
@@ -923,3 +927,286 @@ def natural_numbers_generator():
     while True:
         yield i
         i += 1
+
+
+def generate_daq_crosscheck_plots(
+        darknoisemeas_objects,
+        figsize=(14, 4.5),
+        threshold_events=3000,
+        threshold_time_s=600,
+        threshold_color='#8b0000',
+        threshold_linewidth=1.5,
+        connect_linewidth=0.6,
+        connect_linestyle='--',
+        marker_size=35,
+        marker_alpha=0.85,
+        edge_color_first='black',
+        edge_width_first=1.2,
+        socket_sep_positions=(5.5, 11.5),
+        socket_sep_color='grey',
+        socket_sep_lw=1.0,
+        socket_sep_ls='--',
+        tick_fontsize=10,
+        label_fontsize=12,
+        legend_fontsize=9,
+        title_fontsize=12,
+        grid_alpha=0.3,
+        strip_label_fontsize=7,
+        strip_label_offset=(0.0, 0.0),
+    ):
+    """Generate the three DAQ cross-check figures from a list of
+    DarkNoiseMeas objects.
+
+    This function gets the following positional arguments:
+
+    - darknoisemeas_objects (list of DarkNoiseMeas): The measurement
+      objects from which NEvents, AcquisitionTime, MeasNo,
+      ElectronicBoardNumber, StripID, SiPMLocation and
+      ElectronicBoardSocket are read.
+
+    This function gets optional keyword arguments to control
+    figure size, thresholds, marker/line styling, font sizes, and
+    socket separator positions. In addition:
+
+    - strip_label_fontsize (int): Font size for the strip-ID labels
+      added next to SiPMLocation == 1 markers in plots 2 and 3.
+    - strip_label_offset (tuple of float): (dx, dy) offset in data
+      coordinates for those labels.
+
+    This function returns a tuple (fig1, fig2, fig3) where
+
+    - fig1: NEvents vs Acquisition Time scatter plot.
+    - fig2: NEvents vs Channel scatter plot.
+    - fig3: Acquisition Time vs Channel scatter plot.
+    """
+
+    MEAS_MARKERS = ['o', 's', '^', 'D', 'v', 'P', '*', 'X']
+    BOARD_COLORS = [
+        '#1f77b4', "#86149b", "#c17619", '#d62728',
+        "#17cd32", "#ff0000", "#ff6200", '#7f7f7f',
+    ]
+
+    # ---- Collect data from all DarkNoiseMeas objects ----
+    unique_meas_nos  = sorted(set(dno.MeasNo for dno in darknoisemeas_objects))
+    unique_board_nos = sorted(set(dno.ElectronicBoardNumber for dno in darknoisemeas_objects))
+
+    meas_to_marker = {
+        m: MEAS_MARKERS[i % len(MEAS_MARKERS)] for i, m in enumerate(unique_meas_nos)
+    }
+    board_to_color = {
+        b: BOARD_COLORS[i % len(BOARD_COLORS)] for i, b in enumerate(unique_board_nos)
+    }
+
+    daq_data = []
+    for dno in darknoisemeas_objects:
+        daq_data.append({
+            'n_events': dno.NEvents,
+            'acq_time_s': dno.AcquisitionTime_min * 60.0,
+            'meas_no': dno.MeasNo,
+            'board_no': dno.ElectronicBoardNumber,
+            'strip_id': dno.StripID,
+            'sipm_loc': dno.SiPMLocation,
+            'socket': dno.ElectronicBoardSocket,
+            'channel': (dno.ElectronicBoardSocket - 1) * 6 + (dno.SiPMLocation - 1),
+        })
+
+    # ---- Shared legend handles ----
+    meas_legend_handles = [
+        mlines.Line2D(
+            [], [], marker=meas_to_marker[m], color='grey',
+            linestyle='None', markersize=7,
+            label=f'Meas {m}')
+        for m in unique_meas_nos
+    ]
+    board_legend_handles = [
+        mlines.Line2D(
+            [], [], marker='o', color=board_to_color[b],
+            linestyle='None', markersize=7,
+            label=f'Board {b}')
+        for b in unique_board_nos
+    ]
+
+    # ================================================================
+    # PLOT 1 — NEvents vs AcquisitionTime (scatter)
+    # ================================================================
+    fig1, ax1 = plt.subplots(figsize=figsize)
+
+    ax1.axhline(
+        threshold_time_s,
+        color=threshold_color,
+        linewidth=threshold_linewidth,
+        linestyle='-',
+        zorder=1,
+    )
+    ax1.axvline(
+        threshold_events,
+        color=threshold_color,
+        linewidth=threshold_linewidth,
+        linestyle='-',
+        zorder=1,
+    )
+
+    strips = defaultdict(list)
+    for d in daq_data:
+        strips[d['strip_id']].append(d)
+
+    for strip_id, members in strips.items():
+        members_sorted = sorted(members, key=lambda x: x['sipm_loc'])
+        xs = [m['n_events'] for m in members_sorted]
+        ys = [m['acq_time_s'] for m in members_sorted]
+        line_color = board_to_color[members_sorted[0]['board_no']]
+        ax1.plot(
+            xs, ys,
+            color=line_color,
+            linewidth=connect_linewidth,
+            linestyle=connect_linestyle,
+            zorder=2,
+        )
+
+    for d in daq_data:
+        ec = edge_color_first if d['sipm_loc'] == 1 else 'none'
+        ew = edge_width_first if d['sipm_loc'] == 1 else 0.0
+        ax1.scatter(
+            d['n_events'], d['acq_time_s'],
+            marker=meas_to_marker[d['meas_no']],
+            color=board_to_color[d['board_no']],
+            s=marker_size, alpha=marker_alpha,
+            edgecolors=ec, linewidths=ew,
+            zorder=3,
+        )
+
+    ax1.set_xlabel('N events (waveforms)', fontsize=label_fontsize)
+    ax1.set_ylabel('Acquisition time (s)', fontsize=label_fontsize)
+    ax1.set_title('NEvents vs Acquisition Time', fontsize=title_fontsize)
+    ax1.tick_params(labelsize=tick_fontsize)
+    ax1.grid(True, alpha=grid_alpha)
+
+    leg1 = ax1.legend(
+        handles=meas_legend_handles, loc='upper left',
+        fontsize=legend_fontsize, title='MeasNo',
+        title_fontsize=legend_fontsize
+    )
+    ax1.add_artist(leg1)
+    ax1.legend(
+        handles=board_legend_handles, loc='upper right',
+        fontsize=legend_fontsize, title='Board',
+        title_fontsize=legend_fontsize
+    )
+
+    fig1.tight_layout()
+
+    # ================================================================
+    # PLOT 2 — NEvents vs channel
+    # PLOT 3 — AcquisitionTime vs channel
+    # ================================================================
+    fig2, ax2 = plt.subplots(figsize=figsize)
+    fig3, ax3 = plt.subplots(figsize=figsize)
+
+    groups = defaultdict(list)
+    for d in daq_data:
+        groups[(d['meas_no'], d['board_no'])].append(d)
+
+    for (meas_no, board_no), members in groups.items():
+        members_sorted = sorted(members, key=lambda x: x['channel'])
+        channels  = [m['channel'] for m in members_sorted]
+        n_events  = [m['n_events'] for m in members_sorted]
+        acq_times = [m['acq_time_s'] for m in members_sorted]
+        c  = board_to_color[board_no]
+        mk = meas_to_marker[meas_no]
+
+        ax2.plot(
+            channels, n_events, color=c,
+            linewidth=connect_linewidth,
+            linestyle=connect_linestyle, zorder=2
+        )
+        ax3.plot(
+            channels, acq_times, color=c,
+            linewidth=connect_linewidth,
+            linestyle=connect_linestyle, zorder=2
+        )
+
+        for m in members_sorted:
+            ec = edge_color_first if m['sipm_loc'] == 1 else 'none'
+            ew = edge_width_first if m['sipm_loc'] == 1 else 0.0
+            ax2.scatter(
+                m['channel'], m['n_events'],
+                marker=mk, color=c,
+                s=marker_size, alpha=marker_alpha,
+                edgecolors=ec, linewidths=ew,
+                zorder=3,
+            )
+            ax3.scatter(
+                m['channel'], m['acq_time_s'],
+                marker=mk, color=c,
+                s=marker_size, alpha=marker_alpha,
+                edgecolors=ec, linewidths=ew,
+                zorder=3,
+            )
+
+            # Add strip-ID label next to SiPMLocation == 1 markers
+            if m['sipm_loc'] == 1:
+                ax2.annotate(
+                    str(m['strip_id']),
+                    xy=(m['channel'], m['n_events']),
+                    xytext=(m['channel'] + strip_label_offset[0],
+                            m['n_events'] + strip_label_offset[1]),
+                    fontsize=strip_label_fontsize,
+                    ha='left', va='bottom',
+                    color=c,
+                )
+                ax3.annotate(
+                    str(m['strip_id']),
+                    xy=(m['channel'], m['acq_time_s']),
+                    xytext=(m['channel'] + strip_label_offset[0],
+                            m['acq_time_s'] + strip_label_offset[1]),
+                    fontsize=strip_label_fontsize,
+                    ha='left', va='bottom',
+                    color=c,
+                )
+
+    for ax_ch in (ax2, ax3):
+        for xsep in socket_sep_positions:
+            ax_ch.axvline(
+                xsep, color=socket_sep_color,
+                linewidth=socket_sep_lw,
+                linestyle=socket_sep_ls, zorder=1
+            )
+
+        ax_ch.set_xticks(range(18))
+        ax_ch.set_xlabel(
+            'Channel  (socket_1: 0-5 | socket_2: 6-11 | socket_3: 12-17)',
+            fontsize=label_fontsize,
+        )
+        ax_ch.tick_params(labelsize=tick_fontsize)
+        ax_ch.grid(True, alpha=grid_alpha)
+
+        leg_m = ax_ch.legend(
+            handles=meas_legend_handles, loc='upper left',
+            fontsize=legend_fontsize, title='MeasNo',
+            title_fontsize=legend_fontsize
+        )
+        ax_ch.add_artist(leg_m)
+        ax_ch.legend(
+            handles=board_legend_handles, loc='upper right',
+            fontsize=legend_fontsize, title='Board',
+            title_fontsize=legend_fontsize
+        )
+
+    ax2.set_ylabel(
+        'N events (waveforms)', fontsize=label_fontsize
+    )
+    ax2.set_title(
+        'NEvents vs Channel', fontsize=title_fontsize
+    )
+
+    ax3.set_ylabel(
+        'Acquisition time (s)', fontsize=label_fontsize
+    )
+    ax3.set_title(
+        'Acquisition Time vs Channel', fontsize=title_fontsize
+    )
+
+    fig2.tight_layout()
+    fig3.tight_layout()
+
+    return fig1, fig2, fig3
