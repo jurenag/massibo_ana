@@ -1328,6 +1328,133 @@ class Waveform:
 
         return
     
+    def slice(
+            self,
+            i_start: int,
+            i_end: int,
+            verbose: bool = False
+        ) -> None:
+        """This method slices this Waveform object in-place, keeping only
+        the data points whose iterator falls within [i_start, i_end). This
+        is a purely index-based operation. This method gets the following
+        positional arguments:
+
+        - i_start (int): The starting index (inclusive) of the slice.
+        It must satisfy 0 <= i_start < i_end.
+        - i_end (int): The ending index (exclusive) of the slice.
+        It must satisfy i_start < i_end <= self.__npoints and
+        i_end - i_start >= 2 (so that at least two data points remain).
+
+        This method gets the following keyword argument:
+
+        - verbose (bool): Whether to print functioning-related messages.
+
+        This method affects the following attributes of self:
+        self.__npoints, self.__signal and self.__time. It also clears
+        any previously computed integral (self.__integral is set to None)
+        and removes peaks_pos, peaks_top, integration_ll, integration_ul,
+        first_peak_baseline, median_cutoff and half_width_about_median
+        from self.__signs, since those values are no longer valid in
+        the sliced time window."""
+
+        htype.check_type(
+            i_start,
+            int,
+            exception_message=htype.generate_exception_message(
+                "Waveform.slice", 1
+            ),
+        )
+        htype.check_type(
+            i_end,
+            int,
+            exception_message=htype.generate_exception_message(
+                "Waveform.slice", 2
+            ),
+        )
+        htype.check_type(
+            verbose,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "Waveform.slice", 3
+            ),
+        )
+
+        if i_start < 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "Waveform.slice",
+                    4,
+                    extra_info=(
+                        f"i_start must be non-negative, "
+                        f"but {i_start} was given."
+                    )
+                )
+            )
+        if i_end > self.__npoints:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "Waveform.slice",
+                    5,
+                    extra_info=(
+                        f"i_end must be at most self.Npoints "
+                        f"(={self.__npoints}), "
+                        f"but {i_end} was given."
+                    )
+                )
+            )
+        if i_start >= i_end:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "Waveform.slice",
+                    6,
+                    extra_info=(
+                        f"i_start (={i_start}) must be strictly "
+                        f"smaller than i_end (={i_end})."
+                    )
+                )
+            )
+        if (i_end - i_start) < 2:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "Waveform.slice",
+                    7,
+                    extra_info=(
+                        "The resulting waveform must have at "
+                        "least 2 data points, but the given "
+                        "i_start and i_end would produce only "
+                        f"{i_end - i_start} data point(s)."
+                    )
+                )
+            )
+
+        if verbose:
+            print(
+                f"Slicing waveform from index {i_start} to "
+                f"{i_end} (out of {self.__npoints} points)"
+            )
+
+        self.__signal = self.__signal[i_start:i_end]
+        self.__time = self.__time[i_start:i_end]
+        self.__npoints = len(self.__time)
+        self.__integral = None
+
+        # Invalidate signs that are no longer meaningful
+        # after the time window has changed
+        keys_to_remove = [
+            "peaks_pos",
+            "peaks_top",
+            "integration_ll",
+            "integration_ul",
+            "first_peak_baseline",
+            "median_cutoff",
+            "half_width_about_median",
+        ]
+        for key in keys_to_remove:
+            if key in self.__signs:
+                del self.__signs[key]
+
+        return
+
     def flip_about_baseline(self):
         """This method flips the signal of this Waveform object about its
         baseline, which is considered to match self.__signs['first_peak_baseline'].
