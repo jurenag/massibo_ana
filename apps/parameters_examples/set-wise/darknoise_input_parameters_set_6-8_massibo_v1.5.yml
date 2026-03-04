@@ -38,6 +38,18 @@ verbose: true
 # Whether to generate a PDF report
 generate_report: true
 
+# (Only used when generate_report is true)
+# Whether to include the offline filter results in the report
+generate_offline_filter_results: true
+
+# (Only used when generate_report is true)
+# Whether to include some peak-detection examples in the report
+generate_peak_detection_results: true
+
+# (Only used when generate_report is true)
+# Whether to include the analysis results in the report
+generate_analysis_results: true
+
 # Whether to flip the waveforms about the baseline
 flip_about_baseline: true
 
