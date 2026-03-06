@@ -1411,7 +1411,9 @@ class DarkNoiseMeas(SiPMMeas):
             )
         )
 
-        if len(bursts_init_frame) == 0:  # No bursts were found
+        bursts_no = len(bursts_init_frame)
+
+        if bursts_no == 0:  # No bursts were found
             if verbose:
                 print(
                     "In function DarkNoiseMeas.purge_bursts(): No bursts were "
@@ -1420,9 +1422,9 @@ class DarkNoiseMeas(SiPMMeas):
                        if inplace
                        else "An identical copy of the original object will be returned.")
                 )
-            return purged_copy
+            return purged_copy, bursts_no
 
-        elif len(bursts_init_frame) == 1:  # Only one burst was found
+        elif bursts_no == 1:  # Only one burst was found
 
             # Light version of the DarkNoiseMeas.lists_are_intertwined() check.
             # Such check requires that at least two bursts were found, and that's not the case here.
@@ -1475,7 +1477,7 @@ class DarkNoiseMeas(SiPMMeas):
         purged_copy.Amplitude = np.array(amplitude, dtype=np.float64)
         purged_copy.FrameIDX = np.array(frame_idx, dtype=np.int64)
 
-        return purged_copy
+        return purged_copy, bursts_no
 
     @staticmethod
     def lists_are_intertwined(a, b):
