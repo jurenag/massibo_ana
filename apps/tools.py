@@ -1071,6 +1071,14 @@ def _plot_channel_scatter(
         title_fontsize=legend_fontsize
     )
 
+# Global styling contants used in generate_daq_crosscheck_plots()
+# and generate_quantity_vs_channel_plots()
+MEAS_MARKERS = ['o', 's', '^', 'D', 'v', 'P', '*', 'X']
+BOARD_COLORS = [
+    '#1f77b4', "#86149b", "#c17619", '#d62728',
+    "#17cd32", "#ff0000", "#ff6200", '#7f7f7f',
+]
+
 def generate_daq_crosscheck_plots(
         darknoisemeas_objects,
         figsize=(14, 4.5),
@@ -1122,21 +1130,21 @@ def generate_daq_crosscheck_plots(
     - fig3: Acquisition time vs channel scatter plot.
     """
 
-    MEAS_MARKERS = ['o', 's', '^', 'D', 'v', 'P', '*', 'X']
-    BOARD_COLORS = [
-        '#1f77b4', "#86149b", "#c17619", '#d62728',
-        "#17cd32", "#ff0000", "#ff6200", '#7f7f7f',
-    ]
-
     # ---- Collect data from all DarkNoiseMeas objects ----
-    unique_meas_nos  = sorted(set(dno.MeasNo for dno in darknoisemeas_objects))
-    unique_board_nos = sorted(set(dno.ElectronicBoardNumber for dno in darknoisemeas_objects))
+    unique_meas_nos  = sorted(
+        set(dno.MeasNo for dno in darknoisemeas_objects)
+    )
+    unique_board_nos = sorted(
+        set(dno.ElectronicBoardNumber for dno in darknoisemeas_objects)
+    )
 
     meas_to_marker = {
-        m: MEAS_MARKERS[i % len(MEAS_MARKERS)] for i, m in enumerate(unique_meas_nos)
+        m: MEAS_MARKERS[i % len(MEAS_MARKERS)] \
+        for i, m in enumerate(unique_meas_nos)
     }
     board_to_color = {
-        b: BOARD_COLORS[i % len(BOARD_COLORS)] for i, b in enumerate(unique_board_nos)
+        b: BOARD_COLORS[i % len(BOARD_COLORS)] \
+        for i, b in enumerate(unique_board_nos)
     }
 
     daq_data = []
@@ -1336,8 +1344,12 @@ def generate_quantity_vs_channel_plots(
     tuples, one per entry in quantities.
     """
 
-    unique_meas_nos  = sorted(set(dno.MeasNo for dno in darknoisemeas_objects))
-    unique_board_nos = sorted(set(dno.ElectronicBoardNumber for dno in darknoisemeas_objects))
+    unique_meas_nos  = sorted(
+        set(dno.MeasNo for dno in darknoisemeas_objects)
+    )
+    unique_board_nos = sorted(
+        set(dno.ElectronicBoardNumber for dno in darknoisemeas_objects)
+    )
 
     meas_to_marker = {
         m: MEAS_MARKERS[i % len(MEAS_MARKERS)] for i, m in enumerate(unique_meas_nos)
