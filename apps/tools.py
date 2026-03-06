@@ -403,7 +403,8 @@ def get_string_of_contiguously_clustered_integers(cluster):
     to 
     [[i0,i1],[i2,i2],[i3,i4],...,[iM,iM],[iN,iR]], 
     the output is
-    'i0-i1, i2, i3-i4,...,iM, iN-iR."""
+    'i0-i1, i2, i3-i4,...,iM, iN-iR.
+    """
 
     htype.check_type(
         cluster,
@@ -462,7 +463,8 @@ def decide_colour(
     ):
     """red_above only makes a difference if discern_sign is True.
     If discern_sign is False, then the returned colours are either
-    white or red(s)."""
+    white or red(s).
+    """
     
     blue = (0.204,0.596,0.859)
     light_blue = (0.522,0.757,0.914)
@@ -536,7 +538,8 @@ def analyze_it(
     strings contained within analyzable_prefixes and contains
     every substring contained within conjuntive_analyzable_marks,
     and at least one substring contained within analyzable_marks.
-    Otherwise, it returns False."""
+    Otherwise, it returns False.
+    """
 
     htype.check_type(
         filename,
@@ -654,7 +657,8 @@ def filter_out_repeated_smss(
     those whose ID is repeated in the input SMSSet and their
     'thermal_cycle' key is not the maximum among the repeated IDs.
     This is the way to ensure that the returned SMSSet contains the
-    most recent measurements."""
+    most recent measurements.
+    """
 
     aux_smsset = copy.deepcopy(smsset)
     filter_history = {}
@@ -728,7 +732,8 @@ def strip_ID_vs_sipm_location_dataframe(
     
     Note that the values of the returned DataFrame are
     strings in scientific notation with significant_figures
-    significant figures."""
+    significant figures.
+    """
 
     groups = data_df.groupby('strip_ID').groups
     table = pd.DataFrame(
@@ -789,7 +794,8 @@ def build_list_of_SiPMMeas_objects(
 
     This function returns a list of SiPMMeas objects, each of
     which has been loaded from a single JSON file in the specified
-    folder."""
+    folder.
+    """
 
     if set_to_analyze is None:
         strips_to_analyze_ = strips_to_analyze
@@ -854,7 +860,8 @@ def order_list_of_SiPMMeas_objects(
 
     This function returns a list of SiPMMeas objects, which is 
     the input list but ordered according to the StripID and the
-    SiPMLocation attributes of each SiPMMeas object."""
+    SiPMLocation attributes of each SiPMMeas object.
+    """
 
     # Assuming that, if the first element of input is a DarkNoiseMeas,
     # object then all the elements of input are DarkNoiseMeas objects
@@ -896,7 +903,8 @@ def filter_out_zeros_and_infs(
     - input (list of floats): The list to be filtered.
 
     This function returns a list which is the input list but
-    without the entries which are either 0.0 or inf."""
+    without the entries which are either 0.0 or inf.
+    """
 
     for i in reversed(range(len(input))):
         if input[i]==0. or math.isinf(input[i]):
@@ -917,7 +925,8 @@ def scientific_notation_str(
 
     This function returns a string which is the scientific
     notation of the input number with the specified number
-    of digits."""
+    of digits.
+    """
 
     return f"{number:.{ndigits - 1}e}"
 
