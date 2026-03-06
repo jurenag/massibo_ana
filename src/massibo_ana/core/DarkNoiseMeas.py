@@ -1295,6 +1295,7 @@ class DarkNoiseMeas(SiPMMeas):
         min_events_no=5,
         timedelay_threshold_in_s=0.1,  # 100 ms
         verbose=False,
+        inplace=False,
     ):
         """This class method gets the following mandatory positional
         argument:
@@ -1303,8 +1304,10 @@ class DarkNoiseMeas(SiPMMeas):
         previously analyzed, p.e. via DarkNoiseMeas.analyze(). I.e.
         darknoisemeas_to_purge.__amplitude,
         darknoisemeas_to_purge.__timedelay
-        and darknoise_to_purge.__frame_idx must be defined. The bursts
-        purge will be performed on a copy of this object.
+        and darknoise_to_purge.__frame_idx must be defined. If inplace
+        is False, the bursts purge will be performed on a deep copy of
+        this object. If inplace is True, the purge will be performed
+        directly on this object (no deep copy), which is faster.
 
         This class method gets the following optional keyword arguments:
 
@@ -1316,10 +1319,18 @@ class DarkNoiseMeas(SiPMMeas):
         in a consecutive-peaks group, for such group to be considered
         a burst.
         - verbose (bool): Whether to print functioning-related messages.
+        - inplace (bool): If False (default), a deep copy of
+        darknoisemeas_to_purge is created and the purge is applied to
+        the copy, preserving the original object. If True, the purge
+        is applied directly to darknoisemeas_to_purge, avoiding the
+        deep copy overhead. In both cases the (possibly modified)
+        object is returned.
 
-        This class method returns a DarkNoiseMeas object. Such object
-        is a modified copy of darknoisemeas_to_purge. The modification
-        relies on the concept of burst, which is defined as follows:
+        This class method returns a DarkNoiseMeas object. If inplace is
+        False, such object is a modified copy of darknoisemeas_to_purge.
+        If inplace is True, it is darknoisemeas_to_purge itself, modified
+        in place. The modification relies on the concept of burst, which
+        is defined as follows:
 
         - Every group of time-consecutive peaks within the underlying
         WaveformSet which contains more than min_events_no peaks,
@@ -1379,7 +1390,20 @@ class DarkNoiseMeas(SiPMMeas):
                     extra_info="The provided DarkNoiseMeas object must have been already analyzed.",
                 )
             )
-        purged_copy = copy.deepcopy(darknoisemeas_to_purge)
+        htype.check_type(
+            inplace,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.purge_bursts",
+                47194
+            ),
+        )
+
+        if inplace:
+            purged_copy = darknoisemeas_to_purge
+        else:
+            purged_copy = copy.deepcopy(darknoisemeas_to_purge)
+
         bursts_init_frame, bursts_end_frame, bursts_init_peak, bursts_end_peak = (
             darknoisemeas_to_purge.identify_bursts(
                 min_events_no=min_events_no,
@@ -1390,7 +1414,11 @@ class DarkNoiseMeas(SiPMMeas):
         if len(bursts_init_frame) == 0:  # No bursts were found
             if verbose:
                 print(
-                    "In function DarkNoiseMeas.purge_bursts(): No bursts were found. An identical copy of the original object will be returned."
+                    "In function DarkNoiseMeas.purge_bursts(): No bursts were "
+                    "found. "
+                    + ("The original object will be returned unchanged."
+                       if inplace
+                       else "An identical copy of the original object will be returned.")
                 )
             return purged_copy
 
