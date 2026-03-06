@@ -937,6 +937,139 @@ def natural_numbers_generator():
         yield i
         i += 1
 
+def _plot_channel_scatter(
+        ax,
+        channel_data,
+        value_key,
+        ylabel,
+        title,
+        meas_to_marker,
+        board_to_color,
+        meas_legend_handles,
+        board_legend_handles,
+        connect_linewidth=0.6,
+        connect_linestyle='--',
+        marker_size=35,
+        marker_alpha=0.85,
+        edge_color_first='black',
+        edge_width_first=1.2,
+        socket_sep_positions=(5.5, 11.5),
+        socket_sep_color='grey',
+        socket_sep_lw=1.0,
+        socket_sep_ls='--',
+        tick_fontsize=16,
+        label_fontsize=20,
+        legend_fontsize=9,
+        title_fontsize=24,
+        grid_alpha=0.3,
+        strip_label_fontsize=7,
+        strip_label_offset=(0.0, 0.0),
+    ):
+    """Plot a quantity vs channel with scatter + connecting lines.
+
+    This helper is used both by generate_daq_crosscheck_plots (for
+    NEvents and AcquisitionTime vs channel) and by
+    generate_quantity_vs_channel_plots (for analysis-result quantities).
+
+    This function gets the following positional arguments:
+
+    - ax (matplotlib.axes.Axes): The axes to plot onto.
+    - channel_data (list of dict): Each dict must contain keys
+      'channel', 'meas_no', 'board_no', 'strip_id', 'sipm_loc',
+      and the key given by value_key.
+    - value_key (str): Key within each channel_data dict for the
+      y-axis value.
+    - ylabel (str): Label for the y-axis.
+    - title (str): Plot title.
+    - meas_to_marker (dict): Mapping from meas_no to marker style.
+    - board_to_color (dict): Mapping from board_no to color.
+    - meas_legend_handles (list): Legend handles for MeasNo.
+    - board_legend_handles (list): Legend handles for BoardNo.
+
+    Optional keyword arguments control line, marker, separator, font
+    and grid styling (see parameter names).
+    """
+
+    groups = defaultdict(list)
+    for d in channel_data:
+        # Does not trigger a KeyError because of defaultdict
+        # I.e. when a new (meas_no, board_no) pair is encountered,
+        # a new empty list is assigned as value for that key
+        groups[(d['meas_no'], d['board_no'])].append(d)
+
+    for (meas_no, board_no), members in groups.items():
+        members_sorted = sorted(members, key=lambda x: x['channel'])
+        channels = [m['channel'] for m in members_sorted]
+        values   = [m[value_key] for m in members_sorted]
+        c  = board_to_color[board_no]
+        mk = meas_to_marker[meas_no]
+
+        ax.plot(
+            channels,
+            values,
+            color=c,
+            linewidth=connect_linewidth,
+            linestyle=connect_linestyle,
+            zorder=2
+        )
+
+        for m in members_sorted:
+            ec = edge_color_first if m['sipm_loc'] == 1 else 'none'
+            ew = edge_width_first if m['sipm_loc'] == 1 else 0.0
+            ax.scatter(
+                m['channel'],
+                m[value_key],
+                marker=mk,
+                color=c,
+                s=marker_size,
+                alpha=marker_alpha,
+                edgecolors=ec,
+                linewidths=ew,
+                zorder=3,
+            )
+
+            if m['sipm_loc'] == 1:
+                ax.annotate(
+                    str(m['strip_id']),
+                    xy=(m['channel'],
+                    m[value_key]),
+                    xytext=(
+                        m['channel'] + strip_label_offset[0],
+                        m[value_key] + strip_label_offset[1]
+                    ),
+                    fontsize=strip_label_fontsize,
+                    ha='left', va='bottom',
+                    color=c,
+                )
+
+    for xsep in socket_sep_positions:
+        ax.axvline(
+            xsep, color=socket_sep_color,
+            linewidth=socket_sep_lw,
+            linestyle=socket_sep_ls, zorder=1
+        )
+
+    ax.set_xticks(range(18))
+    ax.set_xlabel(
+        'Channel (socket_1: 0-5 | socket_2: 6-11 | socket_3: 12-17)',
+        fontsize=label_fontsize,
+    )
+    ax.set_ylabel(ylabel, fontsize=label_fontsize)
+    ax.set_title(title, fontsize=title_fontsize)
+    ax.tick_params(labelsize=tick_fontsize)
+    ax.grid(True, alpha=grid_alpha)
+
+    leg_m = ax.legend(
+        handles=meas_legend_handles, loc='upper left',
+        fontsize=legend_fontsize, title='MeasNo',
+        title_fontsize=legend_fontsize
+    )
+    ax.add_artist(leg_m)
+    ax.legend(
+        handles=board_legend_handles, loc='upper right',
+        fontsize=legend_fontsize, title='Board',
+        title_fontsize=legend_fontsize
+    )
 
 def generate_daq_crosscheck_plots(
         darknoisemeas_objects,
@@ -1108,114 +1241,182 @@ def generate_daq_crosscheck_plots(
     # PLOT 2 — NEvents vs channel
     # PLOT 3 — AcquisitionTime vs channel
     # ================================================================
+    scatter_kwargs = dict(
+        connect_linewidth=connect_linewidth,
+        connect_linestyle=connect_linestyle,
+        marker_size=marker_size,
+        marker_alpha=marker_alpha,
+        edge_color_first=edge_color_first,
+        edge_width_first=edge_width_first,
+        socket_sep_positions=socket_sep_positions,
+        socket_sep_color=socket_sep_color,
+        socket_sep_lw=socket_sep_lw,
+        socket_sep_ls=socket_sep_ls,
+        tick_fontsize=tick_fontsize,
+        label_fontsize=label_fontsize,
+        legend_fontsize=legend_fontsize,
+        title_fontsize=title_fontsize,
+        grid_alpha=grid_alpha,
+        strip_label_fontsize=strip_label_fontsize,
+        strip_label_offset=strip_label_offset,
+    )
+
     fig2, ax2 = plt.subplots(figsize=figsize)
-    fig3, ax3 = plt.subplots(figsize=figsize)
-
-    groups = defaultdict(list)
-    for d in daq_data:
-        groups[(d['meas_no'], d['board_no'])].append(d)
-
-    for (meas_no, board_no), members in groups.items():
-        members_sorted = sorted(members, key=lambda x: x['channel'])
-        channels  = [m['channel'] for m in members_sorted]
-        n_events  = [m['n_events'] for m in members_sorted]
-        acq_times = [m['acq_time_s'] for m in members_sorted]
-        c  = board_to_color[board_no]
-        mk = meas_to_marker[meas_no]
-
-        ax2.plot(
-            channels, n_events, color=c,
-            linewidth=connect_linewidth,
-            linestyle=connect_linestyle, zorder=2
-        )
-        ax3.plot(
-            channels, acq_times, color=c,
-            linewidth=connect_linewidth,
-            linestyle=connect_linestyle, zorder=2
-        )
-
-        for m in members_sorted:
-            ec = edge_color_first if m['sipm_loc'] == 1 else 'none'
-            ew = edge_width_first if m['sipm_loc'] == 1 else 0.0
-            ax2.scatter(
-                m['channel'], m['n_events'],
-                marker=mk, color=c,
-                s=marker_size, alpha=marker_alpha,
-                edgecolors=ec, linewidths=ew,
-                zorder=3,
-            )
-            ax3.scatter(
-                m['channel'], m['acq_time_s'],
-                marker=mk, color=c,
-                s=marker_size, alpha=marker_alpha,
-                edgecolors=ec, linewidths=ew,
-                zorder=3,
-            )
-
-            # Add strip-ID label next to SiPMLocation == 1 markers
-            if m['sipm_loc'] == 1:
-                ax2.annotate(
-                    str(m['strip_id']),
-                    xy=(m['channel'], m['n_events']),
-                    xytext=(m['channel'] + strip_label_offset[0],
-                            m['n_events'] + strip_label_offset[1]),
-                    fontsize=strip_label_fontsize,
-                    ha='left', va='bottom',
-                    color=c,
-                )
-                ax3.annotate(
-                    str(m['strip_id']),
-                    xy=(m['channel'], m['acq_time_s']),
-                    xytext=(m['channel'] + strip_label_offset[0],
-                            m['acq_time_s'] + strip_label_offset[1]),
-                    fontsize=strip_label_fontsize,
-                    ha='left', va='bottom',
-                    color=c,
-                )
-
-    for ax_ch in (ax2, ax3):
-        for xsep in socket_sep_positions:
-            ax_ch.axvline(
-                xsep, color=socket_sep_color,
-                linewidth=socket_sep_lw,
-                linestyle=socket_sep_ls, zorder=1
-            )
-
-        ax_ch.set_xticks(range(18))
-        ax_ch.set_xlabel(
-            'Channel (socket_1: 0-5 | socket_2: 6-11 | socket_3: 12-17)',
-            fontsize=label_fontsize,
-        )
-        ax_ch.tick_params(labelsize=tick_fontsize)
-        ax_ch.grid(True, alpha=grid_alpha)
-
-        leg_m = ax_ch.legend(
-            handles=meas_legend_handles, loc='upper left',
-            fontsize=legend_fontsize, title='MeasNo',
-            title_fontsize=legend_fontsize
-        )
-        ax_ch.add_artist(leg_m)
-        ax_ch.legend(
-            handles=board_legend_handles, loc='upper right',
-            fontsize=legend_fontsize, title='Board',
-            title_fontsize=legend_fontsize
-        )
-
-    ax2.set_ylabel(
-        'N events (waveforms)', fontsize=label_fontsize
+    _plot_channel_scatter(
+        ax2,
+        daq_data,
+        value_key='n_events',
+        ylabel='N events (waveforms)',
+        title='Nº of triggers vs channel',
+        meas_to_marker=meas_to_marker,
+        board_to_color=board_to_color,
+        meas_legend_handles=meas_legend_handles,
+        board_legend_handles=board_legend_handles,
+        **scatter_kwargs,
     )
-    ax2.set_title(
-        'Nº of triggers vs channel', fontsize=title_fontsize
-    )
-
-    ax3.set_ylabel(
-        'Acquisition time (s)', fontsize=label_fontsize
-    )
-    ax3.set_title(
-        'Acquisition time vs channel', fontsize=title_fontsize
-    )
-
     fig2.tight_layout()
+
+    fig3, ax3 = plt.subplots(figsize=figsize)
+    _plot_channel_scatter(
+        ax3,
+        daq_data,
+        value_key='acq_time_s',
+        ylabel='Acquisition time (s)',
+        title='Acquisition time vs channel',
+        meas_to_marker=meas_to_marker,
+        board_to_color=board_to_color,
+        meas_legend_handles=meas_legend_handles,
+        board_legend_handles=board_legend_handles,
+        **scatter_kwargs,
+    )
     fig3.tight_layout()
 
     return fig1, fig2, fig3
+
+
+def generate_quantity_vs_channel_plots(
+        darknoisemeas_objects,
+        quantities,
+        figsize=(14, 4.5),
+        connect_linewidth=0.6,
+        connect_linestyle='--',
+        marker_size=35,
+        marker_alpha=0.85,
+        edge_color_first='black',
+        edge_width_first=1.2,
+        socket_sep_positions=(5.5, 11.5),
+        socket_sep_color='grey',
+        socket_sep_lw=1.0,
+        socket_sep_ls='--',
+        tick_fontsize=16,
+        label_fontsize=20,
+        legend_fontsize=9,
+        title_fontsize=24,
+        grid_alpha=0.3,
+        strip_label_fontsize=7,
+        strip_label_offset=(0.0, 0.0),
+    ):
+    """Generate quantity-vs-channel figures for a set of analysis quantities.
+
+    This function gets the following positional arguments:
+
+    - darknoisemeas_objects (list of DarkNoiseMeas): The measurement
+      objects from which MeasNo, ElectronicBoardNumber, StripID,
+      SiPMLocation and ElectronicBoardSocket metadata are read.
+    - quantities (dict): Mapping from quantity name (str) to a list
+      of per-SiPM values whose length must match
+      len(darknoisemeas_objects). NaN values are skipped (not plotted).
+
+    This function gets optional keyword arguments controlling the
+    styling of the plots (see parameter names). These match the same
+    parameters used by generate_daq_crosscheck_plots for the
+    channel-based plots.
+
+    This function returns a list of (quantity_name, matplotlib.figure.Figure)
+    tuples, one per entry in quantities.
+    """
+
+    unique_meas_nos  = sorted(set(dno.MeasNo for dno in darknoisemeas_objects))
+    unique_board_nos = sorted(set(dno.ElectronicBoardNumber for dno in darknoisemeas_objects))
+
+    meas_to_marker = {
+        m: MEAS_MARKERS[i % len(MEAS_MARKERS)] for i, m in enumerate(unique_meas_nos)
+    }
+    board_to_color = {
+        b: BOARD_COLORS[i % len(BOARD_COLORS)] for i, b in enumerate(unique_board_nos)
+    }
+
+    meas_legend_handles = [
+        mlines.Line2D(
+            [], [], marker=meas_to_marker[m], color='grey',
+            linestyle='None', markersize=7,
+            label=f'Meas {m}')
+        for m in unique_meas_nos
+    ]
+    board_legend_handles = [
+        mlines.Line2D(
+            [], [], marker='o', color=board_to_color[b],
+            linestyle='None', markersize=7,
+            label=f'Board {b}')
+        for b in unique_board_nos
+    ]
+
+    scatter_kwargs = dict(
+        connect_linewidth=connect_linewidth,
+        connect_linestyle=connect_linestyle,
+        marker_size=marker_size,
+        marker_alpha=marker_alpha,
+        edge_color_first=edge_color_first,
+        edge_width_first=edge_width_first,
+        socket_sep_positions=socket_sep_positions,
+        socket_sep_color=socket_sep_color,
+        socket_sep_lw=socket_sep_lw,
+        socket_sep_ls=socket_sep_ls,
+        tick_fontsize=tick_fontsize,
+        label_fontsize=label_fontsize,
+        legend_fontsize=legend_fontsize,
+        title_fontsize=title_fontsize,
+        grid_alpha=grid_alpha,
+        strip_label_fontsize=strip_label_fontsize,
+        strip_label_offset=strip_label_offset,
+    )
+
+    result = []
+    for quantity_name, values in quantities.items():
+        assert len(values) == len(darknoisemeas_objects), (
+            f"Length mismatch for '{quantity_name}': "
+            f"{len(values)} values vs {len(darknoisemeas_objects)} objects"
+        )
+
+        # Build channel_data, skipping NaN entries
+        channel_data = []
+        for i, dno in enumerate(darknoisemeas_objects):
+            val = values[i]
+            if isinstance(val, float) and np.isnan(val):
+                continue
+            channel_data.append({
+                'channel': (dno.ElectronicBoardSocket - 1) * 6 + (dno.SiPMLocation - 1),
+                'meas_no': dno.MeasNo,
+                'board_no': dno.ElectronicBoardNumber,
+                'strip_id': dno.StripID,
+                'sipm_loc': dno.SiPMLocation,
+                'value': val,
+            })
+
+        fig, ax = plt.subplots(figsize=figsize)
+        _plot_channel_scatter(
+            ax,
+            channel_data,
+            value_key='value',
+            ylabel=quantity_name,
+            title=f'{quantity_name} vs channel',
+            meas_to_marker=meas_to_marker,
+            board_to_color=board_to_color,
+            meas_legend_handles=meas_legend_handles,
+            board_legend_handles=board_legend_handles,
+            **scatter_kwargs,
+        )
+        fig.tight_layout()
+        result.append((quantity_name, fig))
+
+    return result
