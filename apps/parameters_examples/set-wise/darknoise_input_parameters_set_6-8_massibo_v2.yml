@@ -50,6 +50,10 @@ generate_peak_detection_results: true
 # Whether to include the analysis results in the report
 generate_analysis_results: true
 
+# (Only used when generate_report is true)
+# Whether to include the analysis results in the report
+generate_channelwise_results: true
+
 # Whether to flip the waveforms about the baseline
 flip_about_baseline: true
 
