@@ -612,6 +612,28 @@ class SiPMMeas(ABC):
     def AcquisitionTime_min(self):
         return self.__acquisition_time_min
 
+    @AcquisitionTime_min.setter
+    def AcquisitionTime_min(self, value):
+        htype.check_type(
+            value,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.AcquisitionTime_min.setter",
+                31832
+            ),
+        )
+
+        if value <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.AcquisitionTime_min.setter",
+                    84211
+                )
+            )
+
+        self.__acquisition_time_min = value
+
     @property
     def Waveforms(self):
         return self.__waveforms

@@ -1294,8 +1294,9 @@ class DarkNoiseMeas(SiPMMeas):
         darknoisemeas_to_purge,
         min_events_no=5,
         timedelay_threshold_in_s=0.1,  # 100 ms
-        verbose=False,
+        correct_acquisition_time=True,
         inplace=False,
+        verbose=False,
     ):
         """This class method gets the following mandatory positional
         argument:
@@ -1318,13 +1319,21 @@ class DarkNoiseMeas(SiPMMeas):
         bound to the time delay between every two time-adjacent peaks
         in a consecutive-peaks group, for such group to be considered
         a burst.
-        - verbose (bool): Whether to print functioning-related messages.
+        - correct_acquisition_time (bool): Whether the AcquisitionTime_min
+        attribute of the returned object must be corrected by subtracting
+        the sum of the time intervals that correspond to the purged
+        bursts. P.e. if a burst is detected from peak 5 to peak 9, and
+        from peak 15 to peak 18, then the time intervals between peaks
+        5 and 9, and between peaks 15 and 18, are summed together and
+        subtracted from the original AcquisitionTime_min.
         - inplace (bool): If False (default), a deep copy of
         darknoisemeas_to_purge is created and the purge is applied to
         the copy, preserving the original object. If True, the purge
         is applied directly to darknoisemeas_to_purge, avoiding the
         deep copy overhead. In both cases the (possibly modified)
         object is returned.
+        - verbose (bool): Whether to print functioning-related messages.
+
 
         This class method returns a DarkNoiseMeas object. If inplace is
         False, such object is a modified copy of darknoisemeas_to_purge.
@@ -1458,6 +1467,33 @@ class DarkNoiseMeas(SiPMMeas):
         for i in reversed(range(len(bursts_init_frame))):
             for j in reversed(range(bursts_init_frame[i], 1 + bursts_end_frame[i])):
                 purged_copy.Waveforms.remove_member_by_index(j)
+
+        if correct_acquisition_time:
+            # Correct the acquisition time before the
+            # purge-associated timedelay entries are removed
+            # from purged_copy.TimeDelay
+
+            time_to_remove_min = np.sum(
+                purged_copy.TimeDelay[
+                    # self.__timedelay[i] gives the time delay between the i-th
+                    # and the (i-1)-th peaks. P.e. if burst_init_peak[i]=2 and
+                    # burst_end_peak[i]=4, then we want to sum the time delay
+                    # from peak 3 to 2 (which is self.__timedelay[3]) and the
+                    # time delay from 4 to 3 (which is self.__timedelay[4]). I.e.
+                    # we want self.__timedelay[3] + self.__timedelay[4], which is 
+                    # np.sum(self.__timedelay[3:5]), which is
+                    # np.sum(self.__timedelay[2 + 1: 4 + 1]), which is
+                    # np.sum(
+                    # self.__timedelay[burst_init_peak[i] + 1: burst_end_peak[i] + 1]
+                    # ). Also, it is important to note that bursts_init_peak and
+                    # bursts_end_peak give iterator values with respect to
+                    # the self.__timedelay array.
+                    bursts_init_peak[i] + 1: bursts_end_peak[i] + 1
+                ]
+            ) / 60.0
+
+            purged_copy.AcquisitionTime_min = \
+                purged_copy.AcquisitionTime_min - time_to_remove_min
 
         timedelay, amplitude, frame_idx = (
             list(purged_copy.TimeDelay),
