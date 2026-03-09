@@ -241,6 +241,14 @@ wvfs_per_step: 200
 # Line width for the persistency plots
 persistency_wvf_linewidth: 0.2
 
+### Parameters for the analysis-results report
+# timedelay_nbins applies to both, the timedelay
+# histogram and the 2D histogram of amplitude vs.
+# timedelay. amplitude_nbins applies only to the
+# 2D histogram.
+timedelay_nbins: 100
+amplitude_nbins: 150
+
 ### Parameters for DCR, XTP and APP distributions report
 # Number of bins in the resulting
 # DCR, XTP and APP distributions
