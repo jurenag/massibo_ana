@@ -964,10 +964,10 @@ class DarkNoiseMeas(SiPMMeas):
         then the plot is an scatter plot. Any other input is interpreted
         as '2dhist'.
 
-        - nbins (scalar integer): This parameter only makes a difference
-        for the 2D-histogram case. In such case, it is interpreted as the
-        number of bins for both, the time and amplitude dimensions.
-        It is given to the 'bins' parameter of axes.hist2d.
+        - nbins (None or int or [int, int]): This parameter only makes a
+        difference for the 2D-histogram case. In such case, it is given to
+        the `bins` parameter of the axes.hist2d. No well-formedness
+        checks are applied to this parameter.
 
         - axes_title (None or str): This parameter will be passed to
         axes.set_title(). It matches the title of the axes.
@@ -994,14 +994,6 @@ class DarkNoiseMeas(SiPMMeas):
             str,
             exception_message=htype.generate_exception_message(
                 "DarkNoiseMeas.plot_timedelay_vs_amplitude", 31738
-            ),
-        )
-        htype.check_type(
-            nbins,
-            int,
-            np.int64,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.plot_timedelay_vs_amplitude", 31771
             ),
         )
         if axes_title is not None:
@@ -1098,7 +1090,13 @@ class DarkNoiseMeas(SiPMMeas):
                 label="FastFrame window limit",
             )
 
-            hist = axes.hist2d(np.log10(x), y, bins=nbins, cmap="inferno", cmin=1)
+            hist = axes.hist2d(
+                np.log10(x),
+                y,
+                bins=nbins,
+                cmap="inferno",
+                cmin=1
+            )
             plt.colorbar(hist[3], orientation="vertical", ax=axes)
 
         if plot_half_a_pe_level:
