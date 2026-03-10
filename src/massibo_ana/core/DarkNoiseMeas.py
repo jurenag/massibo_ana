@@ -1354,7 +1354,16 @@ class DarkNoiseMeas(SiPMMeas):
         entries (and only those entries) which match any peak belonging
         to a burst, are also removed from the three attributes at once.
         In this way, the analysis that is inherited from
-        darknoisemeas_to_purge is not destroyed, but filtered."""
+        darknoisemeas_to_purge is not destroyed, but filtered.
+        
+        Apart from the purged DarkNoiseMeas object, this method returns a
+        dictionary with the following keys:
+            - 'bursts_no': The number of bursts that were spotted in
+            darknoisemeas_to_purge, according to the given parameters.
+            - 'bursts_init_peak' (resp. 'bursts_end_peak'): Third (resp.
+            fourth) argument returned by the identify_bursts() method.
+            Check the docstring of such method for more information.
+        """
 
         # I doubted whether I should implement this tool as a class method
         # or as a regular method. However, since the purpose of this tool
@@ -1419,6 +1428,11 @@ class DarkNoiseMeas(SiPMMeas):
         )
 
         bursts_no = len(bursts_init_frame)
+        aux = {
+            'bursts_no': bursts_no,
+            'bursts_init_peak': bursts_init_peak,
+            'bursts_end_peak': bursts_end_peak
+        }
 
         if bursts_no == 0:  # No bursts were found
             if verbose:
@@ -1429,7 +1443,7 @@ class DarkNoiseMeas(SiPMMeas):
                        if inplace
                        else "An identical copy of the original object will be returned.")
                 )
-            return purged_copy, bursts_no
+            return purged_copy, aux
 
         elif bursts_no == 1:  # Only one burst was found
 
@@ -1511,7 +1525,7 @@ class DarkNoiseMeas(SiPMMeas):
         purged_copy.Amplitude = np.array(amplitude, dtype=np.float64)
         purged_copy.FrameIDX = np.array(frame_idx, dtype=np.int64)
 
-        return purged_copy, bursts_no
+        return purged_copy, aux
 
     @staticmethod
     def lists_are_intertwined(a, b):
