@@ -1427,12 +1427,6 @@ class Waveform:
                 )
             )
 
-        if verbose:
-            print(
-                f"Slicing waveform from index {i_start} to "
-                f"{i_end} (out of {self.__npoints} points)"
-            )
-
         self.__signal = self.__signal[i_start:i_end]
         self.__time = self.__time[i_start:i_end]
         self.__npoints = len(self.__time)
