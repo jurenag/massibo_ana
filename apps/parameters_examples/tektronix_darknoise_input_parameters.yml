@@ -97,6 +97,15 @@ signal_fraction_for_median_cutoff: 0.2
 # value which is bigger than half of the single-PE
 # amplitude.
 minimal_height_wrt_baseline_in_AU: 0.011 # 0.011 is given in volts
+
+# Required minimal distance between peaks, in number
+# of samples. Setting a cut in this magnitude helps
+# scipy.signal.find_peaks() to avoid detecting multiple
+# peaks in the same pulse, which can happen due to
+# noise-induced fluctuations near the top of the peak.
+# It is given, as it is, to the distance parameter of
+# scipy.signal.find_peaks(). 
+minimum_distance_between_peaks_in_samples: 4
             
 # The amplitude of 1-PE in massibo is normally 22 mV.
 # Implicitly assuming the units of the analyzed data.
