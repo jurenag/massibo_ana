@@ -1589,6 +1589,54 @@ class DarkNoiseMeas(SiPMMeas):
             return False
         return True
 
+    @staticmethod
+    def pearson_correlation_coefficient(
+        centered_template,
+        template_std, 
+        signal
+    ):
+        """Pearson correlation coefficient between a template
+        and a signal. If their length do not match, then the
+        correlation coefficient is computed between the first and
+        the N-th point, where N=min(len(centered_template), len(signal)).
+        No well-formedness checks are applied to the input parameters.
+
+        - centered_template (unidimensional numpy array): It is assumed
+        that it is already mean-subtracted.
+        - template_std (scalar float): Standard deviation of the
+        template.
+        - signal (unidimensional numpy array): The signal for which
+        the Pearson correlation coefficient with the template is
+        computed.
+        """
+
+        n_points = min(
+            len(centered_template),
+            len(signal)
+        )
+
+        centered_template = centered_template[:n_points]
+        signal = signal[:n_points]
+        signal_std = np.std(signal)
+
+        if template_std == 0.0 \
+            or signal_std == 0.0:
+            print(
+                "WARNING: In static method "
+                "DarkNoiseMeas.pearson_correlation_coefficient(): "
+                "Standard deviation of the template or the signal "
+                "is null. The pearson correlation coefficient is "
+                "not defined. 0.0 will be returned."
+            )
+            return 0.0
+
+        return float(
+            np.dot(
+                centered_template,
+                signal - np.mean(signal)
+            ) / (template_std * signal_std * n_points)
+        )
+
     def output_summary(
         self,
         *args,
