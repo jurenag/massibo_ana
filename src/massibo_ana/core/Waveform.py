@@ -415,7 +415,8 @@ class Waveform:
         wvf_linewidth=1.0,
         x0=[],
         y0=[],
-        subtract_baseline=False
+        subtract_baseline=False,
+        color='black'
     ):
         """Still under development"""
 
@@ -459,7 +460,12 @@ class Waveform:
                     "Waveform.plot", 6
                 )
             )
-                    
+
+        htype.check_type(
+            color,
+            str,
+            exception_message=htype.generate_exception_message("Waveform.plot", 7),
+        )
 
         # Although self.__signs['time_unit'] may contain a time unit
         # other than seconds, these are units in which the raw data
@@ -587,7 +593,7 @@ class Waveform:
             self.__time,
             self.__signal if not subtract_baseline else self.__signal - self.__signs["first_peak_baseline"][0],
             linewidth=wvf_linewidth,
-            color="black"
+            color=color
         )  # , label="Signal")
 
         ax.set_xlim(xlim)
