@@ -222,6 +222,15 @@ integral_window_width_s: 0.45e-5
 # no filtering is applied.
 maximum_allowed_pretrigger_oscillation_in_AU: null
 
+### Parameters for the correlation-coefficient-based offline filter
+# Pearson CC threshold: waveforms with CC below this value
+# are discarded. The template is built from waveforms that
+# pass the integral + pretrigger-oscillation candidate filters.
+cc_filter_threshold: 0.5
+
+# Number of bins for the CC histogram in the filter report
+cc_histogram_nbins: 80
+
 ### Quality-control parameters
 # If after applying the filter, the number of waveforms
 # for a certain SiPM is less than this value, the
