@@ -393,7 +393,8 @@ class WaveformSet(OneTypeRTL):
         subtract_baseline=False,
         fig_width = None,
         fig_height = None,
-        show_plots = True
+        show_plots = True,
+        color = 'black'
     ):
         """This method gets the following keyword arguments:
 
@@ -707,7 +708,15 @@ class WaveformSet(OneTypeRTL):
             exception_message=htype.generate_exception_message(
                 "WaveformSet.plot", 34
             ),
-        )        
+        )
+
+        htype.check_type(
+            color,
+            str,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 35
+            ),
+        )
 
         output = []
 
@@ -733,6 +742,7 @@ class WaveformSet(OneTypeRTL):
                             x0=x0,
                             y0=y0,
                             subtract_baseline=subtract_baseline,
+                            color=color,
                         )
                         axs[iterator].set_title(f"Nº {wvfs_indices[counter]}")
                         WaveformSet.set_custom_labels_visibility(
@@ -773,6 +783,7 @@ class WaveformSet(OneTypeRTL):
                     x0=x0,
                     y0=y0,
                     subtract_baseline=subtract_baseline,
+                    color=color,
                 )
             fig.suptitle(
                 fig_title,
