@@ -149,7 +149,30 @@ minimum_peak_width_in_s: 0.01e-5 # This value has not been fine-tuned yet
 # Thus, setting rel_height_for_peak_width to 0.75 means
 # that the width of the peak is computed at a height of
 # one fourth of the peak's prominence.
-rel_height_for_peak_width: 0.75 
+rel_height_for_peak_width: 0.75
+
+# Algorithm for pulse identification. Options:
+#   - 'scipy_signal': Uses scipy.signal.find_peaks() only
+#   - 'correlation_with_template': Validates scipy candidates
+#     via Pearson correlation with the pulse template
+pulse_spotting_algorithm: 'scipy_signal'
+
+# Number of template samples to the left of its peak
+# when computing the Pearson CC with candidate peaks.
+# Only used when pulse_spotting_algorithm is
+# 'correlation_with_template'.
+template_left_points: 5
+
+# Number of template samples to the right of its peak
+# when computing the Pearson CC with candidate peaks.
+# Only used when pulse_spotting_algorithm is
+# 'correlation_with_template'.
+template_right_points: 10
+
+# Minimum Pearson CC for a candidate peak to be
+# accepted as a real pulse. Only used when
+# pulse_spotting_algorithm is 'correlation_with_template'.
+cc_threshold_for_pulse_spotting: 0.75
 
 ### Parameters for the configuration of the analysis (0.5pe-level computation) algorithm
 # The following parameters are given to the
