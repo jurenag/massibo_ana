@@ -2826,42 +2826,23 @@ class WaveformSet(OneTypeRTL):
 
             return result
 
-    def find_peaks(self, return_peak_properties=False, **kwargs):
-        """This method gets the following optional keyword argument:
+    def find_pulses_using_scipy_signal(self, **kwargs):
+        """This method encapsulates the scipy.signal.find_peaks() based
+        peak finding logic. It does NOT write results to Waveform.Signs.
+        This method gets the following keyword arguments:
 
-        - return_peak_properties (bool): If True, this method returns a list of
-        dictionaries, say result, where result[i] is the dictionary which hosts
-        the properties of the peaks spotted in the i-th waveform of this waveform
-        set, as given by the second parameter returned by scipy.signal.find_peaks.
+        - kwargs: Keyword arguments passed to scipy.signal.find_peaks().
+        The 'height' keyword argument receives special treatment: if
+        defined, it must be a scalar int or float and is interpreted as
+        a height relative to the baseline of each waveform. I.e. for
+        each waveform wvf, the effective height threshold passed to
+        scipy.signal.find_peaks() is
+        wvf.Signs['first_peak_baseline'][0] + height.
 
-        - kwargs: Every keyword argument, except for the 'height' one (if defined),
-        are given to scipy.signal.find_peaks as they are. For the case of the
-        'height' keyword argument, if it is defined, then it is checked to be 
-        a scalar integer/float. In that case, for each waveform in this waveform
-        set, say wvf, the 'height' keyword argument of 
-        scipy.signal.find_peaks(wvf.Signal, **kwargs) is set to
-        wvf.Signs['first_peak_baseline'][0] + h, where h is the value of the
-        'height' keyword argument given to this method. This means that the
-        minimal height for a peak to be considered so is measured with respect
-        to the baseline of each waveform. Note that, in this case, the baseline
-        of every waveform must have been previously computed, p.e. by calling
-        the Waveform.compute_first_peak_baseline() method, on a waveform basis.
-
-        This method analyzes this waveform set: it uses scipy.signal.find_peaks to
-        spot the peaks in every waveform in the WaveformSet. For each waveform, wvf,
-        the peaks that have been spotted in it are added to the 'peaks_pos' and
-        'peaks_top' entries of the wvf.Signs dictionary. When this method is called,
-        the information contained in wvf.Signs['peaks_pos'] and wvf.Signs['peaks_top'],
-        for every wvf, is overriden. The return value of this method may vary depending
-        on the value given to the return_peak_properties parameter."""
-
-        htype.check_type(
-            return_peak_properties,
-            bool,
-            exception_message=htype.generate_exception_message(
-                "WaveformSet.find_peaks", 1
-            ),
-        )
+        This method returns a list with one entry per waveform. Each
+        entry is a tuple (peaks_idx, properties) as returned by
+        scipy.signal.find_peaks().
+        """
 
         fUseHeight = False
         if "height" in kwargs:
@@ -2872,83 +2853,339 @@ class WaveformSet(OneTypeRTL):
                 np.int64,
                 np.float64,
                 exception_message=htype.generate_exception_message(
-                    "WaveformSet.find_peaks", 2
+                    "WaveformSet.find_pulses_using_scipy_signal",
+                    1
                 ),
             )
             fUseHeight = True
             height = kwargs["height"]
             del kwargs["height"]
 
-        if not return_peak_properties:
-            for wvf in self:
-
-                wvf.Signs = ("peaks_pos", [], True)  # Erasing previous info.
-                wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
-
-                try:
-                    peaks_idx, _ = spsi.find_peaks(
-                        wvf.Signal,
-                        height=None if not fUseHeight 
-                            else wvf.Signs["first_peak_baseline"][0] + height,
-                        **kwargs
-                    )  # Peak finding algorithm
-                except KeyError:
-                    raise cuex.NoAvailableData(
-                        htype.generate_exception_message(
-                            "WaveformSet.find_peaks",
-                            3,
-                            extra_info="The baseline of the first peak of every "
-                            "waveform have been computed before calling this method."
-                        )
-                    )
-
-                for idx in peaks_idx:
-                    wvf.Signs = (
-                        "peaks_pos",
-                        [wvf.Time[idx]],
-                        False,
-                    )  # Add peak info. to waveforms
-                    wvf.Signs = ("peaks_top", [wvf.Signal[idx]], False)
-
-            return
-
-        # Duplicating the code so that the return_peak_properties
-        # condition is not checked at every iteration
-        else:
-            result = []
-            for wvf in self:
-
-                wvf.Signs = ("peaks_pos", [], True)  # Erasing previous info.
-                wvf.Signs = ("peaks_top", [], True)  # Erasing previous info.
-
-                try:
-                    peaks_idx, properties = spsi.find_peaks(
-                        wvf.Signal,
-                        height=None if not fUseHeight
+        result = []
+        for wvf in self:
+            try:
+                peaks_idx, properties = spsi.find_peaks(
+                    wvf.Signal,
+                    height=None if not fUseHeight
                         else wvf.Signs["first_peak_baseline"][0] + height,
-                        **kwargs
-                    )  # Peak finding algorithm
-                except KeyError:
-                    raise cuex.NoAvailableData(
-                        htype.generate_exception_message(
-                            "WaveformSet.find_peaks",
-                            4,
-                            extra_info="The baseline of the first peak of every "
-                            "waveform have been computed before calling this method."
-                        )
+                    **kwargs
+                )
+            except KeyError:
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "WaveformSet.find_pulses_using_scipy_signal",
+                        2,
+                        extra_info="The baseline of the first peak of every "
+                        "waveform must have been computed before calling "
+                        "this method."
                     )
+                )
+            result.append((peaks_idx, properties))
 
-                result.append(properties)
+        return result
 
+    def find_pulses_using_correlation_with_template(
+        self,
+        template_signal,
+        template_peak_idx,
+        left_points,
+        right_points,
+        cc_threshold,
+        **kwargs
+    ):
+        """This method gets the following mandatory positional arguments:
+
+        - template_signal (unidimensional float numpy array): The full
+        template signal (e.g. from a Waveform.Signal attribute).
+        - template_peak_idx (integer): Index of the template peak
+        (maximum) within template_signal.
+        - left_points (integer): Number of samples to the left of the
+        peak to include in the correlation window (not counting the
+        peak sample itself).
+        - right_points (integer): Number of samples to the right of
+        the peak to include in the correlation window (not counting
+        the peak sample itself).
+        - cc_threshold (float): Minimum Pearson correlation coefficient
+        for a candidate peak to be accepted.
+
+        This method gets the following keyword arguments:
+
+        - kwargs: Keyword arguments forwarded to
+        WaveformSet.find_pulses_using_scipy_signal() (and ultimately
+        to scipy.signal.find_peaks()).
+
+        This method finds peaks using scipy.signal.find_peaks() as a
+        first step (via WaveformSet.find_pulses_using_scipy_signal()),
+        then validates each candidate peak via a Pearson correlation
+        coefficient (CC) check against a pulse template. For each
+        waveform, a window of the waveform centered on the candidate
+        peak position is compared against a corresponding window of
+        the template (centered on template_peak_idx). The candidate
+        is accepted if its Pearson CC is greater or equal to
+        cc_threshold.
+
+        This method returns a two-element tuple (scipy_results,
+        cc_info). scipy_results is the raw output of
+        WaveformSet.find_pulses_using_scipy_signal() (one entry per
+        waveform: a tuple (peaks_idx, properties)). cc_info is a list
+        with one inner list per waveform; each inner list has one
+        dictionary per candidate peak (in the same order as peaks_idx),
+        with keys 'cc' (float, the computed Pearson CC) and 'accepted'
+        (bool, whether cc >= cc_threshold).
+        """
+
+        htype.check_type(
+            template_signal,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_pulses_using_correlation_with_template", 1
+            ),
+        )
+        htype.check_type(
+            template_peak_idx,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_pulses_using_correlation_with_template", 2
+            ),
+        )
+        htype.check_type(
+            left_points,
+            int,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_pulses_using_correlation_with_template", 3
+            ),
+        )
+        htype.check_type(
+            right_points,
+            int,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_pulses_using_correlation_with_template", 4
+            ),
+        )
+        htype.check_type(
+            cc_threshold,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_pulses_using_correlation_with_template", 5
+            ),
+        )
+
+        scipy_results = self.find_pulses_using_scipy_signal(**kwargs)
+
+        # Pre-compute template slice and its stats
+        t_left = max(
+            0, 
+            template_peak_idx - left_points
+        )
+        t_right = min(
+            len(template_signal),
+            template_peak_idx + right_points + 1
+        )
+        template_slice = template_signal[t_left:t_right]
+        template_slice_mean = np.mean(template_slice)
+        template_slice_std = np.std(template_slice)
+        
+        # Offset of the peak within the template slice
+        peak_offset_in_slice = template_peak_idx - t_left
+
+        cc_info = []
+        for i_wvf, (peaks_idx, _) in enumerate(scipy_results):
+
+            wvf_signal = self[i_wvf].Signal
+            n_samples = len(wvf_signal)
+            wvf_cc_info = []
+
+            for p_idx in peaks_idx:
+                # Determine the waveform window aligned so that p_idx
+                # lines up with the template peak position inside the
+                # template slice.
+                w_left = int(p_idx) - peak_offset_in_slice
+                w_right = w_left + len(template_slice)
+
+                if w_left < 0 or w_right > n_samples:
+                    # Not enough room — cannot compute CC reliably
+                    wvf_cc_info.append({
+                        'cc': 0.0,
+                        'accepted': False
+                    })
+                    continue
+
+                wvf_slice = wvf_signal[w_left:w_right]
+
+                if template_slice_std == 0.0:
+                    cc_val = 0.0
+                else:
+                    wvf_slice_std = np.std(wvf_slice)
+                    if wvf_slice_std == 0.0:
+                        cc_val = 0.0
+                    else:
+                        cc_val = float(
+                            np.dot(
+                                template_slice - template_slice_mean,
+                                wvf_slice - np.mean(wvf_slice)
+                            ) / (template_slice_std * wvf_slice_std
+                                 * len(template_slice))
+                        )
+
+                wvf_cc_info.append({
+                    'cc': cc_val,
+                    'accepted': cc_val >= cc_threshold
+                })
+
+            cc_info.append(wvf_cc_info)
+
+        return scipy_results, cc_info
+
+    def find_peaks(
+        self,
+        return_peak_properties=False,
+        algorithm='scipy_signal',
+        template_signal=None,
+        template_peak_idx=None,
+        left_points=None,
+        right_points=None,
+        cc_threshold=None,
+        **kwargs
+    ):
+        """This method gets the following optional keyword arguments:
+
+        - return_peak_properties (scalar boolean): If True and
+        algorithm='scipy_signal', this method returns a list of
+        properties dictionaries from scipy.signal.find_peaks() (one
+        per waveform). If True and algorithm='correlation_with_template',
+        this method returns a tuple (properties_list, cc_info) — see
+        below.
+        - algorithm (string): It must be either 'scipy_signal' or
+        'correlation_with_template'. If 'scipy_signal', peaks are
+        detected using only scipy.signal.find_peaks(). If
+        'correlation_with_template', scipy.signal.find_peaks() is
+        used as a first step, and each candidate is then validated
+        via Pearson CC against a pulse template.
+        - template_signal (unidimensional float numpy array or None):
+        Required when algorithm='correlation_with_template'. The 1-D
+        template signal array. Check
+        WaveformSet.find_pulses_using_correlation_with_template()
+        docstring for more information.
+        - template_peak_idx (integer or None): Required when
+        algorithm='correlation_with_template'. Index of the peak
+        within template_signal.
+        - left_points (integer or None): Required when
+        algorithm='correlation_with_template'. Number of samples to
+        the left of the peak for the CC window.
+        - right_points (integer or None): Required when
+        algorithm='correlation_with_template'. Number of samples to
+        the right of the peak for the CC window.
+        - cc_threshold (float or None): Required when
+        algorithm='correlation_with_template'. Minimum Pearson CC for
+        a candidate peak to be accepted.
+        - kwargs: Keyword arguments forwarded to
+        scipy.signal.find_peaks(). The 'height' kwarg is treated
+        specially — see
+        WaveformSet.find_pulses_using_scipy_signal() docstring.
+
+        This method spots peaks in every waveform and stores the
+        results in the Waveform.Signs attribute of each waveform.
+        For the 'correlation_with_template' algorithm, only accepted
+        peaks are eventually stored in Signs.
+
+        When algorithm='scipy_signal' and return_peak_properties is
+        False, this method returns None. When return_peak_properties
+        is True, it returns a list of properties dictionaries (one
+        per waveform) as returned by scipy.signal.find_peaks().
+
+        When algorithm='correlation_with_template' and
+        return_peak_properties is False, this method returns cc_info,
+        which is a list of lists of dictionaries with keys 'cc'
+        (float), 'accepted' (bool), 'pos' (time position of the peak)
+        and 'top' (signal value at the peak). When
+        return_peak_properties is True, it returns a tuple
+        (properties_list, cc_info). For more information, check
+        WaveformSet.find_pulses_using_correlation_with_template()
+        docstring.
+        """
+
+        htype.check_type(
+            return_peak_properties,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_peaks", 1
+            ),
+        )
+        htype.check_type(
+            algorithm,
+            str,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.find_peaks", 2
+            ),
+        )
+
+        if algorithm == 'scipy_signal':
+            scipy_results = self.find_pulses_using_scipy_signal(**kwargs)
+
+            for i_wvf, (peaks_idx, _) in enumerate(scipy_results):
+                wvf = self[i_wvf]
+                wvf.Signs = ("peaks_pos", [], True)
+                wvf.Signs = ("peaks_top", [], True)
                 for idx in peaks_idx:
-                    wvf.Signs = (
-                        "peaks_pos",
-                        [wvf.Time[idx]],
-                        False,
-                    )  # Add peak info. to waveforms
+                    wvf.Signs = ("peaks_pos", [wvf.Time[idx]], False)
                     wvf.Signs = ("peaks_top", [wvf.Signal[idx]], False)
 
-            return result
+            if return_peak_properties:
+                return [properties for (_, properties) in scipy_results]
+            else:    
+                return None
+
+        elif algorithm == 'correlation_with_template':
+            scipy_results, cc_info = \
+                self.find_pulses_using_correlation_with_template(
+                    template_signal,
+                    template_peak_idx,
+                    left_points,
+                    right_points,
+                    cc_threshold,
+                    **kwargs
+                )
+
+            for i_wvf, (peaks_idx, _) in enumerate(scipy_results):
+                wvf = self[i_wvf]
+                wvf.Signs = ("peaks_pos", [], True)
+                wvf.Signs = ("peaks_top", [], True)
+
+                # Augment information in cc_info (which, as returned by
+                # find_pulses_using_correlation_with_template(), only
+                # contains 'cc' and 'accepted' keys) with 'pos' and 'top'
+                # keys, and write accepted peaks to Signs. This may seem
+                # as an information duplication (with respect to Signs),
+                # but note that Signs does not contain information about
+                # the rejected candidates, which we may need for further
+                # plotting or analysis. 
+                for j, idx in enumerate(peaks_idx):
+                    cc_info[i_wvf][j]['pos'] = wvf.Time[idx]
+                    cc_info[i_wvf][j]['top'] = wvf.Signal[idx]
+                    if cc_info[i_wvf][j]['accepted']:
+                        wvf.Signs = ("peaks_pos", [wvf.Time[idx]], False)
+                        wvf.Signs = ("peaks_top", [wvf.Signal[idx]], False)
+
+            if return_peak_properties:
+                return (
+                    [properties for (_, properties) in scipy_results],
+                    cc_info
+                )
+            else:
+                return cc_info
+
+        else:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.find_peaks",
+                    5,
+                    extra_info=f"Unknown algorithm '{algorithm}'. "
+                    "Supported values: 'scipy_signal', "
+                    "'correlation_with_template'."
+                )
+            )
 
     def integrate(
         self,
