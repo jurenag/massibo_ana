@@ -394,7 +394,8 @@ class WaveformSet(OneTypeRTL):
         fig_width = None,
         fig_height = None,
         show_plots = True,
-        color = 'black'
+        color = 'black',
+        peak_cc_info = None
     ):
         """This method gets the following keyword arguments:
 
@@ -458,6 +459,22 @@ class WaveformSet(OneTypeRTL):
         regardless the mode (either 'grid' or 'superposition'). If only
         one of them is defined, both are ignored.
         - show_plots (bool): Whether to show the plots or not.
+        - color (string): It is given to the 'color' parameter of the
+        matplotlib.axes.Axes.plot() function when plotting the waveforms.
+        - peak_cc_info (None or dict): If not None, it must be a dictionary
+        whose keys are integers matching the iterators of the waveforms to
+        plot, and whose values are lists of dictionaries. Each dictionary
+        within such lists must have the following keys: 'pos' (position of
+        the peak), 'top' (amplitude of the peak), 'cc' (cross-correlation
+        value of the peak with a given template) and 'accepted' (boolean
+        value indicating whether the peak is accepted or rejected according
+        to a given criterion, e.g. a threshold on the cc value). If
+        peak_cc_info is not None, then for each selected waveform, the
+        peaks whose position and amplitude are given by the 'pos' and 'top'
+        entries of the dictionaries within the list given by the value of
+        the key matching the iterator of this waveform within peak_cc_info are
+        plotted as inverted triangles, colored green if the 'accepted' entry
+        of the corresponding dictionary is True, and colored red otherwise.
 
         This method returns a list of matplotlib.figure.Figure objects.
         This list contains every figure (canvas) produced by this method,
@@ -718,6 +735,15 @@ class WaveformSet(OneTypeRTL):
             ),
         )
 
+        if peak_cc_info is not None:
+            htype.check_type(
+                peak_cc_info,
+                dict,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.plot", 36
+                ),
+            )
+
         output = []
 
         if mode != "superposition":  # Grid plot is default
@@ -743,6 +769,8 @@ class WaveformSet(OneTypeRTL):
                             y0=y0,
                             subtract_baseline=subtract_baseline,
                             color=color,
+                            peak_cc_info=peak_cc_info.get(wvfs_indices[counter])
+                                if peak_cc_info is not None else None,
                         )
                         axs[iterator].set_title(f"Nº {wvfs_indices[counter]}")
                         WaveformSet.set_custom_labels_visibility(
@@ -784,6 +812,8 @@ class WaveformSet(OneTypeRTL):
                     y0=y0,
                     subtract_baseline=subtract_baseline,
                     color=color,
+                    peak_cc_info=peak_cc_info.get(i)
+                        if peak_cc_info is not None else None,
                 )
             fig.suptitle(
                 fig_title,

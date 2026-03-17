@@ -416,7 +416,8 @@ class Waveform:
         x0=[],
         y0=[],
         subtract_baseline=False,
-        color='black'
+        color='black',
+        peak_cc_info=None
     ):
         """Still under development"""
 
@@ -464,8 +465,21 @@ class Waveform:
         htype.check_type(
             color,
             str,
-            exception_message=htype.generate_exception_message("Waveform.plot", 7),
+            exception_message=htype.generate_exception_message(
+                "Waveform.plot",
+                7
+            ),
         )
+
+        if peak_cc_info is not None:
+            htype.check_type(
+                peak_cc_info,
+                list,
+                exception_message=htype.generate_exception_message(
+                    "Waveform.plot",
+                    8
+                ),
+            )
 
         # Although self.__signs['time_unit'] may contain a time unit
         # other than seconds, these are units in which the raw data
@@ -539,8 +553,79 @@ class Waveform:
                 color="blue",
                 label="Median cutoff",
             )
+
         if plot_peaks:
-            if "peaks_pos" in self.__signs.keys():
+
+            # A new logical branch here is required because in this case we
+            # cannot only rely on the information stored in self.__signs to
+            # plot the peaks, since the CC info may contain more candidate
+            # peaks than those stored in self.__signs (which are only the
+            # accepted ones). Therefore, if CC info is provided, we will
+            # plot all of the candidate peaks contained in it, coloring
+            # them green (accepted) or red (rejected), and we will add some
+            # text with the number of accepted peaks. On the other hand,
+            # if CC info is not provided, then we will only plot the peaks
+            # stored in self.__signs, which are assumed to be all accepted,
+            # and we will add some text with the number of such peaks.
+
+            if peak_cc_info is not None and len(peak_cc_info) > 0:
+                # Draw markers for ALL candidate peaks (from CC info),
+                # coloring green (accepted) or red (rejected)
+                aux_amplitude = np.max(self.__signal) - np.min(self.__signal)
+
+                n_accepted = sum(
+                    1 for peak in peak_cc_info if peak['accepted']
+                )
+
+                ax.text(
+                    .99,
+                    .98,
+                    f"{n_accepted} p.",
+                    transform=ax.transAxes,
+                    verticalalignment='top',
+                    horizontalalignment='right',
+                    color='black'
+                    if n_accepted == 1
+                    else 'red'
+                )
+
+                for peak in peak_cc_info:
+                    marker_color = 'green' if peak['accepted'] else 'red'
+
+                    ax.plot(
+                        peak['pos'],
+                        peak['top'] + (0.15 * aux_amplitude),
+                        marker='v',
+                        color=marker_color,
+                        markersize=5
+                    )
+
+                    ax.annotate(
+                        f"{peak['cc']:.2f}",
+                        xy=(
+                            peak['pos'],
+                            peak['top'] + (0.18 * aux_amplitude)
+                        ),
+                        fontsize=5,
+                        color=marker_color,
+                        ha='center',
+                        va='bottom'
+                    )
+
+                    ax.axvline(
+                        x=peak['pos'],
+                        linestyle=":",
+                        linewidth=0.5,
+                        color="black"
+                    )
+                    ax.axhline(
+                        y=peak['top'],
+                        linestyle=":",
+                        linewidth=0.5,
+                        color="black"
+                    )
+
+            elif "peaks_pos" in self.__signs.keys():
 
                 # If computing this amplitude at this level (plotting a single 
                 # waveform) becomes an efficiency issue at some point, we can change
