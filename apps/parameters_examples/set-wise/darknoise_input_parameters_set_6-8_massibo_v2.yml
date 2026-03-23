@@ -7,6 +7,10 @@
 # directory.
 workspace_dir: 'ci_workspace/'
 
+# Auxiliary label for the output run folder name.
+# If null, no label suffix is appended.
+output_folder_label: null
+
 # If this parameter is not null, then it must
 # be set to an integer which identifies the
 # measurements set to be analyzed. I.e. the
