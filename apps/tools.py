@@ -9,8 +9,10 @@ import massibo_ana.utils.htype as htype
 import massibo_ana.utils.custom_exceptions as cuex
 
 import os
+import re
 import copy
 import math
+import datetime
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -96,6 +98,67 @@ thresholds = {
         'threshold': 0.05
     }
 }
+
+def create_summary_subfolder(
+        summary_root_dir: str,
+        output_folder_label: str,
+        is_darknoise: bool
+    ) -> str:
+    """Create a timestamped summary folder and return its path.
+
+    Creates a new directory with a timestamp-based name (format:
+    {D/G}_{YYYY-MM-DD}-{index}{label}) in the specified summary root
+    directory. The index is incremented based on existing folders
+    created on the same day. This function takes the following
+    arguments:
+
+    - summary_root_dir (string): The root directory where summary
+    folders are stored.
+    - output_folder_label (string): Optional label to append to the
+    folder name. If None, no label is added.
+    - is_darknoise (bool): A boolean indicating whether the data is
+    for dark noise.
+
+    This function returns:
+    - summary_dir (string): The absolute path to the newly created
+    summary directory.
+    """
+
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+    prefix = "D" if is_darknoise else "G"
+
+    run_folder_re = re.compile(
+        rf"^{prefix}_{today_str}-(\d+)(?:_.+)?$"
+    )
+    existing_indices = []
+
+    for dirname in os.listdir(summary_root_dir):
+        if not os.path.isdir(
+            os.path.join(summary_root_dir, dirname)
+        ):
+            continue
+
+        match = run_folder_re.match(dirname)
+        if match is not None:
+            existing_indices.append(int(match.group(1)))
+
+    run_index = 1 if len(existing_indices) == 0 \
+        else max(existing_indices) + 1
+
+    label_suffix = "" if output_folder_label is None \
+        else f"_{output_folder_label}"
+
+    summary_dir = os.path.join(
+        summary_root_dir,
+        f"{prefix}_{today_str}-{run_index}{label_suffix}"
+    )
+
+    os.makedirs(
+        summary_dir,
+        exist_ok=False
+    )
+
+    return summary_dir
 
 def plot_histogram(
         axes,
