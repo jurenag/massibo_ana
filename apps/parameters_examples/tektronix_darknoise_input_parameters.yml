@@ -253,7 +253,7 @@ maximum_allowed_pretrigger_oscillation_in_AU: null
 # Pearson CC threshold: waveforms with CC below this value
 # are discarded. The template is built from waveforms that
 # pass the integral + pretrigger-oscillation candidate filters.
-cc_filter_threshold: 0.5
+cc_filter_threshold: 0.6
 
 # Number of bins for the CC histogram in the filter report
 cc_histogram_nbins: 80
