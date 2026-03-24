@@ -1561,3 +1561,70 @@ class Waveform:
             )
 
         return
+
+    def find_first_baseline_crossing_after_idx(
+            self,
+            idx: int
+        ) -> int:
+        """This method finds the first baseline crossing after a given index,
+        say idx, in self.__signal. The baseline is considered to match
+        self.__signs['first_peak_baseline']. I.e. the waveform baseline must
+        have been computed before calling this method, p.e. by calling the
+        Waveform.compute_first_peak_baseline() method. This method gets the
+        following mandatory positional argument:
+
+        - idx (int): The index after which the first baseline crossing is
+        searched. It must satisfy 0 <= idx < len(self.__signal) - 1, so that
+        there is at least one point after idx in self.__signal. The baseline
+        crossing is defined as the first point in self.__signal with an index
+        bigger than idx whose value switches its order (with respect to the
+        baseline) with respect the immediately preceding point. If no such
+        point exists, then this method returns -1.
+        """
+
+        if idx < 0 or idx >= (len(self.__signal) - 1):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "Waveform.find_first_baseline_crossing_after_idx",
+                    1,
+                    extra_info=(
+                        f"idx must satisfy 0 <= idx < len(self.__signal) - 1 "
+                        f"(={len(self.__signal) - 1}), but idx={idx} was given."
+                    )
+                )
+            )
+
+        try:
+            baseline = self.__signs["first_peak_baseline"][0]
+
+        except KeyError:
+            raise KeyError(
+                htype.generate_exception_message(
+                    "Waveform.find_first_baseline_crossing_after_idx",
+                    1,
+                    extra_info="The baseline of the first peak must "
+                    "have been computed before calling this method.",
+                )
+            )
+
+        else:
+            baseline_crossing_idx = -1
+
+            if self.__signal[idx] > baseline:
+                for j in range(
+                    idx + 1,
+                    len(self.__signal)
+                ):
+                    if self.__signal[j] < baseline:
+                        baseline_crossing_idx = j
+                        break
+            else:
+                for j in range(
+                    idx + 1,
+                    len(self.__signal)
+                ):
+                    if self.__signal[j] > baseline:
+                        baseline_crossing_idx = j
+                        break
+
+            return baseline_crossing_idx
