@@ -604,9 +604,9 @@ class Waveform:
                         f"{peak['cc']:.2f}",
                         xy=(
                             peak['pos'],
-                            peak['top'] + (0.18 * aux_amplitude)
+                            peak['top'] + (0.20 * aux_amplitude)
                         ),
-                        fontsize=5,
+                        fontsize=6,
                         color=marker_color,
                         ha='center',
                         va='bottom'
