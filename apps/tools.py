@@ -1534,3 +1534,32 @@ def generate_quantity_vs_channel_plots(
         result.append((quantity_name, fig))
 
     return result
+
+def fetch_error_column(
+        name: str,
+        source_df: pd.DataFrame,
+        target_dict: dict
+    ):
+    """This function gets the following positional arguments:
+    - name (str): The base name of the column to look for in the
+    source_df DataFrame. The function will look for a column named
+    name+'_error' in source_df.
+    - source_df (pd.DataFrame): The DataFrame from which to look for
+    the error column.
+    - target_dict (dict): The dictionary to which the error values
+    will be added if the error column is found in source_df. The key
+    under which the error values will be added is name+'_error'.
+
+    This function checks if there is a column named name+'_error' in
+    source_df. If such column exists, then the function adds an entry
+    to target_dict with key name+'_error' and value equal to the list
+    of values in the name+'_error' column of source_df. Otherwise,
+    the function does nothing. Note that this function modifies
+    target_dict in-place.
+    """
+
+    if name+'_error' in source_df.columns:
+        target_dict[name] = \
+            list(source_df[name+'_error'])
+        
+    return
