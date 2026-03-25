@@ -453,6 +453,13 @@ class DarkNoiseMeas(SiPMMeas):
                 )
             )
 
+        # By the construction done here, the first spotted peak of the
+        # waveform set is discarded because it does not have a defined
+        # time delay with respect to the previous one. This means that
+        # self.__timedelay entries gives the 'backwards' time delay,
+        # i.e. self.__timedelay[i] gives the timedelay between the peak
+        # whose amplitude is given by self.__amplitude[i] and the peak
+        # whose amplitude is given by self.__amplitude[i-1].
         self.__amplitude = aux_a[1:]
         self.__frame_idx = aux_i[1:]
 
