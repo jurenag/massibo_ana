@@ -1074,6 +1074,26 @@ class DarkNoiseMeas(SiPMMeas):
         y, mask = Waveform.filter_infs_and_nans(self.__amplitude, get_mask=True)
         x = self.__timedelay[mask]
 
+        axes.set_title(axes_title)
+
+        # If there are no entries to plot,
+        # just add a note stating it and return
+        if len(x) == 0:
+            axes.text(
+                0.01,
+                0.73,
+                "In function\n"
+                "DarkNoiseMeas.plot_timedelay_vs_amplitude: not a\n"
+                "single timedelay-amplitude sample was found. If an\n"
+                "inset is shown, note that it may correspond to the\n"
+                "before-purge stage of the measurement.",
+                fontsize=8,
+                # horizontalalignment="center",
+                # verticalalignment="top",
+                transform=axes.transAxes,
+            )
+            return
+
         if np.min(x) <= 0.0:
             raise cuex.NonPositiveTimeDelay(
                 htype.generate_exception_message(
@@ -1081,8 +1101,6 @@ class DarkNoiseMeas(SiPMMeas):
                     extra_info="The time delay values must be positive. Please check the input data."
                 )
             )
-
-        axes.set_title(axes_title)
 
         if "signal_magnitude" in self.Waveforms[0].Signs.keys():
             if "signal_unit" in self.Waveforms[0].Signs.keys():
