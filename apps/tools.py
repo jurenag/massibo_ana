@@ -1402,7 +1402,7 @@ def generate_quantity_vs_channel_plots(
         socket_sep_lw=1.0,
         socket_sep_ls='--',
         tick_fontsize=16,
-        label_fontsize=20,
+        label_fontsize=16,
         legend_fontsize=9,
         title_fontsize=24,
         grid_alpha=0.3,
