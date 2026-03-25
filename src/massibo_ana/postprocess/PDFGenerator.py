@@ -66,6 +66,7 @@ class PDFGenerator:
             vertical_pos_frac: float,
             plot_width_wrt_page_width: float = .99,
             horizontally_center: bool = False,
+            dpi: float = 300.
         ) -> None:
         
         """This method gets a matplotlib.figure.Figure object,
@@ -97,6 +98,12 @@ class PDFGenerator:
         horizontally_center: bool
             If True, then the input given to horizontal_pos_frac is
             ignored and the image is centered horizontally in the page.
+        dpi: float
+            The resolution in dots per inch. It is given to the dpi
+            argument of the savefig() method of the given figure, which
+            is used to save the figure as a PNG image before adding it to
+            the PDF. A bigger dpi value means a better quality of the
+            added image, but also a bigger size of the resulting PDF file.
 
         Returns
         ----------
@@ -143,7 +150,8 @@ class PDFGenerator:
             delete=False) as temp_image:
 
             figure_to_add.savefig(
-                temp_image.name, 
+                temp_image.name,
+                dpi=dpi,
                 format='png'
             )
 
