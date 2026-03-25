@@ -770,23 +770,55 @@ class DarkNoiseMeas(SiPMMeas):
         # amplitude is thrown away by DarkNoiseMeas.analyze()
         return int(np.sum(self.__amplitude > self.__half_a_pe))
 
-    def get_dark_count_rate_in_mHz_per_mm2(self, sipm_sensitive_area_in_mm2):
+    def get_dark_count_rate_in_mHz_per_mm2(
+            self,
+            sipm_sensitive_area_in_mm2,
+            exclude_afterpulses=False,
+            afterpulse_threshold_in_s=5e-6):
         """This method gets the following mandatory positional argument:
 
         - sipm_sensitive_area_in_mm2 (float scalar): Area of the sensitive surface
         of the SiPM whose dark noise measurement matches self. This input must be
         expressed in square millimeters.
 
-        This method returns a float scalar which matches the superficial density
-        of dark count rate of this dark noise measurement. Such result is the number
-        of dark counts divided by the sensitive surface of the sipm and the acquisition
-        time. The returned magnitude is expressed in millihertz per square millimeters.
+        It also gets the following optional keyword arguments:
+
+        - exclude_afterpulses (boolean): If set to True, the after-pulses are
+        excluded from the dark count rate computation. If set to False, the
+        after-pulses are included in the dark count rate computation.
+        - afterpulse_threshold_in_s (scalar float): This parameter only makes
+        a difference if exclude_afterpulses is set to True. In that case, it
+        is given to the 'afterpulse_threshold_in_s' keyword argument of the
+        self.get_after_pulse_number() method. Check its docstring for more
+        information.
+
+        This method returns a tuple (dcr, dcr_error) where dcr is a float
+        scalar which matches the superficial density of dark count rate of
+        this dark noise measurement, and dcr_error is the associated Poisson
+        statistical error. The DCR is the number of dark counts divided by
+        the sensitive surface of the SiPM and the acquisition time. The
+        error is computed as
+        
+            1000 * sqrt(dark_counts_number) / \
+                (sipm_sensitive_area_in_mm2 * self.AcquisitionTime_min * 60.0),
+                
+        where dark_counts_number is number of dark counts (after afterpulse
+        exclusion if requested). Both magnitudes, dcr and dcr_error, are
+        expressed in millihertz per square millimeters.
         """
 
-        return 1000.0 * (
-            self.get_dark_counts_number()
-            / (sipm_sensitive_area_in_mm2 * self.AcquisitionTime_min * 60.0)
-        )
+        aux = self.get_after_pulse_number(
+            afterpulse_threshold_in_s=afterpulse_threshold_in_s
+        ) if exclude_afterpulses else 0
+
+        dark_counts_number = self.get_dark_counts_number() - aux
+        denominator = \
+            sipm_sensitive_area_in_mm2 * self.AcquisitionTime_min * 60.0
+
+        dcr = 1000.0 * dark_counts_number / denominator
+        dcr_error = 1000.0 * np.sqrt(dark_counts_number) / denominator
+
+        return dcr, dcr_error
 
     def get_cross_talk_number(self):
         """This method returns an integer scalar which is the number of cross-talk
@@ -810,12 +842,23 @@ class DarkNoiseMeas(SiPMMeas):
         return int(np.sum(self.__amplitude > self.__one_and_a_half_pe))
 
     def get_cross_talk_probability(self):
-        """This method returns a float scalar which is the cross-talk event
-        probability. Such quantity is computed as the number of cross talk events,
-        as returned by self.get_cross_talk_number(), divided by the number of dark
-        counts as returned by self.get_dark_counts_number()."""
+        """This method returns a tuple (xtp, xtp_error) where xtp is a float
+        scalar which is the cross-talk event probability and xtp_error is its
+        associated statistical uncertainty.
 
-        return self.get_cross_talk_number() / self.get_dark_counts_number()
+        The xtp value is computed as the number of cross talk events, as
+        returned by self.get_cross_talk_number(), divided by the number of dark
+        counts as returned by self.get_dark_counts_number(). The xtp_error
+        value is computed as the binomial standard deviation estimator
+        sqrt(xtp * (1 - xtp) / N), where N is the number of dark counts from
+        self.get_dark_counts_number()."""
+
+        dark_counts_number = float(self.get_dark_counts_number())
+
+        xtp = float(self.get_cross_talk_number()) / dark_counts_number
+        xtp_error = np.sqrt(xtp * (1.0 - xtp) / dark_counts_number)
+
+        return xtp, xtp_error
 
     # The after pulse threshold which was used by M. A. García et al is 5 microseconds.
     def get_after_pulse_number(self, afterpulse_threshold_in_s=5e-6):
@@ -840,12 +883,29 @@ class DarkNoiseMeas(SiPMMeas):
         return int(np.sum(self.__timedelay < afterpulse_threshold_in_s))
 
     def get_after_pulse_probability(self):
-        """This method returns a float scalar which is the after-pulse event
-        probability. Such quantity is computed as the number of after pulse events,
-        as returned by self.get_after_pulse_number(), divided by the number of dark
-        counts as returned by self.get_dark_counts_number()."""
+        """This method returns a tuple (app, app_error) where app is a float
+        scalar which is the after-pulse event probability and app_error is its
+        associated statistical uncertainty.
 
-        return self.get_after_pulse_number() / self.get_dark_counts_number()
+        The app value is computed as the number of after pulse events, as
+        returned by self.get_after_pulse_number(), divided by the number of
+        dark counts, as returned by self.get_dark_counts_number(), minus one.
+        This correction has to do with the fact that the number of time-delay
+        entries is one unit smaller than the number of dark counts, since the
+        first spotted peak does not have a defined time delay with respect to
+        the previous one. In other words, the first dark count could have
+        been, or not, the after pulse of a pulse that happened right before
+        the acquisition started, which we cannot possibly know. The app_error
+        value is computed as the binomial standard deviation estimator
+        sqrt(app * (1 - app) / N), where N is the number of dark counts from
+        self.get_dark_counts_number()."""
+
+        dark_counts_number = float(self.get_dark_counts_number())
+
+        app = float(self.get_after_pulse_number()) / (dark_counts_number - 1.)
+        app_error = np.sqrt(app * (1.0 - app) / (dark_counts_number - 1.))
+
+        return app, app_error
 
     # The default values for the parameters given in M. García et al paper.
     def identify_bursts(self, min_events_no=5, timedelay_threshold_in_s=0.1):  # 100 ms
@@ -1669,14 +1729,16 @@ class DarkNoiseMeas(SiPMMeas):
         self.__timedelay, self.__amplitude, self.__frame_idx,
         self.__half_a_pe, self.__one_and_a_half_pe,
         self.get_dark_counts_number(),
-        self.get_dark_count_rate_in_mHz_per_mm2(*args),
-        self.get_cross_talk_probability() and
-        self.get_after_pulse_probability() values are included in the output
+        self.get_dark_count_rate_in_mHz_per_mm2(*args) (both value and
+        Poisson error), self.get_cross_talk_probability() (both value
+        and binomial error) and self.get_after_pulse_probability()
+        (both value and binomial error) values are included in the output
         dictionary under the keys "timedelay", "amplitude", "frame_idx",
         "half_a_pe", "one_and_a_half_pe", "DC#", "DCR_mHz_per_mm2",
-        "XTP" and "APP", respectively. If this parameter
-        is False, then these keys are still included in the output dictionary,
-        but their value is set to float('nan').
+        "DCR_mHz_per_mm2_error", "XTP", "XTP_error", "APP" and
+        "APP_error", respectively. If this
+        parameter is False, then these keys are still included in the
+        output dictionary, but their value is set to float('nan').
         - overwrite (bool): This parameter only makes a difference if
         the 'folderpath' parameter is defined and if there is already
         a file in the given folder path whose name matches
@@ -1743,12 +1805,24 @@ class DarkNoiseMeas(SiPMMeas):
         include_analysis_results and float('nan') otherwise,
         - "DC#" Contains :self.get_dark_counts_number() if
         include_analysis_results and float('nan') otherwise,
-        - "DCR_mHz_per_mm2": Contains
-        self.get_dark_count_rate_in_mHz_per_mm2(*args) if
+        - "DCR_mHz_per_mm2": Contains the DCR value
+        (self.get_dark_count_rate_in_mHz_per_mm2(*args)[0]) if
         include_analysis_results and float('nan') otherwise,
-        - "XTP": Contains self.get_cross_talk_probability() if
+        - "DCR_mHz_per_mm2_error": Contains the Poisson statistical
+        error of the DCR
+        (self.get_dark_count_rate_in_mHz_per_mm2(*args)[1]) if
         include_analysis_results and float('nan') otherwise,
-        - "APP": Contains self.get_after_pulse_probability() if
+        - "XTP": Contains the XTP value
+        (self.get_cross_talk_probability())[0] if
+        include_analysis_results and float('nan') otherwise,
+        - "XTP_error": Contains the XTP binomial statistical
+        error (self.get_cross_talk_probability()[1]) if
+        include_analysis_results and float('nan') otherwise,
+        - "APP": Contains the APP value
+        (self.get_after_pulse_probability())[0] if
+        include_analysis_results and float('nan') otherwise,
+        - "APP_error": Contains the APP binomial statistical
+        error (self.get_after_pulse_probability()[1]) if
         include_analysis_results and float('nan') otherwise.
 
         This method returns a summary dictionary of the DarkNoiseMeas
@@ -1786,6 +1860,10 @@ class DarkNoiseMeas(SiPMMeas):
         }
 
         if include_analysis_results:
+            dcr_value, dcr_error = self.get_dark_count_rate_in_mHz_per_mm2(*args)
+            xtp_value, xtp_error = self.get_cross_talk_probability()
+            app_value, app_error = self.get_after_pulse_probability()
+
             analysis_results = {
                 # Object of type numpy.ndarray is not
                 # JSON serializable, but lists are
@@ -1799,9 +1877,12 @@ class DarkNoiseMeas(SiPMMeas):
                 "half_a_pe": self.__half_a_pe,
                 "one_and_a_half_pe": self.__one_and_a_half_pe,
                 "DC#": self.get_dark_counts_number(),
-                "DCR_mHz_per_mm2": self.get_dark_count_rate_in_mHz_per_mm2(*args),
-                "XTP": self.get_cross_talk_probability(),
-                "APP": self.get_after_pulse_probability()
+                "DCR_mHz_per_mm2": dcr_value,
+                "DCR_mHz_per_mm2_error": dcr_error,
+                "XTP": xtp_value,
+                "XTP_error": xtp_error,
+                "APP": app_value,
+                "APP_error": app_error
             }
         else:
             analysis_results = {
@@ -1812,8 +1893,11 @@ class DarkNoiseMeas(SiPMMeas):
                 "one_and_a_half_pe": float('nan'),
                 "DC#": float('nan'),
                 "DCR_mHz_per_mm2": float('nan'),
+                "DCR_mHz_per_mm2_error": float('nan'),
                 "XTP": float('nan'),
-                "APP": float('nan')
+                "XTP_error": float('nan'),
+                "APP": float('nan'),
+                "APP_error": float('nan')
             }
 
         darknoisemeas_additional_output.update(analysis_results)
