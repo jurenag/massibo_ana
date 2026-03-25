@@ -1010,6 +1010,7 @@ def _plot_channel_scatter(
         board_to_color,
         meas_legend_handles,
         board_legend_handles,
+        error_key=None,
         connect_linewidth=0.6,
         connect_linestyle='--',
         marker_size=35,
@@ -1039,7 +1040,8 @@ def _plot_channel_scatter(
     - ax (matplotlib.axes.Axes): The axes to plot onto.
     - channel_data (list of dict): Each dict must contain keys
       'channel', 'meas_no', 'board_no', 'strip_id', 'sipm_loc',
-      and the key given by value_key.
+      and the key given by value_key. If error_key is not None,
+      each dict must also contain the key given by error_key.
     - value_key (str): Key within each channel_data dict for the
       y-axis value.
     - ylabel (str): Label for the y-axis.
@@ -1049,9 +1051,14 @@ def _plot_channel_scatter(
     - meas_legend_handles (list): Legend handles for MeasNo.
     - board_legend_handles (list): Legend handles for BoardNo.
 
-    Optional keyword arguments control line, marker, separator, font
-    and grid styling (see parameter names).
-    """
+    It also gets the following optional keyword argument:
+
+    - error_key (None or str): If not None, the key within each
+      channel_data dict for the y-axis error bar values. When
+      provided, error bars are drawn on each scatter point.
+
+    Additional optional keyword arguments control line, marker,
+    separator, font and grid styling (see parameter names)."""
 
     groups = defaultdict(list)
     for d in channel_data:
@@ -1079,6 +1086,20 @@ def _plot_channel_scatter(
         for m in members_sorted:
             ec = edge_color_first if m['sipm_loc'] == 1 else 'none'
             ew = edge_width_first if m['sipm_loc'] == 1 else 0.0
+
+            if error_key is not None and error_key in m:
+                ax.errorbar(
+                    m['channel'],
+                    m[value_key],
+                    yerr=m[error_key],
+                    fmt='none',
+                    ecolor=c,
+                    elinewidth=1.0,
+                    capsize=3,
+                    alpha=marker_alpha,
+                    zorder=3,
+                )
+
             ax.scatter(
                 m['channel'],
                 m[value_key],
@@ -1088,7 +1109,7 @@ def _plot_channel_scatter(
                 alpha=marker_alpha,
                 edgecolors=ec,
                 linewidths=ew,
-                zorder=3,
+                zorder=4,
             )
 
             if m['sipm_loc'] == 1:
@@ -1368,6 +1389,7 @@ def generate_daq_crosscheck_plots(
 def generate_quantity_vs_channel_plots(
         darknoisemeas_objects,
         quantities,
+        errors=None,
         figsize=(14, 4.5),
         connect_linewidth=0.6,
         connect_linestyle='--',
@@ -1397,6 +1419,12 @@ def generate_quantity_vs_channel_plots(
     - quantities (dict): Mapping from quantity name (str) to a list
       of per-SiPM values whose length must match
       len(darknoisemeas_objects). NaN values are skipped (not plotted).
+
+    It also gets the following optional keyword argument:
+
+    - errors (None or dict): If not None, a mapping from quantity name
+      (str) to a list of per-SiPM error values. Only quantities present
+      in this dict will have error bars drawn on the scatter plots.
 
     This function gets optional keyword arguments controlling the
     styling of the plots (see parameter names). These match the same
@@ -1456,6 +1484,9 @@ def generate_quantity_vs_channel_plots(
         strip_label_offset=strip_label_offset,
     )
 
+    if errors is None:
+        errors = {}
+
     result = []
     for quantity_name, values in quantities.items():
         assert len(values) == len(darknoisemeas_objects), (
@@ -1463,20 +1494,27 @@ def generate_quantity_vs_channel_plots(
             f"{len(values)} values vs {len(darknoisemeas_objects)} objects"
         )
 
+        has_errors = quantity_name in errors
+        if has_errors:
+            err_values = errors[quantity_name]
+
         # Build channel_data, skipping NaN entries
         channel_data = []
         for i, dno in enumerate(darknoisemeas_objects):
             val = values[i]
             if isinstance(val, float) and np.isnan(val):
                 continue
-            channel_data.append({
+            entry = {
                 'channel': (dno.ElectronicBoardSocket - 1) * 6 + (dno.SiPMLocation - 1),
                 'meas_no': dno.MeasNo,
                 'board_no': dno.ElectronicBoardNumber,
                 'strip_id': dno.StripID,
                 'sipm_loc': dno.SiPMLocation,
                 'value': val,
-            })
+            }
+            if has_errors:
+                entry['error'] = err_values[i]
+            channel_data.append(entry)
 
         fig, ax = plt.subplots(figsize=figsize)
         _plot_channel_scatter(
@@ -1489,6 +1527,7 @@ def generate_quantity_vs_channel_plots(
             board_to_color=board_to_color,
             meas_legend_handles=meas_legend_handles,
             board_legend_handles=board_legend_handles,
+            error_key='error' if has_errors else None,
             **scatter_kwargs,
         )
         fig.tight_layout()
