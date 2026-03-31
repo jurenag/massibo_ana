@@ -54,7 +54,7 @@ kaleido==1.1.0
 kiwisolver==1.4.8
 logistro==1.1.0
 MarkupSafe==3.0.2
--e git+https://github.com/jurenag/massibo_ana.git@fb6bae7057a2f4478c992973b087e78d05f5cab6#egg=massibo_ana
+-e git+https://github.com/jurenag/massibo_ana.git@a0fc9edce4ff5dbe7ab67ee21554045fe6eef093#egg=massibo_ana
 matplotlib==3.10.0
 matplotlib-inline==0.1.7
 mistune==3.1.1
@@ -86,6 +86,7 @@ pure_eval==0.2.3
 pyarrow==19.0.0
 pycparser==2.22
 Pygments==2.19.1
+pyinstrument==5.1.2
 pyparsing==3.2.1
 PyPDF2==3.0.1
 pytest==8.4.2
