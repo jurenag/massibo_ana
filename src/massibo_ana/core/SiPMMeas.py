@@ -698,12 +698,14 @@ class SiPMMeas(ABC):
         gaussian fit parameters, i.e. for the gaussian mean and standard
         deviation. Note that, additionally, if the scaling_seeds are defined,
         then the bounds for the scaling should also be set. If it is None,
-        then no bounds are set, i.e. the bounds for every parameter are set to
-        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
-        many entries as fit parameters. The i-th entry of the first (resp.
-        second) element of the tuple contains the lower (resp. upper) bound for
-        the i-th fit parameter. If defined, this parameter is not checked, but
-        given to scipy.optimize.curve_fit() as is.
+        then, then only the [0, np.inf] bounds are used for the scaling factor
+        (if applicable) while the rest of the parameters are unbounded
+        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
+        elements of the tuple must contain as many entries as fit parameters.
+        The i-th entry of the first (resp. second) element of the tuple
+        contains the lower (resp. upper) bound for the i-th fit parameter.
+        If defined, this parameter is not checked, but given to
+        scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). This parameter
         is given to the std_no keyword argument of
         SiPMMeas.piecewise_gaussian_fits(). Check its docstring for more
@@ -1416,12 +1418,14 @@ class SiPMMeas(ABC):
         gaussian fit parameters, i.e. for the gaussian mean and standard
         deviation. Note that, additionally, if the scaling_seeds are defined,
         then the bounds for the scaling should also be set. If it is None,
-        then no bounds are set, i.e. the bounds for every parameter are set to
-        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
-        many entries as fit parameters. The i-th entry of the first (resp.
-        second) element of the tuple contains the lower (resp. upper) bound for
-        the i-th fit parameter. If defined, this parameter is not checked, but
-        given to scipy.optimize.curve_fit() as is.
+        then, then only the [0, np.inf] bounds are used for the scaling factor
+        (if applicable) while the rest of the parameters are unbounded
+        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
+        elements of the tuple must contain as many entries as fit parameters.
+        The i-th entry of the first (resp. second) element of the tuple
+        contains the lower (resp. upper) bound for the i-th fit parameter.
+        If defined, this parameter is not checked, but given to
+        scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). This number determines
         the x-range of the input data which is used for each fit. Namely, the x-y
         points which are used for the i-th fit are those which fall within the
@@ -1591,8 +1595,23 @@ class SiPMMeas(ABC):
             seeds_package = [mean_seeds[i], std_seeds[i], scaling_seeds_[i]]
             p0 = seeds_package if fWithScaling else seeds_package[:-1]
 
+            # Note that, in both cases, the std parameter is unbounded.
+            # In principle, we could set a lower bound of 0 for the std parameter.
+            # However, we have seen in previous executions of the gain analysis
+            # that std may be of the order of 1e-10. For such an small value,
+            # setting a lower bound of 0 (close to 1e-10) may make the 'trf'
+            # method unstable, p.e. causing a reflection in this 0 boundary.
             if fit_parameters_bounds is None:
-                fit_parameters_bounds_ = (-np.inf, np.inf)
+                if fWithScaling:
+                    fit_parameters_bounds_ = (
+                        np.array([-np.inf, -np.inf, 0.0]),
+                        np.array([np.inf, np.inf, np.inf])
+                    )
+                else:
+                    fit_parameters_bounds_ = (
+                        np.array([-np.inf, -np.inf]),
+                        np.array([np.inf, np.inf])
+                    )
             else:
                 fit_parameters_bounds_ = fit_parameters_bounds
 

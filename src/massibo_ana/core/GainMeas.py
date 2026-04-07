@@ -395,19 +395,21 @@ class GainMeas(SiPMMeas):
         only considered peaks are those whose prominence is bigger or equal
         to a fraction of the self.ChargeEntries histogram maximum. For more
         information check the
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.    
         - fit_parameters_bounds (None or 2-tuple of array-like): It is
         eventually given to the 'bounds' keyword argument of
         scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
         gaussian fit parameters, i.e. for the gaussian mean and standard
         deviation. Note that, additionally, if the scaling_seeds are defined,
         then the bounds for the scaling should also be set. If it is None,
-        then no bounds are set, i.e. the bounds for every parameter are set to
-        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
-        many entries as fit parameters. The i-th entry of the first (resp.
-        second) element of the tuple contains the lower (resp. upper) bound for
-        the i-th fit parameter. If defined, this parameter is not checked, but
-        given to scipy.optimize.curve_fit() as is.
+        then, then only the [0, np.inf] bounds are used for the scaling factor
+        (if applicable) while the rest of the parameters are unbounded
+        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
+        elements of the tuple must contain as many entries as fit parameters.
+        The i-th entry of the first (resp. second) element of the tuple
+        contains the lower (resp. upper) bound for the i-th fit parameter.
+        If defined, this parameter is not checked, but given to
+        scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). It is given to
         the static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check
@@ -783,12 +785,14 @@ class GainMeas(SiPMMeas):
         gaussian fit parameters, i.e. for the gaussian mean and standard
         deviation. Note that, additionally, if the scaling_seeds are defined,
         then the bounds for the scaling should also be set. If it is None,
-        then no bounds are set, i.e. the bounds for every parameter are set to
-        (-np.inf, np.inf). Otherwise, both elements of the tuple must contain as
-        many entries as fit parameters. The i-th entry of the first (resp.
-        second) element of the tuple contains the lower (resp. upper) bound for
-        the i-th fit parameter. If defined, this parameter is not checked, but
-        given to scipy.optimize.curve_fit() as is.
+        then, then only the [0, np.inf] bounds are used for the scaling factor
+        (if applicable) while the rest of the parameters are unbounded
+        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
+        elements of the tuple must contain as many entries as fit parameters.
+        The i-th entry of the first (resp. second) element of the tuple
+        contains the lower (resp. upper) bound for the i-th fit parameter.
+        If defined, this parameter is not checked, but given to
+        scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
