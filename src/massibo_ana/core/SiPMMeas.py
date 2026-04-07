@@ -1615,30 +1615,34 @@ class SiPMMeas(ABC):
             else:
                 fit_parameters_bounds_ = fit_parameters_bounds
 
-                for i in range(len(p0)):
-                    try:
-                        if p0[i] < fit_parameters_bounds_[0][i] or p0[i] > fit_parameters_bounds_[1][i]:
-                            print(
-                                "In function SiPMMeas.piecewise_gaussian_fits(): "
-                                f"The seed value {p0[i]} for the {i}-th fit parameter"
-                                " is not within the specified bounds "
-                                f"({fit_parameters_bounds_[0][i]}, {fit_parameters_bounds_[1][i]})."
-                                " This seed will be replaced by the mean value of the bounds."
-                            )
+            for i in range(len(p0)):
+                try:
+                    if p0[i] < fit_parameters_bounds_[0][i] or p0[i] > fit_parameters_bounds_[1][i]:
 
-                            p0[i] = (
-                                fit_parameters_bounds_[0][i] +
-                                fit_parameters_bounds_[1][i]
-                            ) / 2.0
-
-                    except IndexError:
-                        raise cuex.InvalidParameterDefinition(
-                            htype.generate_exception_message(
-                                "SiPMMeas.piecewise_gaussian_fits",
-                                54013,
-                                extra_info=f"The fit_parameters_bounds_ parameter is ill-formed."
-                            )
+                        aux = np.clip(
+                            p0[i],
+                            fit_parameters_bounds_[0][i],
+                            fit_parameters_bounds_[1][i]
                         )
+
+                        print(
+                            "In function SiPMMeas.piecewise_gaussian_fits(): "
+                            f"The seed value {p0[i]} for the {i}-th fit parameter"
+                            " is not within the used bounds "
+                            f"({fit_parameters_bounds_[0][i]}, {fit_parameters_bounds_[1][i]})."
+                            f" This seed will be replaced by the closest bound ({aux})."
+                        )
+
+                        p0[i] = aux
+
+                except IndexError:
+                    raise cuex.InvalidParameterDefinition(
+                        htype.generate_exception_message(
+                            "SiPMMeas.piecewise_gaussian_fits",
+                            54013,
+                            extra_info=f"The fit_parameters_bounds_ parameter is ill-formed."
+                        )
+                    )
 
             aux_popt, aux_pcov = spopt.curve_fit(
                 gaussian,
