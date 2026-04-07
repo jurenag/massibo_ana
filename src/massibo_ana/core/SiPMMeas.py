@@ -1627,9 +1627,7 @@ class SiPMMeas(ABC):
                 fit_y,
                 p0=p0,
                 bounds=fit_parameters_bounds_,
-                # **kwargs are pased to leastsq for method='lm' or least_squares otherwise
-                # Got this information from https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html
-                maxfev=2000,
+                method='trf',
             )
 
             popt.append(aux_popt)
