@@ -192,6 +192,7 @@ peak_distance_in_bins: 5
 # attempting the gaussian fits to the first two
 # peaks of the amplitudes histogram.
 max_gaussian_fit_std_no: 4.0
+
 # The bins number used for the amplitudes histogram,
 # which is used to find the 1.5-PE level, is
 # first set to the value of
@@ -212,16 +213,19 @@ max_gaussian_fit_std_no: 4.0
 maximum_first_amplitudes_histogram_bins_no: 175
 minimum_amplitudes_histogram_bins_no: 170
 amplitudes_histogram_bins_no_step: 5
+
 # Fraction of the extremal samples (lowest
 # and highest) to discard from the amplitudes
 # histogram before performing the gaussian
 # fits to find the 1.5-PE level.
 fraction_of_extremal_samples_to_discard: 0.005
+
 # Only the spotted peaks whose time-delay value
 # is equal or bigger than this threshold, will
 # contribute to the amplitudes histogram which
 # is fitted to find the 1.5-PE level.
 timedelay_cut_for_gaussian_fit: 1.e-4
+
 # Only the spotted peaks whose amplitude value
 # is equal or smaller than this threshold, will
 # contribute to the amplitudes histogram which
