@@ -139,6 +139,11 @@ minimal_prominence_wrt_max: 0.15
 # as to allow this 3-parameters fit.
 gaussian_fit_std_no: 3. # Setting this one to 4. for boards 7296, 8549 and 8550 gave worse results.
 
+# Minimum distance (in histogram bins) between detected
+# peaks when fitting the charge histogram. It is given
+# to the 'distance' parameter of scipy.signal.find_peaks().
+peak_distance_in_bins: 5
+
 # Regarding the following five parameters: The charge
 # histogram fit is performed for every
 # (peaks_to_detect, bins_no) combination over a certain

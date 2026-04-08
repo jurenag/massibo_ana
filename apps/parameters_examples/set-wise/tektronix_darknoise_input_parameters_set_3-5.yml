@@ -180,6 +180,13 @@ starting_fraction: 0.1
 step_fraction: 0.01
 minimal_prominence_wrt_max: 0.03
 gaussian_fit_std_no: 3.0
+
+# Minimum distance (in histogram bins) between detected
+# peaks when fitting the amplitudes histogram to find
+# the 1.5-PE level. It is given to the 'distance'
+# parameter of scipy.signal.find_peaks().
+peak_distance_in_bins: 5
+
 # The following parameter has to do with how the
 # NotEnoughFitSamples exception is handled when
 # attempting the gaussian fits to the first two
