@@ -404,7 +404,8 @@ class DarkNoiseMeas(SiPMMeas):
         """The optional keyword arguments given to this method are handled
         to self.compute_amplitude_levels(). These are numerical parameters
         that tune the algorithm that computes the 0.5-photoelectrons (PE)
-        and the 1.5-PE voltage amplitude.
+        and the 1.5-PE voltage amplitude. Check the docstring of
+        DarkNoiseMeas.compute_amplitude_levels() for more information.
 
         This method populates self.__timedelay, self.__amplitude and
         self.__frame_idx, based on the peaks that are already spotted in
@@ -476,6 +477,7 @@ class DarkNoiseMeas(SiPMMeas):
         fraction_of_extremal_samples_to_discard=0.0,
         timedelay_cut=0.0,
         amplitude_cut=None,
+        peak_distance_in_bins=5,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -538,6 +540,10 @@ class DarkNoiseMeas(SiPMMeas):
         (>0.0) and it is used as an inclusive upper bound for the amplitude
         values within self.__amplitude which are histogrammed in order to fit
         the 1-PE and 2-PE peaks.
+        - peak_distance_in_bins (positive integer): The minimum distance
+        (in histogram bins) between detected peaks. It is given to the
+        'peak_distance_in_bins' keyword argument of
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks().
 
         This method computes the voltage amplitudes matching 0.5 and 1.5
         photoelectrons. Those values are stored into the self.__half_a_pe and
@@ -739,7 +745,8 @@ class DarkNoiseMeas(SiPMMeas):
             starting_fraction=starting_fraction,
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
-            std_no=std_no
+            std_no=std_no,
+            peak_distance_in_bins=peak_distance_in_bins
         )
 
         # Assess which fit matches which peak

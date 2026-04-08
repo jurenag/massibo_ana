@@ -337,6 +337,7 @@ class GainMeas(SiPMMeas):
         minimal_prominence_wrt_max=0.0,
         fit_parameters_bounds=None,
         std_no=3.0,
+        peak_distance_in_bins=5,
         plot_axes=None,
         logarithmic_plot=False,
         axes_title=None,
@@ -415,6 +416,10 @@ class GainMeas(SiPMMeas):
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check
         its docstrings for more information. Check its docstrings for more
         information.
+        - peak_distance_in_bins (positive integer): The minimum distance
+        (in histogram bins) between detected peaks. It is given to the
+        'peak_distance_in_bins' keyword argument of
+        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks().
         - plot_axes (None or matplotlib.axes.Axes object): If it is not
         defined, then no plot is done. If it is defined, then the fit
         histogram is plotted in the given axes.
@@ -617,7 +622,8 @@ class GainMeas(SiPMMeas):
                 step_fraction=step_fraction,
                 minimal_prominence_wrt_max=minimal_prominence_wrt_max,
                 fit_parameters_bounds=fit_parameters_bounds,
-                std_no=std_no
+                std_no=std_no,
+                peak_distance_in_bins=peak_distance_in_bins
             )
         if fPlot:
             bins_values, _, _ = plot_axes.hist(
@@ -713,6 +719,7 @@ class GainMeas(SiPMMeas):
         minimal_prominence_wrt_max=0.0,
         fit_parameters_bounds=None,
         std_no=3.0,
+        peak_distance_in_bins=5,
         gain_fit_axes=None,
         errorbars_scaling=1.0,
         histogram_fit_axes=None,
@@ -798,6 +805,10 @@ class GainMeas(SiPMMeas):
         static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check its
         docstrings for more information.
+        - peak_distance_in_bins (positive integer): The minimum distance
+        (in histogram bins) between detected peaks. It is given to the
+        'peak_distance_in_bins' keyword argument of
+        GainMeas.fit_peaks_histogram().
         - gain_fit_axes (None or matplotlib.axes.Axes object): If it is not
         defined, then gain fit plot is done. If it is defined, then the gain
         fit is plotted in the given axes.
@@ -949,6 +960,7 @@ class GainMeas(SiPMMeas):
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
             fit_parameters_bounds=fit_parameters_bounds,
             std_no=std_no,
+            peak_distance_in_bins=peak_distance_in_bins,
             plot_axes=histogram_fit_axes,
             logarithmic_plot=logarithmic_plot,
             axes_title=histogram_axes_title,

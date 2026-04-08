@@ -649,7 +649,8 @@ class SiPMMeas(ABC):
         step_fraction=0.01,
         minimal_prominence_wrt_max=0.0,
         fit_parameters_bounds=None,
-        std_no=3.0
+        std_no=3.0,
+        peak_distance_in_bins=5
     ):
         """This static method gets the following optional keyword arguments:
 
@@ -710,6 +711,10 @@ class SiPMMeas(ABC):
         is given to the std_no keyword argument of
         SiPMMeas.piecewise_gaussian_fits(). Check its docstring for more
         information.
+        - peak_distance_in_bins (positive integer): The minimum distance
+        (in histogram bins) between detected peaks. It is given to the
+        'distance' parameter of scipy.signal.find_peaks() via
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
 
         This method fits one gaussian to each peak within a subset of the
         peaks_to_detect first peaks of the histogram of samples. By 'first
@@ -930,7 +935,8 @@ class SiPMMeas(ABC):
                 peaks_to_detect,
                 minimal_prominence_wrt_max,
                 initial_percentage=starting_fraction,
-                percentage_step=step_fraction
+                percentage_step=step_fraction,
+                peak_distance_in_bins=peak_distance_in_bins
             )
         
         if not found_requested_peaks:
@@ -1000,7 +1006,8 @@ class SiPMMeas(ABC):
         max_peaks: int,
         prominence: float,
         initial_percentage=0.1,
-        percentage_step=0.1
+        percentage_step=0.1,
+        peak_distance_in_bins=5
     ):
         """This helper method gets the positional argument:
 
@@ -1026,6 +1033,9 @@ class SiPMMeas(ABC):
         increase the signal to consider in successive calls
         of scipy.signal.find_peaks(). It must be greater than
         0.0 and smaller than 1.0.
+        - peak_distance_in_bins (positive integer): The minimum
+        distance (in bins) between detected peaks. It is given
+        to the 'distance' parameter of scipy.signal.find_peaks().
 
         This helper method is not intended for user usage.
         It must be only called by 
@@ -1087,7 +1097,8 @@ class SiPMMeas(ABC):
                 signal[0:points],
                 prominence=prominence,
                 width=0,
-                rel_height=0.5
+                rel_height=0.5,
+                distance=peak_distance_in_bins
             )
 
             # scipy.signal.find_peaks() spots peaks as double peaks
@@ -1651,6 +1662,12 @@ class SiPMMeas(ABC):
                 p0=p0,
                 bounds=fit_parameters_bounds_,
                 method='trf',
+                #### OPEN ISSUE: Try to debug the usage of the following
+                #### two lines which will make the piecewise gaussian fits
+                #### more robust. For the moment, they throw an error
+                #### when running the gain analysis.
+                # sigma=np.sqrt(fit_y) if np.all(fit_y >= 0) else None,
+                # absolute_sigma=True
             )
 
             popt.append(aux_popt)
