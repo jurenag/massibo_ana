@@ -344,6 +344,7 @@ class GainMeas(SiPMMeas):
         gaussian_plot_npoints=100,
         plot_charge_range=None,
         plot_fit=True,
+        use_correlated_gaussians=False,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -441,21 +442,30 @@ class GainMeas(SiPMMeas):
         the fit functions together with the plotted histogram. Note that,
         if plot_fit is True, then the fit plots are also affected by the
         logarithmic_plot parameter.
+        - use_correlated_gaussians (scalar boolean): If False (default),
+        independent Gaussian fits are performed for each peak. If True,
+        a single fit using correlated Gaussians is performed, where peak
+        positions follow mu_i = center_0 + (i * gain) and widths follow
+        sigma_i = sqrt(std_0^2 + (i * std_increment)^2). The return format
+        depends on the value of this parameter:
 
-        This method histograms self.__charge_entries and fits one gaussian
-        to a subset of the peaks_to_detect highest peaks which comply with
-        the specified prominence requirement. Such subset is specified via
-        the peaks_to_fit keyword argument. To perform the fits, this method
-        calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). In
+            - When False: returns (popt, pcov) where popt[i] and pcov[i]
+            are the optimal values and covariance matrix for the i-th peak
+            fit.
+            - When True: returns (popt, pcov) where popt is a single array
+            [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]
+            and pcov is the full covariance matrix. The gain is popt[1].
+
+        This method histograms self.__charge_entries and fits Gaussian
+        functions to peaks. By default (use_correlated_gaussians=False),
+        it fits one independent Gaussian to a subset of the peaks_to_detect
+        highest peaks which comply with the specified prominence requirement.
+        When use_correlated_gaussians=True, it fits a sum of correlated
+        Gaussians to all detected peaks. To perform the fits, this method
+        calls SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). In
         addition, if plot_axes is provided, then the resulting histogram is
         plotted in the given axes. Furthermore, if plot_fit is True, then the
-        fit functions are plotted together with the histogram. To end with,
-        this method returns the first two outputs of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which are
-        two lists, say popt and pcov, so that popt[i] (resp. pcov[i]) is the
-        set of optimal values (resp. covariance matrix) for the fit of the
-        i-th peak. For more information, check
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring."""
+        fit functions are plotted together with the histogram."""
 
         htype.check_type(
             peaks_to_detect,
@@ -608,11 +618,8 @@ class GainMeas(SiPMMeas):
                 )
             )
 
-        # Assuming popt[i][0], popt[i][1] and popt[i][2]
-        # to be the optimal value for the gaussian mean,
-        # standard deviation and scaling, respectively.
-        popt, pcov, _ = \
-            SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(
+        popt, pcov, fit_function = \
+            SiPMMeas.fit_gaussians_to_the_n_highest_peaks(
                 self.__charge_entries,
                 peaks_to_detect=peaks_to_detect,
                 peaks_to_fit=peaks_to_fit,
@@ -623,8 +630,10 @@ class GainMeas(SiPMMeas):
                 minimal_prominence_wrt_max=minimal_prominence_wrt_max,
                 fit_parameters_bounds=fit_parameters_bounds,
                 std_no=std_no,
-                peak_distance_in_bins=peak_distance_in_bins
+                peak_distance_in_bins=peak_distance_in_bins,
+                use_correlated_gaussians=use_correlated_gaussians
             )
+
         if fPlot:
             bins_values, _, _ = plot_axes.hist(
                 self.__charge_entries,
@@ -640,58 +649,105 @@ class GainMeas(SiPMMeas):
                 plot_axes.set_ylim(10**-1)
 
             if plot_fit:
+                if use_correlated_gaussians:
+                    # For correlated Gaussians, plot the continuous fit function
+                    # popt = [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]
+                    n_gaussians = peaks_to_detect
+                    center_0 = popt[0]
+                    mean_increment = popt[1]
+                    std_0 = popt[2]
+                    std_increment = popt[3]
 
-                # SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()
-                # gives scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
-                # therefore this is the fitting function.
-                gaussian = lambda z, mean, std, scaling: scaling * math.exp(
-                    -0.5 * (z - mean) * (z - mean) / (std * std)
-                )
-                gaussian = np.vectorize(gaussian, excluded=(1, 2, 3))
-
-                # Note that the gaussian fits are plotted in a x-range which
-                # spans a number of standard deviations, where the standard
-                # deviation is the one which has been optimized for each
-                # gaussian. However, to decide which points are fit using
-                # the number of standard deviations, the used standard
-                # deviation is the one computed out of the FWHM returned by
-                # the peak-finding algorithm, which happens before the
-                # the gaussian fits and gives the initial seeds for the
-                # gaussian fits. The fit is done in SiPMMeas.piecewise_gaussian_fits().
-                # This means that the superposition of the charge histogram
-                # and the gaussian plots are not a good indicator of which
-                # points were exactly used for the fit.
-                piecewise_xs = [
-                    np.linspace(
-                        # Gaussian mean minus std_no times the gaussian std.
-                        popt[i][0] - (popt[i][1] * std_no),
-                        # Gaussian mean plus std_no times the gaussian std.
-                        popt[i][0] + (popt[i][1] * std_no),
-                        num=gaussian_plot_npoints,
+                    # Determine x-range for plotting: from first peak to last peak
+                    x_min = center_0 - (std_no * std_0)
+                    last_mean = center_0 + (n_gaussians - 1) * mean_increment
+                    last_std = math.sqrt(
+                        (std_0**2) + ((n_gaussians - 1) * std_increment**2)
                     )
-                    for i in range(len(popt))
-                ]
-                piecewise_ys = [
-                    gaussian(piecewise_xs[i], popt[i][0], popt[i][1], popt[i][2])
-                    for i in range(len(popt))
-                ]
+                    x_max = last_mean + (std_no * last_std)
 
-                aux_func = plot_axes.semilogy if logarithmic_plot else plot_axes.plot
+                    plot_xs = np.linspace(
+                        x_min,
+                        x_max,
+                        num=gaussian_plot_npoints * n_gaussians
+                    )
+                    plot_ys = fit_function(plot_xs)
 
-                for i in range(len(piecewise_xs)):
+                    aux_func = plot_axes.semilogy if logarithmic_plot else plot_axes.plot
                     aux_func(
-                        piecewise_xs[i],
-                        piecewise_ys[i],
+                        plot_xs,
+                        plot_ys,
                         linestyle="--",
                         color="black"
                     )
+
+                    # For the text annotation, show number of Gaussians in the fit
+                    n_fitted_peaks_text = f"{n_gaussians} f. p. (corr.)"
+
+                else:
+                    # SiPMMeas.fit_gaussians_to_the_n_highest_peaks()
+                    # gives scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
+                    # therefore this is the fitting function.
+                    gaussian = lambda z, mean, std, scaling: scaling * math.exp(
+                        -0.5 * (z - mean) * (z - mean) / (std * std)
+                    )
+                    gaussian = np.vectorize(
+                        gaussian,
+                        excluded=(1, 2, 3)
+                    )
+
+                    # Note that the gaussian fits are plotted in a x-range which
+                    # spans a number of standard deviations, where the standard
+                    # deviation is the one which has been optimized for each
+                    # gaussian. However, to decide which points are fit using
+                    # the number of standard deviations, the used standard
+                    # deviation is the one computed out of the FWHM returned by
+                    # the peak-finding algorithm, which happens before the
+                    # the gaussian fits and gives the initial seeds for the
+                    # gaussian fits. The fit is done in SiPMMeas.piecewise_gaussian_fits().
+                    # This means that the superposition of the charge histogram
+                    # and the gaussian plots are not a good indicator of which
+                    # points were exactly used for the fit.
+                    piecewise_xs = [
+                        np.linspace(
+                            # Gaussian mean minus std_no times the gaussian std.
+                            popt[i][0] - (popt[i][1] * std_no),
+                            # Gaussian mean plus std_no times the gaussian std.
+                            popt[i][0] + (popt[i][1] * std_no),
+                            num=gaussian_plot_npoints,
+                        )
+                        for i in range(len(popt))
+                    ]
+                    piecewise_ys = [
+                        gaussian(piecewise_xs[i], popt[i][0], popt[i][1], popt[i][2])
+                        for i in range(len(popt))
+                    ]
+
+                    aux_func = plot_axes.semilogy if logarithmic_plot else plot_axes.plot
+
+                    for i in range(len(piecewise_xs)):
+                        aux_func(
+                            piecewise_xs[i],
+                            piecewise_ys[i],
+                            linestyle="--",
+                            color="black"
+                        )
+
+                    n_fitted_peaks_text = f"{len(popt)} f. p."
+
+            else:
+                # plot_fit is False
+                if use_correlated_gaussians:
+                    n_fitted_peaks_text = f"{peaks_to_detect} f. p. (corr.)"
+                else:
+                    n_fitted_peaks_text = f"{len(popt)} f. p."
 
             # Add some text giving the number
             # of fitted peaks in the histogram
             plot_axes.text(
                 .99,
                 .98,
-                f"{len(popt)} f. p.",
+                n_fitted_peaks_text,
                 # Make the coordinates relative to the axes system
                 transform=plot_axes.transAxes,
                 verticalalignment='top',
