@@ -650,24 +650,27 @@ class SiPMMeas(ABC):
         minimal_prominence_wrt_max=0.0,
         fit_parameters_bounds=None,
         std_no=3.0,
-        peak_distance_in_bins=5
+        peak_distance_in_bins=5,
+        use_correlated_gaussians=False
     ):
         """This static method gets the following optional keyword arguments:
 
         - samples (unidimensional float numpy array): The samples within this
         array are used to build an histogram. Such histogram is, then,
-        piecewise fit to gaussian functions.
+        fit to gaussian functions.
         - peaks_to_detect (scalar integer): It must be positive (>0). Number of
         peaks which will be detected to start with. A subset of the detected
         peaks will be fit, up to the peaks_to_fit argument.
-        - peaks_to_fit (None or tuple): If None, then it is assumed that all of
-        the detected peaks should be fit. If it is a tuple, then it must
-        contain integers. Its length must comply with
+        - peaks_to_fit (None or tuple): This parameter only makes a difference
+        if use_correlated_gaussians is False. In that case, if it is None, then
+        it is assumed that all of the detected peaks should be fit. If it is a
+        tuple, then it must contain integers. Its length must comply with
         0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must belong to
         the interval [0, peaks_to_detect-1]. Let us sort the peaks_to_detect
         detected peaks according to the iterator value for the fit histogram
         where they occur. Then if i belongs to peaks_to_fit, the i-th detected
-        peak will be fit.
+        peak will be fit. Otherwise, if use_correlated_gaussians is True, then
+        all detected peaks are used for the correlated fit.
         - bins_no (scalar integer): It must be positive (>0). It is the number
         of bins which are used to histogram the given samples.
         - histogram_range (None or tuple): If None, then numpy.histogram
@@ -696,54 +699,55 @@ class SiPMMeas(ABC):
         - fit_parameters_bounds (None or 2-tuple of array-like): It is
         eventually given to the 'bounds' keyword argument of
         scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
-        gaussian fit parameters, i.e. for the gaussian mean and standard
-        deviation. Note that, additionally, if the scaling_seeds are defined,
-        then the bounds for the scaling should also be set. If it is None,
-        then, then only the [0, np.inf] bounds are used for the scaling factor
-        (if applicable) while the rest of the parameters are unbounded
-        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
-        elements of the tuple must contain as many entries as fit parameters.
-        The i-th entry of the first (resp. second) element of the tuple
-        contains the lower (resp. upper) bound for the i-th fit parameter.
-        If defined, this parameter is not checked, but given to
-        scipy.optimize.curve_fit() as is.
+        gaussian fit parameters. The structure of this parameter depends on
+        the value of use_correlated_gaussians. When False (independent fits),
+        the bounds apply to mean, std, and scaling if applicable, for each
+        Gaussian. When True (correlated fit), the bounds apply to
+        [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]. If
+        None, default bounds are used.
         - std_no (scalar float): It must be positive (>0.0). This parameter
         is given to the std_no keyword argument of
-        SiPMMeas.piecewise_gaussian_fits(). Check its docstring for more
-        information.
+        SiPMMeas.piecewise_gaussian_fits() or SiPMMeas.correlated_gaussians_fit().
+        Check their docstrings for more information.
         - peak_distance_in_bins (positive integer): The minimum distance
         (in histogram bins) between detected peaks. It is given to the
         'distance' parameter of scipy.signal.find_peaks() via
         SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
+        - use_correlated_gaussians (scalar boolean): If False (default),
+        independent Gaussian fits are performed for each peak via
+        SiPMMeas.piecewise_gaussian_fits(). If True, a single fit using
+        correlated Gaussians is performed via SiPMMeas.correlated_gaussians_fit(),
+        where the peak means follow mu_i = center_0 + i*gain and the standard
+        deviations follow sigma_i = sqrt(std_0^2 + i*std_increment^2).
 
-        This method fits one gaussian to each peak within a subset of the
-        peaks_to_detect first peaks of the histogram of samples. By 'first
-        peaks', we mean those which happen for smaller values of the histogram
-        array iterator. Such subset is defined via peaks_to_fit. This method
-        returns the optimal values for the fitting parameters, the covariance
-        matrix, and a callable which evaluates the resulting piecewise gaussian
-        fit. To do so, this method does the following:
+        This method fits Gaussian functions to peaks within the histogram
+        of samples. By default (use_correlated_gaussians=False), it fits one
+        independent Gaussian to each peak. When use_correlated_gaussians=True,
+        it fits a sum of correlated Gaussians where the peak positions and
+        widths follow a parametric relationship.
 
-        1) Generates an histogram using samples entries
+        The method returns a tuple (popt, pcov, fit_function) where the structure
+        depends on use_correlated_gaussians:
+
+        When use_correlated_gaussians=False:
+          - popt: list of arrays, popt[i] = [mean, std, scaling] for i-th peak
+          - pcov: list of 2D arrays, pcov[i] is covariance matrix for i-th peak
+          - fit_function: callable evaluating the sum of independent Gaussians
+
+        When use_correlated_gaussians=True:
+          - popt: single array [center_0, mean_increment, std_0, std_increment,
+            S_0, S_1, ...], where mean_increment is the gain
+          - pcov: single 2D covariance matrix for all parameters
+          - fit_function: callable evaluating the correlated Gaussian sum
+
+        The method proceeds as follows:
+        1) Generates a histogram using samples entries
         2) Detects the peaks_to_detect first peaks of such histogram
-        via SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(), which
-        in turn makes use of scipy.signal.find_peaks()
-        3) Targets the specified subset of the peaks_to_detect first
-        peaks of such histogram (up to peaks_to_fit)
-        4) Uses the output of 
-        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram() to give
-        accurate seeds to SiPMMeas.piecewise_gaussian_fits(), which, in
-        turn, gives them to scipy.optimize.curve_fit()
-        5) Fits one gaussian function to each one of the targeted peaks
-        6) Returns the output of SiPMMeas.piecewise_gaussian_fits(),
-        which is made up of
-         - two lists, say popt and pcov, so that popt[i]
-        (resp. pcov[i]) is the set of optimal values (resp. covariance
-        matrix) for the fit of the i-th fit peak,
-         - and a callable, say fit_functions_sum, which evaluates
-        the sum of the piecewise gaussian fits.
-        For more information on such output, check the
-        SiPMMeas.piecewise_gaussian_fits() docstring."""
+           via SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
+        3) When use_correlated_gaussians=False, targets the specified subset
+           of peaks (up to peaks_to_fit) and fits independent Gaussians
+        4) When use_correlated_gaussians=True, uses all detected peaks to
+           fit a sum of correlated Gaussians"""
 
         htype.check_type(
             samples,
@@ -934,18 +938,19 @@ class SiPMMeas(ABC):
             range=histogram_range,
         )
 
-        # We need at least 3 points per gaussian
-        # fit (3 free parameters per gaussian)
-        if len(y_values) < (3 * len(peaks_to_fit_)):
-            raise cuex.NoAvailableData(
-                htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
-                    34723,
-                    extra_info=f"The y_values array does not contain samples "
-                    f"enough ({len(samples)}) to fit {len(peaks_to_fit_)} "
-                    "gaussians with 3 free parameters each.",
+        if not use_correlated_gaussians:
+            # We need at least 3 points per gaussian
+            # fit (3 free parameters per gaussian)
+            if len(y_values) < (3 * len(peaks_to_fit_)):
+                raise cuex.NoAvailableData(
+                    htype.generate_exception_message(
+                        "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                        34723,
+                        extra_info=f"The y_values array does not contain samples "
+                        f"enough ({len(samples)}) to fit {len(peaks_to_fit_)} "
+                        "gaussians with 3 free parameters each.",
+                    )
                 )
-            )
 
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
         resolution = np.mean(np.diff(bin_centers))
@@ -976,19 +981,19 @@ class SiPMMeas(ABC):
         # found, so peaks_to_fit_ is well-formed with respect to spsi_output.
         # Also, we are using the call to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
         # to unpack the output of scipy.signal.find_peaks(). 
-        fit_peaks_idx, fit_peaks_properties = \
+
+        targeted_peaks_idx, targeted_peaks_properties = \
             SiPMMeas.__select_peaks_from_spsi_find_peaks_output(
                 spsi_output,
-                peaks_to_fit_
+                tuple(range(peaks_to_detect)) if use_correlated_gaussians\
+                    else peaks_to_fit_
             )
-
-        # We are going to fit gaussian functions to the
-        # pieces of data which match each of the detected
-        # peaks. To do so, the output from scipy.signal.find_peaks()
-        # contains valuable information for the seeds of the
-        # fit parameters.
+            
+        # Use the output of scipy.signal.find_peaks() to get
+        # seeds for the fit parameters.
         mean_seeds = [
-            bin_centers[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
+            bin_centers[targeted_peaks_idx[i]]
+            for i in range(len(targeted_peaks_idx))
         ]
 
         # The width calculated by scipy.signal.find_peaks
@@ -1002,24 +1007,27 @@ class SiPMMeas(ABC):
         # for the peak width property here, and interpreting
         # it as a width at half height.
         std_seeds = [
-            fit_peaks_properties["widths"][i] * resolution / 2.355
-            for i in range(len(fit_peaks_properties["widths"]))
+            targeted_peaks_properties["widths"][i] * resolution / 2.355
+            for i in range(len(targeted_peaks_properties["widths"]))
         ]
 
         scaling_seeds = [
-            y_values[fit_peaks_idx[i]] for i in range(len(fit_peaks_idx))
+            y_values[targeted_peaks_idx[i]]
+            for i in range(len(targeted_peaks_idx))
         ]
 
-        popt, pcov, fit_functions_sum = SiPMMeas.piecewise_gaussian_fits(
+        aux_function = SiPMMeas.correlated_gaussians_fit \
+            if use_correlated_gaussians else SiPMMeas.piecewise_gaussian_fits
+        
+        return aux_function(
             bin_centers,
             y_values,
             mean_seeds,
             std_seeds,
             scaling_seeds=scaling_seeds,
             fit_parameters_bounds=fit_parameters_bounds,
-            std_no=std_no,
+            std_no=std_no
         )
-        return popt, pcov, fit_functions_sum
     
     @staticmethod
     def __spot_first_peaks_in_CalibrationHistogram(
