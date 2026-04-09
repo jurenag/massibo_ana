@@ -356,15 +356,17 @@ class GainMeas(SiPMMeas):
         of self.__charge_entries will be detected. A subset of the detected
         peaks will be fit, up to the peaks_to_fit argument.
         - peaks_to_fit (None or tuple): It is given to the 'peaks_to_fit'
-        keyword argument of
-        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). If None,
-        then it is assumed that all of the detected peaks should be fit.
-        If it is a tuple, then it must contain integers. Its length must
-        comply with 0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must
-        belong to the interval [0, peaks_to_detect-1]. Let us sort the
-        peaks_to_detect detected peaks according to the iterator value for
-        self.__charge_entries where they occur. Then if i belongs to
-        peaks_to_fit, the i-th detected peak will be fit.
+        keyword argument of SiPMMeas.fit_gaussians_to_the_n_highest_peaks().
+        This parameter only makes a difference if use_correlated_gaussians is
+        False. In that case, if it is None, then it is assumed that all of
+        the detected peaks should be fit. If it is a tuple, then it must
+        contain integers. Its length must comply with
+        0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must belong to
+        the interval [0, peaks_to_detect-1]. Let us sort the peaks_to_detect
+        detected peaks according to the iterator value for the fit histogram
+        where they occur. Then if i belongs to peaks_to_fit, the i-th
+        detected peak will be fit. Otherwise, if use_correlated_gaussians is
+        True, then all detected peaks are used for the correlated fit.
         - bins_no (scalar integer): It must be positive (>0). It is eventually
         given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
         number of bins which are used to histogram the self.__charge_entries.
@@ -784,11 +786,14 @@ class GainMeas(SiPMMeas):
         gaussian_plot_npoints=100,
         plot_charge_range=None,
         plot_histogram_fit=True,
+        use_correlated_gaussians=False,
     ):
         """This method gets the following optional keyword arguments:
 
         - has_pedestal (scalar boolean): Whether to assume that the entries
-        within self.__charge_entries yield a peaks-histogram with a pedestal.
+        within self.__charge_entries yield a peaks-histogram with a pedestal,
+        i.e. that the first peak of the histogram corresponds to 0 photo-
+        electrons.
         - peaks_to_detect (scalar integer): It must be positive (>0). It is
         given to the 'peaks_to_detect' keyword argument of
         GainMeas.fit_peaks_histogram(). It is the number of peaks which will
@@ -797,14 +802,17 @@ class GainMeas(SiPMMeas):
         detected. A subset of the detected peaks will be fit, up to the
         peaks_to_fit argument.
         - peaks_to_fit (None or tuple): It is given to the 'peaks_to_fit'
-        keyword argument of GainMeas.fit_peaks_histogram(). If None,
-        then it is assumed that all of the detected peaks should be fit.
-        If it is a tuple, then it must contain integers. Its length must
-        comply with 0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must
-        belong to the interval [0, peaks_to_detect-1]. Let us sort the
-        peaks_to_detect detected peaks according to the iterator value for
-        self.__charge_entries where they occur. Then if i belongs to
-        peaks_to_fit, the i-th detected peak will be fit.
+        keyword argument of GainMeas.fit_peaks_histogram(). This parameter
+        only makes a difference if use_correlated_gaussians is False. In
+        that case, if it is None, then it is assumed that all of the
+        detected peaks should be fit. If it is a tuple, then it must contain
+        integers. Its length must comply with
+        0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must belong to
+        the interval [0, peaks_to_detect-1]. Let us sort the peaks_to_detect
+        detected peaks according to the iterator value for the fit histogram
+        where they occur. Then if i belongs to peaks_to_fit, the i-th
+        detected peak will be fit. Otherwise, if use_correlated_gaussians is
+        True, then all detected peaks are used for the correlated fit.
         - bins_no (scalar integer): It must be positive (>0). It is eventually
         given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
         number of bins which are used to histogram the self.__charge_entries.
@@ -896,42 +904,52 @@ class GainMeas(SiPMMeas):
         whether to plot the fit functions together with the plotted histogram.
         Note that, if plot_histogram_fit is True, then the fit plots are also
         affected by the logarithmic_plot parameter.
+        - use_correlated_gaussians (scalar boolean): If False (default),
+        independent Gaussian fits are performed and the gain is extracted
+        via linear regression of peak positions vs photoelectron number.
+        If True, a single fit using correlated Gaussians is performed,
+        where the gain is directly available as a fit parameter (mean_increment).
+        In this case, the linear regression is skipped and errors are computed
+        via error propagation from the fit covariance matrix.
 
-        This method calls self.fit_peaks_histogram(), which fits a gaussian
-        function to a subset of the peaks_to_detect highest peaks of the
-        charge histogram which meet the specified prominence requirement.
-        Such subset is specified via the peaks_to_fit keyword argument. For
-        more information, check the GainMeas.fit_peaks_histogram() docstring.
-        The mean of the i-th fit gaussian is used as the charge-value for
-        the i-photoelectrons point. Furthermore, the standard deviation of
-        such charge-value, computed as the square root of the i-th diagonal
-        element of the fit covariance matrix (see
-        GainMeas.fit_peaks_histogram() docstring for more information), is
-        assumed to be the error of such charge-value. If has_pedestal is
-        True, then the first fit peak is assumed to be the pedestal, i.e.
-        the 0-photoelectrons case. If else, then the first fit peak is
-        assumed to match the 1-photoelectrons case. As a result, this
-        method computes a set of len(peaks_to_fit) points, which is then
-        fit to a linear function. Furthermore, if gain_fit_axes is suitably
-        defined, then the resulting points, together with the linear fit,
-        are plotted in the gain_fit_axes axes, with y-errorbars which
-        match the charge values errors, but scaled by errorbars_scaling.
-        To end with, this method returns four lists, in the following order:
+        This method calls self.fit_peaks_histogram() to fit Gaussian functions
+        to the charge histogram peaks which meet the specified prominence
+        requirement.
+
+        When use_correlated_gaussians=False (default):
+            The method fits independent Gaussians to each peak, then extracts
+            the gain via linear regression of charge vs photoelectron number.
+            In this case, a subset of the peaks_to_detect detected peaks can
+            be specified for the fit via the peaks_to_fit argument. The mean
+            of the i-th fit Gaussian is used as the charge for the
+            i-photoelectrons point. If has_pedestal is True, the first peak
+            is the pedestal (0-PE); otherwise, it's the 1-PE peak.
+
+        When use_correlated_gaussians=True:
+            The method fits a sum of correlated Gaussians where peak positions
+            follow mu_i = center_0 + (i * gain). The gain is directly available
+            as the fit parameter mean_increment. Errors on the reconstructed
+            peak positions are computed via error propagation:
+            error(Charge_i) = sqrt((i * error_gain)^2 + error_center_0^2)
+
+        This method returns four objects, in the following order:
 
             - gain_popt: Optimal values for the gain-fit parameters.
-            gain_popt[0] (resp. gain_popt[1]) matches the optimal slope (resp.
-            intercept) resulting from the gain fit.
+              When use_correlated_gaussians=False: gain_popt[0] (resp.
+              gain_popt[1]) is the slope (resp. intercept) from linear
+              regression. When use_correlated_gaussians=True: gain_popt[0]
+              is the gain (mean_increment) and gain_popt[1] is center_0.
 
-            - gain_stderr: Standard error of the estimated parameters, as
-            computed by scipy.stats.linregress() under the assumption of
-            residual normality. gain_stderr[0] (resp. gain_stderr[1]) is
-            the standard error for the slope (resp. intercept).
+            - gain_stderr: Standard errors of the gain parameters.
+              When use_correlated_gaussians=False: gain_stderr[0] (resp.
+              gain_stderr[1]) is the standard error for slope (resp. intercept).
+              When use_correlated_gaussians=True: gain_stderr[0] is
+              sqrt(pcov[1,1]) and gain_stderr[1] is sqrt(pcov[0,0]).
 
-            - histogram_popt, histogramp_pcov: These lists match the output
-            of self.fit_peaks_histogram(). histogram_popt[i] (resp.
-            histogram_pcov[i]) is the set of optimal values (resp. covariance
-            matrix) for the fit of the i-th peak. For more information, check
-            GainMeas.fit_peaks_histogram() docstring."""
+            - histogram_popt, histogram_pcov: The output of
+              self.fit_peaks_histogram(). Its format depends on
+              use_correlated_gaussians. Check its docstring for more
+              information."""
 
         htype.check_type(
             has_pedestal,
@@ -1023,27 +1041,73 @@ class GainMeas(SiPMMeas):
             gaussian_plot_npoints=gaussian_plot_npoints,
             plot_charge_range=plot_charge_range,
             plot_fit=plot_histogram_fit,
+            use_correlated_gaussians=use_correlated_gaussians,
         )
 
-        photoelectrons_no = (
-            range(0, len(peaks_to_fit_))
-            if has_pedestal
-            else range(1, len(peaks_to_fit_) + 1)
-        )
-        photoelectrons_no = np.array(photoelectrons_no)
+        if use_correlated_gaussians:
+            # For correlated Gaussians, histogram_popt is a single array:
+            # [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]
+            # histogram_pcov is the full covariance matrix.
+            # The gain is directly histogram_popt[1] (mean_increment)
+            # and center_0 is histogram_popt[0].
 
-        photoelectrons_charge = np.array(
-            [histogram_popt[i][0] for i in range(len(histogram_popt))]
-        )
-        photoelectrons_charge_errors = [
-            math.sqrt(histogram_pcov[i][0, 0]) for i in range(len(histogram_pcov))
-        ]
+            center_0 = histogram_popt[0]
+            gain = histogram_popt[1]
 
-        aux = spsta.linregress(photoelectrons_no, y=photoelectrons_charge)
-        gain_popt = [aux.slope, aux.intercept]
-        gain_stderr = [aux.stderr, aux.intercept_stderr]
+            # Errors from the covariance matrix diagonal
+            error_center_0 = math.sqrt(histogram_pcov[0, 0])
+            error_gain = math.sqrt(histogram_pcov[1, 1])
 
-        fit_function = lambda x: (gain_popt[0] * x) + gain_popt[1]
+            # Return format:
+            #   gain_popt[0] = gain (slope),
+            #   gain_popt[1] = center_0 (intercept)
+            gain_popt = [gain, center_0]
+            gain_stderr = [error_gain, error_center_0]
+
+            # Reconstruct photoelectron positions and errors for plotting
+            photoelectrons_no = (
+                np.arange(0, peaks_to_detect)
+                if has_pedestal
+                else np.arange(1, peaks_to_detect + 1)
+            )
+
+            photoelectrons_charge = (gain * photoelectrons_no) + center_0
+
+            # Propagate error to center_i with i != 0:
+            #   error(Charge_i) = sqrt((i * error_gain)^2 + (error_center_0^2))
+            photoelectrons_charge_errors = [
+                math.sqrt((i * error_gain)**2 + (error_center_0**2))
+                for i in photoelectrons_no
+            ]
+
+            fit_function = lambda x: (gain * x) + center_0
+
+        else:
+            # Independent Gaussian fits with linear regression
+            photoelectrons_no = (
+                np.arange(0, len(peaks_to_fit_))
+                if has_pedestal
+                else np.arange(1, len(peaks_to_fit_) + 1)
+            )
+
+            photoelectrons_charge = np.array([
+                histogram_popt[i][0]
+                for i in range(len(histogram_popt))
+            ])
+
+            photoelectrons_charge_errors = [
+                math.sqrt(histogram_pcov[i][0, 0])
+                for i in range(len(histogram_pcov))
+            ]
+
+            aux = spsta.linregress(
+                photoelectrons_no,
+                y=photoelectrons_charge
+            )
+            gain_popt = [aux.slope, aux.intercept]
+            gain_stderr = [aux.stderr, aux.intercept_stderr]
+
+            fit_function = lambda x: (gain_popt[0] * x) + gain_popt[1]
 
         if fPlotGainFit:
             gain_fit_axes.errorbar(
