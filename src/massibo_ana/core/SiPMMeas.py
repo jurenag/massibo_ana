@@ -1686,6 +1686,69 @@ class SiPMMeas(ABC):
 
         return popt, pcov, fit_functions_sum
 
+    @staticmethod
+    def sum_of_correlated_gaussians(
+        x,
+        gaussians_number,
+        center_0,
+        mean_increment,
+        std_0,
+        std_increment,
+        *scaling_factors
+    ):
+        """This static method evaluates a sum of N Gaussian functions at
+        the given x values. The Gaussians are 'correlated' in the sense that
+        their means and standard deviations follow a parametric relationship:
+
+            f(x) = sum_{i=0}^{N-1} S_i * gauss(x, mu_i, sigma_i)
+
+        where:
+            mu_i = center_0 + (i * mean_increment)
+            sigma_i = sqrt(std_0^2 + (i * std_increment^2))
+
+        This function gets the following arguments:
+
+        - x (scalar float, or unidimensional float numpy array): The x
+          values at which to evaluate the function.
+        - gaussians_number (positive integer): The number of Gaussian
+          functions to sum (N in the formula above).
+        - center_0 (scalar float): The mean of the first (i=0) Gaussian.
+        - mean_increment (scalar float): The increment in the mean for
+          each successive Gaussian. For gain analysis, this parameter
+          represents the gain (charge per photoelectron).
+        - std_0 (scalar float): The standard deviation of the first
+          (i=0) Gaussian. It must be positive.
+        - std_increment (scalar float): A parameter controlling how the
+          standard deviation grows for successive Gaussians. It must be
+          semipositive (>=0). The i-th Gaussian has standard deviation
+          sqrt(std_0^2 + i * std_increment^2).
+        - *scaling_factors (floats): The scaling factors S_i for each
+          Gaussian. The number of scaling factors must match
+          gaussians_number.
+
+        This method returns the evaluated sum of Gaussians at x.
+        """
+
+        # This function may be evaluated lots of times during the fit, 
+        # so we are not performing any checks here. P.e. we are trusting
+        # that len(scaling_factors) matches gaussians_number.
+
+        result = 0.0
+        for i in range(gaussians_number):
+            mu_i = center_0 + (i * mean_increment)
+
+            # sigma_i = sqrt(std_0^2 + i * std_increment^2)
+            sigma_i = math.sqrt(
+                (std_0 * std_0) + \
+                    (i * std_increment * std_increment)
+            )
+
+            result += scaling_factors[i] * np.exp(
+                -0.5 * ((x - mu_i) / sigma_i) ** 2
+            )
+
+        return result
+
     @classmethod
     def from_json_file(cls, sipmmeas_config_json):
         """This class method is meant to be an alternative initializer
