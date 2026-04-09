@@ -1749,6 +1749,309 @@ class SiPMMeas(ABC):
 
         return result
 
+    @staticmethod
+    def correlated_gaussians_fit(
+        x,
+        y,
+        mean_seeds,
+        std_seeds,
+        scaling_seeds,
+        fit_parameters_bounds=None,
+        std_no=3.0
+    ):
+        """This static method fits a sum of correlated Gaussian functions
+        to the given x-y data. The Gaussians are 'correlated' in the sense
+        that their means and standard deviations follow a parametric
+        relationship (see SiPMMeas.sum_of_correlated_gaussians() docstring).
+
+        This method gets the following mandatory positional arguments:
+
+        - x (unidimensional float numpy array): The x values of the data
+          to fit.
+        - y (unidimensional numpy array, int or float): The y values of
+          the data to fit. Its length must match that of x.
+        - mean_seeds (list of floats): mean_seeds[i] is the seed for the
+          mean of the i-th Gaussian. These are used to compute the initial
+          seeds for center_0 and mean_increment.
+        - std_seeds (list of floats): std_seeds[i] is the seed for the
+          standard deviation of the i-th Gaussian. These are used to
+          compute the initial seeds for std_0 and std_increment.
+        - scaling_seeds (list of floats/ints): scaling_seeds[i] is the
+          seed for the scaling factor of the i-th Gaussian.
+
+        This method gets the following optional keyword arguments:
+
+        - fit_parameters_bounds (None or 2-tuple of array-like): Bounds
+          for the fit parameters. The parameters are ordered as:
+          [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...].
+          If None, default bounds are used: center_0, std_0 and
+          std_increment are unbounded. mean_increment and the scaling
+          factors have lower bound 0.
+        - std_no (scalar float): It must be positive (>0.0). This number
+          determines the x-range of the input data which is used for the
+          fit. Namely, the x-y points used are those which fall within
+          [mean_seeds[0] - std_no*std_seeds[0],
+           mean_seeds[-1] + std_no*std_seeds[-1]].
+
+        This method returns a tuple (popt, pcov, fit_function) where:
+
+        - popt (numpy array): The optimal values for the fit parameters,
+          ordered as [center_0, mean_increment, std_0, std_increment,
+          S_0, S_1, ...].
+        - pcov (2D numpy array): The covariance matrix of the fit
+          parameters.
+        - fit_function (callable): A function that evaluates the fitted
+          sum of correlated Gaussians at any x value.
+
+        The gain is directly available as popt[1] (mean_increment), and
+        its error is sqrt(pcov[1, 1]).
+        """
+
+        # Type checks
+        htype.check_type(
+            x,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 48249
+            ),
+        )
+        htype.check_type(
+            y,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 20371
+            ),
+        )
+        if np.ndim(x) != 1 or np.ndim(y) != 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit", 46173
+                )
+            )
+        if x.dtype != np.float64:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit", 12312
+                )
+            )
+        if len(x) != len(y):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit", 94090
+                )
+            )
+
+        htype.check_type(
+            mean_seeds,
+            list,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 38294
+            ),
+        )
+        htype.check_type(
+            std_seeds,
+            list,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 88298
+            ),
+        )
+        htype.check_type(
+            scaling_seeds,
+            list,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 19093
+            ),
+        )
+
+        if len(mean_seeds) != len(std_seeds) or len(mean_seeds) != len(scaling_seeds):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit",
+                    83749,
+                    extra_info="mean_seeds, std_seeds and "\
+                    "scaling_seeds must have the same length."
+                )
+            )
+
+        if len(mean_seeds) < 2:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit",
+                    83750,
+                    extra_info="At least 2 peaks are required "\
+                    "for correlated Gaussian fit."
+                )
+            )
+
+        htype.check_type(
+            std_no,
+            float,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 38113
+            ),
+        )
+        if std_no <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit", 48222
+                )
+            )
+
+        gaussians_number = len(mean_seeds)
+
+        # Compute initial seeds for the correlated
+        # parameters
+        center_0_seed = mean_seeds[0]
+
+        # Compute a seed for mean_increment as the
+        # average of differences between consecutive
+        # means
+        mean_increment_seed = np.mean(np.diff(mean_seeds))
+
+        std_0_seed = std_seeds[0]
+
+        # Since by definition
+        #   sigma_i^2 = sigma_0^2 + i * delta_sigma^2,
+        # for every i > 0 we can get one estimation of
+        # delta_sigma as sqrt((sigma_i^2 - sigma_0^2) / i).
+        # Hence, we can estimate delta_sigma as the average
+        # of these estimates.
+        std_increment_squared_estimates = []
+
+        for i in range(1, len(std_seeds)):
+            sigma_i_sq = std_seeds[i] ** 2
+            sigma_0_sq = std_seeds[0] ** 2
+
+            if sigma_i_sq > sigma_0_sq:
+                std_increment_squared_estimates.append((sigma_i_sq - sigma_0_sq) / i)
+            else:
+                std_increment_squared_estimates.append(0.0)
+
+        if std_increment_squared_estimates: # i.e. if len(std_seeds) >= 2
+            std_increment_seed = math.sqrt(
+                np.mean(std_increment_squared_estimates)
+            )
+        else:
+            std_increment_seed = 0.0
+
+        # Build the initial parameter vector:
+        # [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]
+        p0 = [
+            center_0_seed,
+            mean_increment_seed,
+            std_0_seed,
+            std_increment_seed
+        ]
+        p0.extend(scaling_seeds)
+
+        # Select the data range for fitting
+        x_min = mean_seeds[0] - (std_no * std_seeds[0])
+        x_max = mean_seeds[-1] + (std_no * std_seeds[-1])
+
+        mask = (x >= x_min) & (x <= x_max)
+        fit_x, fit_y = x[mask], y[mask]
+
+        if len(fit_x) < len(p0):
+            raise cuex.NotEnoughFitSamples(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit",
+                    83753,
+                    extra_info=f"The fit_x array does not contain samples "
+                    f"enough ({len(fit_x)}) to fit {len(p0)} parameters."
+                )
+            )
+
+        # Build bounds
+        if fit_parameters_bounds is None:
+            # Similarly to SiPMMeas.piecewise_gaussian_fits(), we are not
+            # setting a lower bound of 0 for std_0 and std_increment, because
+            # we have seen in previous executions of the gain analysis that
+            # std (or std_increment) may be of the order of 1e-10. For such
+            # an small value, setting a lower bound of 0 (close to 1e-10) may
+            # make the 'trf' method unstable, p.e. causing a reflection in
+            # such 0 boundary.
+
+            lower_bounds = [
+                -np.inf, # center_0
+                0.0, # mean_increment
+                -np.inf, # std_0
+                -np.inf # std_increment
+            ]
+            upper_bounds = [
+                np.inf, # center_0
+                np.inf, # mean_increment
+                np.inf, # std_0
+                np.inf # std_increment
+            ]
+
+            # Bound scaling factors to be non-negative
+            for _ in range(gaussians_number):
+                lower_bounds.append(0.0)
+                upper_bounds.append(np.inf)
+
+            fit_parameters_bounds_ = (
+                np.array(lower_bounds),
+                np.array(upper_bounds)
+            )
+
+        else:
+            fit_parameters_bounds_ = fit_parameters_bounds
+
+        # Clip seeds to bounds if necessary
+        for i in range(len(p0)):
+            if p0[i] < fit_parameters_bounds_[0][i]:
+                p0[i] = fit_parameters_bounds_[0][i]
+            elif p0[i] > fit_parameters_bounds_[1][i]:
+                p0[i] = fit_parameters_bounds_[1][i]
+
+        # Define the fit function for curve_fit
+        def fit_model(
+                x_data,
+                center_0,
+                mean_increment,
+                std_0,
+                std_increment,
+                *scales
+            ):
+
+            return SiPMMeas.sum_of_correlated_gaussians(
+                x_data,
+                gaussians_number,
+                center_0,
+                mean_increment,
+                std_0,
+                std_increment,
+                *scales
+            )
+
+        popt, pcov = spopt.curve_fit(
+            fit_model,
+            fit_x,
+            fit_y,
+            p0=p0,
+            bounds=fit_parameters_bounds_,
+            method='trf',
+            sigma=np.array([
+                math.sqrt(val) if val >= 1 else 1.0
+                for val in fit_y
+            ]),
+            absolute_sigma=True
+        )
+
+        # Build the fit function for return
+        def fit_function(x_eval):
+            return SiPMMeas.sum_of_correlated_gaussians(
+                x_eval,
+                gaussians_number,
+                popt[0],  # center_0
+                popt[1],  # mean_increment
+                popt[2],  # std_0
+                popt[3],  # std_increment
+                *popt[4:]  # scaling_factors
+            )
+
+        return popt, pcov, fit_function
+
     @classmethod
     def from_json_file(cls, sipmmeas_config_json):
         """This class method is meant to be an alternative initializer
