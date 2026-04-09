@@ -144,6 +144,11 @@ gaussian_fit_std_no: 3. # Setting this one to 4. for boards 7296, 8549 and 8550 
 # to the 'distance' parameter of scipy.signal.find_peaks().
 peak_distance_in_bins: 5
 
+# Whether to fit the charge histogram with correlated
+# gaussians (single global fit) instead of independent
+# piecewise gaussian fits.
+use_correlated_gaussians: false
+
 # Regarding the following five parameters: The charge
 # histogram fit is performed for every
 # (peaks_to_detect, bins_no) combination over a certain
