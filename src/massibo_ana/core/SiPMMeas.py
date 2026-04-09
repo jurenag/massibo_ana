@@ -639,7 +639,7 @@ class SiPMMeas(ABC):
         return self.__waveforms
     
     @staticmethod
-    def fit_piecewise_gaussians_to_the_n_highest_peaks(
+    def fit_gaussians_to_the_n_highest_peaks(
         samples,
         peaks_to_detect=2,
         peaks_to_fit=None,
@@ -749,32 +749,37 @@ class SiPMMeas(ABC):
             samples,
             np.ndarray,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 36790
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                36790
             ),
         )
         if np.ndim(samples) != 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 82069
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    82069
                 )
             )
         if samples.dtype != np.float64:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 57236
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    57236
                 )
             )
         htype.check_type(
             peaks_to_detect,
             int,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 79312
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                79312
             ),
         )
         if peaks_to_detect < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 11025
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    58294
                 )
             )
         peaks_to_fit_ = tuple(range(0, peaks_to_detect))
@@ -784,13 +789,15 @@ class SiPMMeas(ABC):
                 peaks_to_fit,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 11257
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    11257
                 ),
             )
             if len(peaks_to_fit) > peaks_to_detect:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 93702
+                        "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                        93702
                     )
                 )
             for elem in peaks_to_fit:
@@ -799,14 +806,15 @@ class SiPMMeas(ABC):
                     int,
                     np.int64,
                     exception_message=htype.generate_exception_message(
-                        "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 26318
+                        "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                        26318
                     ),
                 )
                 if elem < 0 or elem > (peaks_to_detect - 1):
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message(
-                            "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
-                            47109,
+                            "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                            90280,
                         )
                     )
             peaks_to_fit_ = peaks_to_fit
@@ -815,13 +823,15 @@ class SiPMMeas(ABC):
             bins_no,
             int,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 67585
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                67585
             ),
         )
         if bins_no < 1:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 11025
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    11025
                 )
             )
         
@@ -830,13 +840,15 @@ class SiPMMeas(ABC):
                 histogram_range,
                 tuple,
                 exception_message=htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 47289
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    47289
                 ),
             )
             if len(histogram_range) != 2:
                 raise cuex.InvalidParameterDefinition(
                     htype.generate_exception_message(
-                        "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 29866
+                        "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                        29866
                     )
                 )
             for elem in histogram_range:
@@ -847,7 +859,8 @@ class SiPMMeas(ABC):
                     np.int64,
                     np.float64,
                     exception_message=htype.generate_exception_message(
-                        "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 19276
+                        "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                        19276
                     ),
                 )
 
@@ -856,13 +869,15 @@ class SiPMMeas(ABC):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 55892
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                55892
             ),
         )
         if starting_fraction < 0.0 or starting_fraction > 1.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 36107
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    36107
                 )
             )
         htype.check_type(
@@ -870,13 +885,15 @@ class SiPMMeas(ABC):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 84304
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                84304
             ),
         )
         if step_fraction <= 0.0 or step_fraction > 1.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 25201
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    25201
                 )
             )
         htype.check_type(
@@ -884,13 +901,15 @@ class SiPMMeas(ABC):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 47190
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                47190
             ),
         )
         if minimal_prominence_wrt_max < 0.0 or minimal_prominence_wrt_max > 1.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 12314
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    12314
                 )
             )
         htype.check_type(
@@ -898,13 +917,15 @@ class SiPMMeas(ABC):
             float,
             np.float64,
             exception_message=htype.generate_exception_message(
-                "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 69757
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                69757
             ),
         )
         if std_no <= 0.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks", 23163
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                    23163
                 )
             )
         y_values, bin_edges = np.histogram(
@@ -942,9 +963,9 @@ class SiPMMeas(ABC):
         if not found_requested_peaks:
             raise cuex.RequestedPeaksNotFound(
                 htype.generate_exception_message(
-                    "SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks",
+                    "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
                     21318,
-                    extra_info=f"SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()"
+                    extra_info=f"SiPMMeas.fit_gaussians_to_the_n_highest_peaks()"
                     " failed to find the requested number of peaks. Please check the data"
                     " in 'y_values' and 'bin_centers' and the values of the arguments "
                     "given to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().",
@@ -1039,7 +1060,7 @@ class SiPMMeas(ABC):
 
         This helper method is not intended for user usage.
         It must be only called by 
-        fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        fit_gaussians_to_the_n_highest_peaks(),
         where the well-formedness checks of the input
         parameters have been performed. This function tries 
         to find peaks over the signal which is computed as
@@ -1202,7 +1223,7 @@ class SiPMMeas(ABC):
         These checks are not performed here.
 
         This helper method should only be called by the
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks()
         static method, where the well-formedness checks of the
         input parameters have been performed. This function
         gets the output of a certain call to

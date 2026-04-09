@@ -483,7 +483,7 @@ class DarkNoiseMeas(SiPMMeas):
 
         - peaks_to_detect (scalar integer): It must be positive (>0). It is
         given to the 'peaks_to_detect' keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It matches
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). It matches
         the number of peaks of the self.__amplitude histogram, which will be
         detected to start with. However, only the first and the second detected
         peaks will be fit (those which occur for the smallest x-values of the
@@ -501,27 +501,27 @@ class DarkNoiseMeas(SiPMMeas):
         the underlying waveform set.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(), which in
         turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
         for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(), which in
         turn, gives it to SiPMMeas.tune_peak_height(). Check its docstrings
         for more information.
         - minimal_prominence_wrt_max (scalar float): It must be semipositive
         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
         fraction of the maximum value of the histogram of self.__amplitude.
         It is given to the 'minimal_prominence_wrt_max' keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It sets
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). It sets
         a minimal prominence for a peak to be detected, based on a fraction
         of the maximum value within the specified histogram. I.e. the only
         considered peaks are those whose prominence is bigger or equal to a
         fraction of the histogram maximum. For more information check the
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks() docstring.
         - std_no (scalar float): It must be positive (>0.0). This parameter is
         given to the std_no keyword argument of the static method
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(), which in
         turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check its
         docstrings for more information.
         - fraction_of_extremal_samples_to_discard (scalar float): It must be
@@ -543,7 +543,7 @@ class DarkNoiseMeas(SiPMMeas):
         - peak_distance_in_bins (positive integer): The minimum distance
         (in histogram bins) between detected peaks. It is given to the
         'peak_distance_in_bins' keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks().
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks().
 
         This method computes the voltage amplitudes matching 0.5 and 1.5
         photoelectrons. Those values are stored into the self.__half_a_pe and
@@ -560,7 +560,7 @@ class DarkNoiseMeas(SiPMMeas):
             - The given fraction (fraction_of_extremal_samples_to_discard) of
             the lowest and highest amplitude samples are discarded
 
-        2) then calls SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        2) then calls SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
         which generates an histogram of the filtered self.__amplitude entries,
         3) then generates a probability distribution function (pdf) out of such
         histogram,
@@ -727,7 +727,7 @@ class DarkNoiseMeas(SiPMMeas):
 
         # Note that we filtered out 'inf' and 'nan' entries JUST FOR 1.5 PE amplitude
         # computation. Such entries may still be contained wihtin self.__amplitude.
-        popt, _, fit_functions_sum = SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(
+        popt, _, fit_functions_sum = SiPMMeas.fit_gaussians_to_the_n_highest_peaks(
             samples,
             peaks_to_detect=peaks_to_detect,
             peaks_to_fit=(0, 1),

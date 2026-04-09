@@ -349,14 +349,14 @@ class GainMeas(SiPMMeas):
 
         - peaks_to_detect (scalar integer): It must be positive (>0). It is
         given to the 'peaks_to_detect' keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It is the
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). It is the
         number of peaks which will be detected to start with. If
         peaks_to_detect matches N, then the N highest peaks of the histogram
         of self.__charge_entries will be detected. A subset of the detected
         peaks will be fit, up to the peaks_to_fit argument.
         - peaks_to_fit (None or tuple): It is given to the 'peaks_to_fit'
         keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). If None,
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). If None,
         then it is assumed that all of the detected peaks should be fit.
         If it is a tuple, then it must contain integers. Its length must
         comply with 0<=len(peaks_to_fit)<=peaks_to_detect. Every entry must
@@ -368,7 +368,7 @@ class GainMeas(SiPMMeas):
         given to the 'bins' parameter of matplotlib.pyplot.hist(). It is the
         number of bins which are used to histogram the self.__charge_entries.
         - histogram_range (None or tuple): This parameter is given to the
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() static
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks() static
         method. If None, then numpy.histogram automatically sets the charge
         histogram range to the minimum and maximum values of the samples array,
         which in this case is self.__charge_entries. Otherwise, it should be
@@ -378,25 +378,25 @@ class GainMeas(SiPMMeas):
         does.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(), which in
         turn, gives it to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
         Check its docstrings for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the static method
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(), which in
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(), which in
         turn, gives it to SiPMMeas.__spot_first_peaks_in_CalibrationHistogram().
         Check its docstrings for more information.
         - minimal_prominence_wrt_max (scalar float): It must be semipositive
         (>=0) and smaller or equal than 1.0 (<=1.0). It is understood as a
         fraction of the maximum value of the histogram of self.ChargeEntries.
         It is given to the minimal_prominence_wrt_max keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(). It sets
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks(). It sets
         a minimal prominence for a peak to be fit, based on a fraction of
         the maximum value within the self.ChargeEntries histogram. I.e. the
         only considered peaks are those whose prominence is bigger or equal
         to a fraction of the self.ChargeEntries histogram maximum. For more
         information check the
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() docstring.    
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks() docstring.    
         - fit_parameters_bounds (None or 2-tuple of array-like): It is
         eventually given to the 'bounds' keyword argument of
         scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
@@ -412,14 +412,14 @@ class GainMeas(SiPMMeas):
         If defined, this parameter is not checked, but given to
         scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). It is given to
-        the static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        the static method SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check
         its docstrings for more information. Check its docstrings for more
         information.
         - peak_distance_in_bins (positive integer): The minimum distance
         (in histogram bins) between detected peaks. It is given to the
         'peak_distance_in_bins' keyword argument of
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks().
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks().
         - plot_axes (None or matplotlib.axes.Axes object): If it is not
         defined, then no plot is done. If it is defined, then the fit
         histogram is plotted in the given axes.
@@ -469,7 +469,7 @@ class GainMeas(SiPMMeas):
                 htype.generate_exception_message("GainMeas.fit_peaks_histogram", 92127)
             )
 
-        # peaks_to_fit is handled by SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks()
+        # peaks_to_fit is handled by SiPMMeas.fit_gaussians_to_the_n_highest_peaks()
 
         htype.check_type(
             bins_no,
@@ -760,18 +760,18 @@ class GainMeas(SiPMMeas):
         elements, say (min, max), that defines the lower and upper range of
         the charge histogram to fit. This function does not check the
         well-formedness of this parameter. Eventually,
-        SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks() does.
+        SiPMMeas.fit_gaussians_to_the_n_highest_peaks() does.
         - starting_fraction (scalar float): It must be semipositive (>=0.0)
         and smaller or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
-        static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        static method SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to
         SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
         docstrings for more information.
         - step_fraction (scalar float): It must be positive (>0.0) and smaller
         or equal to 1 (<=1.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
-        static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        static method SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to
         SiPMMeas.__spot_first_peaks_in_CalibrationHistogram(). Check its
         docstrings for more information.
@@ -802,7 +802,7 @@ class GainMeas(SiPMMeas):
         scipy.optimize.curve_fit() as is.
         - std_no (scalar float): It must be positive (>0.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
-        static method SiPMMeas.fit_piecewise_gaussians_to_the_n_highest_peaks(),
+        static method SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check its
         docstrings for more information.
         - peak_distance_in_bins (positive integer): The minimum distance
