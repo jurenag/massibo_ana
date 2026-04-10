@@ -1129,18 +1129,6 @@ class SiPMMeas(ABC):
                 rel_height=0.5,
                 distance=peak_distance_in_bins
             )
-
-            # scipy.signal.find_peaks() spots peaks as double peaks
-            # when they reach exactly the same top value. For the
-            # massibo case, this can happen due to the electronics
-            # noise which introduces some fluctuations in the whole
-            # signal, and particularly in the peaks. Here, we are
-            # filtering out the doubly spotted peaks.
-            spsi_output = \
-                SiPMMeas.__filter_out_same_height_peaks_from_spsi_find_peaks_output(
-                    spsi_output,
-                    signal[0:points],
-                )
             
             if len(spsi_output[0]) >= max_peaks:
 
@@ -1162,13 +1150,25 @@ class SiPMMeas(ABC):
             return (True, spsi_output)
         else:
             return (False, spsi_output)
-        
+
     @staticmethod
     def __filter_out_same_height_peaks_from_spsi_find_peaks_output(
         spsi_output,
         signal,
     ):
-        """This helper method gets the following positional
+        """
+        DEPRECATED: This function was called by
+        SiPMMeas.__spot_first_peaks_in_CalibrationHistogram() to
+        filter out the doubly spotted peaks. I.e. signals which reach
+        the exact same top value twice due to a fluctuation right
+        on the top of the peak. However, this function also discards
+        some peaks which are not doubly spotted, but which reach the
+        same top value as another peak. This is why this function is
+        no longer used. The doubly spotted peaks, though, will be
+        addressed using the `distance` parameter of
+        scipy.signal.find_peaks().
+
+        This helper method gets the following positional
         arguments:
 
         - spsi_output (tuple of (np.ndarray, dict,)): The output
