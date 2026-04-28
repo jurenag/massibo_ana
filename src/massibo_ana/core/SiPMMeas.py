@@ -2059,8 +2059,10 @@ class SiPMMeas(ABC):
         mean_seeds,
         std_seeds,
         scaling_seeds,
+        bin_edges=None,
         fit_parameters_bounds=None,
-        std_no=3.0
+        std_no=3.0,
+        optimize_poisson_likelihood=False
     ):
         """This static method fits a sum of correlated Gaussian functions
         to the given x-y data. The Gaussians are 'correlated' in the sense
@@ -2084,9 +2086,14 @@ class SiPMMeas(ABC):
 
         This method gets the following optional keyword arguments:
 
+        - bin_edges (None or unidimensional float numpy array): It is
+          ignored if optimize_poisson_likelihood is False. Otherwise, it
+          must define the histogram bin edges used to produce y, so
+          len(bin_edges)=len(y)+1.
         - fit_parameters_bounds (None or 2-tuple of array-like): Bounds
           for the fit parameters. The parameters are ordered as:
-          [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...].
+          [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...],
+          where S_i is the scaling factor for the i-th Gaussian.
           If None, default bounds are used: center_0, std_0 and
           std_increment are unbounded. mean_increment and the scaling
           factors have lower bound 0.
@@ -2095,6 +2102,9 @@ class SiPMMeas(ABC):
           fit. Namely, the x-y points used are those which fall within
           [mean_seeds[0] - std_no*std_seeds[0],
            mean_seeds[-1] + std_no*std_seeds[-1]].
+        - optimize_poisson_likelihood (scalar boolean): If False (default),
+          scipy.optimize.curve_fit() is used. If True, a Poisson likelihood
+          maximization is performed via iminuit.BinnedNLL.
 
         This method returns a tuple (popt, pcov, fit_function) where:
 
@@ -2199,6 +2209,34 @@ class SiPMMeas(ABC):
                     "SiPMMeas.correlated_gaussians_fit", 48222
                 )
             )
+        htype.check_type(
+            optimize_poisson_likelihood,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 48223
+            ),
+        )
+
+        if optimize_poisson_likelihood:
+            htype.check_type(
+                bin_edges,
+                np.ndarray,
+                exception_message=htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit", 48224
+                ),
+            )
+            if np.ndim(bin_edges) != 1 or len(bin_edges) != (len(y) + 1):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "SiPMMeas.correlated_gaussians_fit", 48225
+                    )
+                )
+            if bin_edges.dtype != np.float64:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "SiPMMeas.correlated_gaussians_fit", 48226
+                    )
+                )
 
         gaussians_number = len(mean_seeds)
 
@@ -2214,19 +2252,23 @@ class SiPMMeas(ABC):
         std_0_seed = std_seeds[0]
 
         # Since by definition
+        #
         #   sigma_i^2 = sigma_0^2 + i * delta_sigma^2,
+        #
         # for every i > 0 we can get one estimation of
         # delta_sigma as sqrt((sigma_i^2 - sigma_0^2) / i).
         # Hence, we can estimate delta_sigma as the average
         # of these estimates.
         std_increment_squared_estimates = []
 
+        sigma_0_sq = std_seeds[0] ** 2
         for i in range(1, len(std_seeds)):
             sigma_i_sq = std_seeds[i] ** 2
-            sigma_0_sq = std_seeds[0] ** 2
 
             if sigma_i_sq > sigma_0_sq:
-                std_increment_squared_estimates.append((sigma_i_sq - sigma_0_sq) / i)
+                std_increment_squared_estimates.append(
+                    (sigma_i_sq - sigma_0_sq) / i
+                )
             else:
                 std_increment_squared_estimates.append(0.0)
 
@@ -2246,23 +2288,6 @@ class SiPMMeas(ABC):
             std_increment_seed
         ]
         p0.extend(scaling_seeds)
-
-        # Select the data range for fitting
-        x_min = mean_seeds[0] - (std_no * std_seeds[0])
-        x_max = mean_seeds[-1] + (std_no * std_seeds[-1])
-
-        mask = (x >= x_min) & (x <= x_max)
-        fit_x, fit_y = x[mask], y[mask]
-
-        if len(fit_x) < len(p0):
-            raise cuex.NotEnoughFitSamples(
-                htype.generate_exception_message(
-                    "SiPMMeas.correlated_gaussians_fit",
-                    83753,
-                    extra_info=f"The fit_x array does not contain samples "
-                    f"enough ({len(fit_x)}) to fit {len(p0)} parameters."
-                )
-            )
 
         # Build bounds
         if fit_parameters_bounds is None:
@@ -2307,39 +2332,407 @@ class SiPMMeas(ABC):
             elif p0[i] > fit_parameters_bounds_[1][i]:
                 p0[i] = fit_parameters_bounds_[1][i]
 
-        # Define the fit function for curve_fit
-        def fit_model(
-                x_data,
-                center_0,
-                mean_increment,
-                std_0,
-                std_increment,
-                *scales
-            ):
+        # Scale and shift the input data to make the
+        # first gaussian (approximatedly) distributed as
+        # a gaussian with mean ~0.0 and std ~1.0,
+        # avoiding extreme orders of magnitude and
+        # making the fit more numerically stable. First,
+        # define the parameters of the transformation.
+        # At some point below, we will apply it.
+        horizontal_axis_shift_for_fit = center_0_seed
+        horizontal_axis_scaling_for_fit = std_0_seed
 
-            return SiPMMeas.sum_of_correlated_gaussians(
-                x_data,
-                gaussians_number,
-                center_0,
-                mean_increment,
-                std_0,
-                std_increment,
-                *scales
+        # Re-set the seeds accordingly
+        # center_0
+        p0[0] = 0.
+        # mean_increment
+        p0[1] = p0[1] / horizontal_axis_scaling_for_fit
+        # std_0
+        p0[2] = 1.
+        # std_increment
+        p0[3] = p0[3] / horizontal_axis_scaling_for_fit
+
+        # Note 1: This transformation preserves the
+        # clipped values, since we will transform the
+        # bounds as well
+        # Note 2: The seeds and bounds are only used
+        # for the optimization process, i.e. they are
+        # not returned as part of the output of this
+        # function, so they don't need to be rescaled
+        # back at any point later
+        for i in (0, 1):
+            # Scale the center_0 bounds
+            fit_parameters_bounds_[i][0] = \
+                (fit_parameters_bounds_[i][0] - horizontal_axis_shift_for_fit) \
+                / horizontal_axis_scaling_for_fit
+            
+            # Scale the mean_increment, std_0 and std_increment bounds
+            for j in (1, 2, 3):
+                fit_parameters_bounds_[i][j] /= horizontal_axis_scaling_for_fit
+
+        # Select the data range for fitting
+        x_min = mean_seeds[0] - (std_no * std_seeds[0])
+        x_max = mean_seeds[-1] + (std_no * std_seeds[-1])
+
+        if optimize_poisson_likelihood:
+
+            # In this case, since we are fitting a PDF to a
+            # normalized histogram via BinnedNLL, we should
+            # drop (not fit) one of the scaling factors to
+            # avoid a degenerate fit. I.e. since the PDF is
+            # normalized, the scaling factors are exactly
+            # correlated by the normalization constraint.
+            # Although the result of the fitting parameters
+            # may still be correct, the covariance matrix
+            # would probably overestimate the errors for
+            # the scaling factors. Particularly, we will
+            # drop the last scaling factor, by fixing it to
+            # 1.0 in the definition of the cumulative_model
+            # function, and by dropping the last entry of
+            # the seeds and the bounds.
+
+            # N.B: The case of gaussians_number scaling
+            # factors was already tried and, although the
+            # optimal parameters were correct, the relative
+            # error for the scaling factors was of the order
+            # of 200%.
+
+            p0 = p0[:-1]
+            fit_parameters_bounds_ = (
+                fit_parameters_bounds_[0][:-1],
+                fit_parameters_bounds_[1][:-1]
             )
 
-        popt, pcov = spopt.curve_fit(
-            fit_model,
-            fit_x,
-            fit_y,
-            p0=p0,
-            bounds=fit_parameters_bounds_,
-            method='trf',
-            sigma=np.array([
-                math.sqrt(val) if val >= 1 else 1.0
-                for val in fit_y
-            ]),
-            absolute_sigma=True
-        )
+            mask_edges = (
+                (bin_edges[:-1] >= x_min)
+                & (bin_edges[1:] <= x_max)
+            )
+            if not np.any(mask_edges):
+                raise cuex.NotEnoughFitSamples(
+                    htype.generate_exception_message(
+                        "SiPMMeas.correlated_gaussians_fit",
+                        48228,
+                        extra_info="The selected histogram interval does not "
+                        "contain bins for the requested fit."
+                    )
+                )
+
+            fit_counts = y[mask_edges]
+            fit_edges = copy.deepcopy(
+                np.concatenate(
+                    (
+                        bin_edges[:-1][mask_edges],
+                        np.array(
+                            [bin_edges[1:][mask_edges][-1]],
+                            dtype=np.float64),
+                    )
+                )
+            )
+
+            if len(fit_counts) < len(p0):
+                raise cuex.NotEnoughFitSamples(
+                    htype.generate_exception_message(
+                        "SiPMMeas.correlated_gaussians_fit",
+                        48227,
+                        extra_info=f"The selected histogram interval does not "
+                        f"contain enough bins ({len(fit_counts)}) to fit "
+                        f"{len(p0)} parameters."
+                    )
+                )
+            
+            # Define the (normalized) cumulative model for
+            # iminuit.cost.BinnedNLL. This definition is, indeed,
+            # a CDF, since it comes from integrating a normalized
+            # sum of gaussian functions. I.e. the integral of such
+            # a sum evaluates to one. Particularly, the used PDF is
+            #
+            #   pdf(x) = \frac{
+            #       gauss(x, \mu _{N-1}, \sigma _{N-1}) + \sum _{i=0} ^{N-2} s_i\cdot gauss(x,\mu _i, \sigma _i)
+            #   }{
+            #       \sqrt{2 \pi}\cdot (\sigma _{N-1}+\sum_{i=0}^{N-2} s_i \cdot \sigma _i)
+            #   }
+            #
+            # where gauss(x, \mu, \sigma) = exp( -(x-\mu)^2 / (2\sigma^2)).
+            # You can check that the integral of this PDF is, indeed, 1.
+
+            def cumulative_model(
+                    edges,
+                    center_0,
+                    mean_increment,
+                    std_0,
+                    std_increment,
+                    *scales
+                ):
+
+                result = np.zeros_like(
+                    edges,
+                    dtype=np.float64
+                )
+
+                # Assume that len(scales) == gaussians_number - 1,
+                # so add the fixed one. In this way, we shall not
+                # separate the last iteration of the loop below,
+                # making the code more compact.
+                scales = np.array(
+                    scales,
+                    dtype=np.float64
+                )
+
+                scales = np.append(
+                    scales,
+                    1.
+                )
+
+                normalization = 0.
+
+                for idx in range(gaussians_number):
+                    mu_i = center_0 + (idx * mean_increment)
+                    sigma_i = math.sqrt(
+                        (std_0 * std_0) + (idx * std_increment * std_increment)
+                    )
+                    result += scales[idx] * sigma_i * \
+                        spsta.norm.cdf(
+                            edges,
+                            loc=mu_i,
+                            scale=sigma_i
+                        )   
+                    normalization += (scales[idx] * sigma_i)
+
+                return result / normalization
+
+            # Compute the normalization factor (the area) of the
+            # histogram in the selected interval, which will be used
+            # to scale the fit function as a whole, so that its
+            # integral eventually matches the integral of the
+            # histogram in the selected interval. For clarification,
+            # the workflow we are following is:
+            #
+            #   1)  Define (`def cumulative_model()`) a CDF which
+            #       comes from a normalized a sum of N correlated
+            #       normal distributions with N-1 free scaling factors.
+            #       This sum is a properly normalized PDF.
+            # 
+            #   2)  Fit it to a part of the histogram via BinnedNLL,
+            #       which internally normalizes the given counts, so
+            #       that the fit is performed with a normalized PDF to
+            #       a normalized histogram.
+            # 
+            #   3)  Scale the fitted normalized PDF, as a whole, by
+            #       the area of the fit histogram, so that the integral
+            #       of the fitted function matches the integral of the
+            #       histogram in the selected interval. This scaling
+            #       is done further below in the code.
+            #  
+            # To this end, we need to compute such an area, and it does
+            # not matter if this is done before or after scaling the
+            # edges, but the resulting scaling factors are eventually
+            # re-scaled using the scaled or re-scaled result of the fit
+            # sigmas depending on the order of these two operations. I.e.
+            # if we compute the area before scaling the edges, then the
+            # the scaling factor is computed using the resulting sigmas
+            # which has been re-scaled back to the original scale.
+
+            aux_area = np.sum(
+                fit_counts * np.diff(fit_edges)
+            )
+            
+            # Transform the edges for the optimization process
+            fit_edges = \
+                (fit_edges - horizontal_axis_shift_for_fit) \
+                / horizontal_axis_scaling_for_fit
+
+            # Define the cost function
+            cost = BinnedNLL(
+                fit_counts,
+                fit_edges,
+                cumulative_model
+            )
+
+            param_names = (
+                "center_0",
+                "mean_increment",
+                "std_0",
+                "std_increment",
+            # Don't add a name for the last scaling
+            # factor, since it is not a fit parameter
+            ) + tuple([f"S_{i}" for i in range(gaussians_number - 1)])
+
+            m = Minuit(
+                cost,
+                *p0,
+                name=param_names
+            )
+
+            # Set the limits
+            for i in range(len(p0)):
+                lower = fit_parameters_bounds_[0][i]
+                upper = fit_parameters_bounds_[1][i]
+
+                m.limits[param_names[i]] = (
+                    None if np.isneginf(lower) else lower,
+                    None if np.isposinf(upper) else upper
+                )
+
+            # Run the optimization
+            m.migrad()
+
+            # Compute the covariance matrix at the minimum
+            m.hesse()
+
+            if not m.valid:
+                raise RuntimeError(
+                    "In function SiPMMeas.correlated_gaussians_fit(): "
+                    "iminuit failed to converge to a valid minimum."
+                )
+
+            popt = np.array(m.values)
+
+            if m.covariance is None:
+                raise RuntimeError(
+                    "In function SiPMMeas.correlated_gaussians_fit(): "
+                    "iminuit could not compute a covariance matrix."
+                )
+
+            pcov = np.array(m.covariance)
+
+        else:
+            # Define the fit function for scipy.optmize.curve_fit
+            def fit_model(
+                    x_data,
+                    center_0,
+                    mean_increment,
+                    std_0,
+                    std_increment,
+                    *scales
+                ):
+
+                return SiPMMeas.sum_of_correlated_gaussians(
+                    x_data,
+                    gaussians_number,
+                    center_0,
+                    mean_increment,
+                    std_0,
+                    std_increment,
+                    *scales
+                )
+            
+            mask = (x >= x_min) & (x <= x_max)
+            fit_centers, fit_counts = x[mask], y[mask]
+
+            if len(fit_centers) < len(p0):
+                raise cuex.NotEnoughFitSamples(
+                    htype.generate_exception_message(
+                        "SiPMMeas.correlated_gaussians_fit",
+                        83753,
+                        extra_info=f"The fit_centers array does not contain samples "
+                        f"enough ({len(fit_centers)}) to fit {len(p0)} parameters."
+                    )
+                )
+            
+            # Scale the centers for the optimization process
+            fit_centers = \
+                (fit_centers - horizontal_axis_shift_for_fit) \
+                / horizontal_axis_scaling_for_fit
+
+            popt, pcov = spopt.curve_fit(
+                fit_model,
+                fit_centers,
+                fit_counts,
+                p0=p0,
+                bounds=fit_parameters_bounds_,
+                method='trf',
+                sigma=np.array([
+                    math.sqrt(val) if val >= 1 else 1.0
+                    for val in fit_counts
+                ]),
+                absolute_sigma=True
+            )
+
+        # Reescale back the optimal parameters
+        # center_0
+        popt[0] = (popt[0] * horizontal_axis_scaling_for_fit) \
+            + horizontal_axis_shift_for_fit
+        
+        # mean_increment, std_0 and std_increment
+        for i in (1, 2, 3):
+            popt[i] *= horizontal_axis_scaling_for_fit
+
+        # Reescale the covariance matrix
+        # The part of the matrix which corresponds to the mean
+        # and std parameters (variances and covariances) is
+        # rescaled by the square of the horizontal_axis_scaling_for_fit,
+        # since each one of these parameters are scaled
+        # by horizontal_axis_scaling_for_fit
+        pcov[0:4, 0:4] *= (horizontal_axis_scaling_for_fit ** 2)
+
+        # The off-diagonal matrices which correspond to the
+        # covariance between the mean/std parameters and
+        # the scaling factors are rescaled only by
+        # horizontal_axis_scaling_for_fit, since the scaling
+        # factors were not scaled for the optimization process
+        pcov[0:4, 4:] *= horizontal_axis_scaling_for_fit
+        pcov[4:, 0:4] *= horizontal_axis_scaling_for_fit
+
+        if optimize_poisson_likelihood:
+
+            # In this case, note that the last scaling factor was not
+            # a fit parameter, but fixed to 1.0. We will artificially
+            # append it to the list of optimal parameters, before the
+            # normalization rescaling
+            popt = np.append(
+                popt,
+                1.
+            )
+
+            # Now we need to rescale the scaling factors so that the
+            # integral of the fit function matches the integral of the
+            # histogram in the selected interval. Since the integral
+            # of the fit pdf(x) is one, the integral of k*pdf(x) is k.
+            # We also need to take into account the fact that, although
+            # the fit scaling factors are defined in a normalized pdf,
+            # they are later used as scaling factors for a non-normalized
+            # sum of gaussians, so we need to identify the proper
+            # rescaling by comparing
+            #
+            # pdf(x) -> k*pdf(x) = \sum _{i=0}^{N-1} s'_i * exp(...)
+            #
+            # where pdf(x) is the normalized sum of correlated gaussians
+            # which depend on the computed s_i, and whose CDF is given by
+            # the cumulative_model() defined above. Using the definition
+            # of pdf(x) above and solving for s'_i, we get
+            #
+            #  s'_i = (k * s_i) / ((sqrt(2 * pi) * \sum _{j=0}^{N-1} s_j * sigma_j))
+            #
+            # where s_{N-1} = 1.0, and k is the `aux_area` computed above.
+            
+            
+            reconstructed_sigmas = np.array([
+                math.sqrt((popt[2] * popt[2]) + (i * popt[3] * popt[3]))
+                for i in range(gaussians_number)
+            ])
+
+            aux_norm = math.sqrt(2. * spcon.pi) * \
+                    np.sum(popt[4:] * reconstructed_sigmas)
+
+            aux_rescaling_factor = aux_area / aux_norm
+
+            popt[4:] = aux_rescaling_factor * popt[4:]
+
+            # Also note that, since k (aux_area) was computed before
+            # re-scaling fit_edges, the sigmas which we are now using
+            # are those which have been re-scaled back to the original
+            # scale.
+
+            # The scaling-factors part of the covariance matrix
+            # is rescaled by the square of aux_rescaling_factor
+            pcov[4:, 4:] *= (aux_rescaling_factor ** 2)
+            
+            # The off-diagonal matrices which correspond to the
+            # covariance between the mean/std parameters and
+            # the scaling factors are rescaled by just
+            # aux_rescaling_factor
+            pcov[0:4, 4:] *= aux_rescaling_factor
+            pcov[4:, 0:4] *= aux_rescaling_factor
 
         # Build the fit function for return
         def fit_function(x_eval):
