@@ -1431,9 +1431,11 @@ class SiPMMeas(ABC):
         y,
         mean_seeds,
         std_seeds,
+        bin_edges=None,
         scaling_seeds=None,
         fit_parameters_bounds=None,
-        std_no=3.0
+        std_no=3.0,
+        optimize_poisson_likelihood=False
     ):
         """This static method gets the following mandatory positional arguments:
 
@@ -1447,30 +1449,40 @@ class SiPMMeas(ABC):
 
         This static method gets the following optional keyword arguments:
 
+        - bin_edges (None or unidimensional float numpy array): It is ignored
+        if optimize_poisson_likelihood is False. Otherwise, it must define
+        the histogram bin edges used to produce y, so len(bin_edges)=len(y)+1.
         - scaling_seeds (None or list of floats/ints): If defined, then its
         length must match that of mean_seeds, and the gaussian functions which
         are piecewise fitted are not normalized, but the exponential term is
         scaled by a certain factor. In such case, scaling_seeds[i] is the seed
         for such scale factor in the i-th fit.
-        - fit_parameters_bounds (None or 2-tuple of array-like): It is
-        eventually given to the 'bounds' keyword argument of
-        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
-        gaussian fit parameters, i.e. for the gaussian mean and standard
-        deviation. Note that, additionally, if the scaling_seeds are defined,
-        then the bounds for the scaling should also be set. If it is None,
-        then, then only the [0, np.inf] bounds are used for the scaling factor
-        (if applicable) while the rest of the parameters are unbounded
-        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
-        elements of the tuple must contain as many entries as fit parameters.
-        The i-th entry of the first (resp. second) element of the tuple
-        contains the lower (resp. upper) bound for the i-th fit parameter.
-        If defined, this parameter is not checked, but given to
-        scipy.optimize.curve_fit() as is.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It sets the
+        lower and upper bounds on the gaussian fit parameters, i.e. for the
+        gaussian mean and standard deviation. Note that, additionally, if
+        the scaling_seeds are defined, then the bounds for the scaling should
+        also be set. If it is None, then, then only the [0, np.inf] bounds
+        are used for the scaling factor (if applicable) while the rest of the
+        parameters are unbounded (-np.inf, np.inf). Otherwise, if this parameter
+        is defined, then both elements of the tuple must contain as many entries
+        as fit parameters. The i-th entry of the first (resp. second) element
+        of the tuple contains the lower (resp. upper) bound for the i-th fit
+        parameter.
         - std_no (scalar float): It must be positive (>0.0). This number determines
         the x-range of the input data which is used for each fit. Namely, the x-y
         points which are used for the i-th fit are those which fall within the
         range [mean_seeds[i]-(std_no*std_seeds[i]),
         mean_seeds[i]+(std_no*std_seeds[i])].
+        - optimize_poisson_likelihood (scalar boolean): If False (default),
+        scipy.optimize.curve_fit() is used. If True, a Poisson negative
+        likelihood maximization is performed via iminuit.BinnedNLL. In this
+        case, the scaling seeds are ignored. For each peak, the normalized
+        histogram is fitted to a normalized gaussian, and the optimal scaling
+        factor is computed as the integral of the fitted histogram times the
+        inverse of the normal distribution normalization factor. This is done
+        so that the fit scale is interpreted as a factor that is applied
+        directly to the exponential term of the gaussian, and not the normalized
+        normal distribution.
 
         This static method performs N gaussian fits, where N is the length of the
         provided mean_seeds. For each fit, only a piece of the input x-y is used,
@@ -1482,9 +1494,11 @@ class SiPMMeas(ABC):
         the optimal value for the mean (resp. the standard deviation) of the i-th
         gaussian fit. In addition, if scaling_seeds is suitably defined, then
         popt[i][2] is the optimal value for the scaling of the i-th gaussian fit.
-        In addition to those two lists, this function returns a callable, say
-        fit_functions_sum, which evaluates the sum of the piecewise gaussian
-        fits."""
+        If optimize_poisson_likelihood is True, then the returned covariance
+        matrices are 2x2 (they do not include scaling information) regardless
+        whether scaling_seeds is defined or not. In addition to those two lists,
+        this function returns a callable, say fit_functions_sum, which evaluates
+        the sum of the piecewise gaussian fits."""
 
         htype.check_type(
             x,
@@ -1599,81 +1613,115 @@ class SiPMMeas(ABC):
                     "SiPMMeas.piecewise_gaussian_fits", 43210
                 )
             )
-        if fWithScaling:
-            gaussian = lambda z, mean, std, scaling: scaling * math.exp(
-                -0.5 * (z - mean) * (z - mean) / (std * std)
+
+        htype.check_type(
+            optimize_poisson_likelihood,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.piecewise_gaussian_fits", 68954
+            ),
+        )
+
+        if optimize_poisson_likelihood:
+            htype.check_type(
+                bin_edges,
+                np.ndarray,
+                exception_message=htype.generate_exception_message(
+                    "SiPMMeas.piecewise_gaussian_fits", 95012
+                ),
             )
+            if np.ndim(bin_edges) != 1 or len(bin_edges) != (len(y) + 1):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "SiPMMeas.piecewise_gaussian_fits", 23411
+                    )
+                )
+            if bin_edges.dtype != np.float64:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "SiPMMeas.piecewise_gaussian_fits", 49092
+                    )
+                )
+
+        if fWithScaling:
+            # Compensate the normalization factor of the
+            # normal distribution given by spsta.norm.pdf()
+            gaussian = lambda z, mean, std, scaling: \
+                scaling * \
+                    std * math.sqrt(2. * spcon.pi) * \
+                        spsta.norm.pdf(
+                            z,
+                            loc=mean,
+                            scale=std
+                        )
         else:
-            gaussian = lambda z, mean, std: (
-                1.0 / (std * math.sqrt(2.0 * spcon.pi))
-            ) * math.exp(-0.5 * (z - mean) * (z - mean) / (std * std))
+            gaussian = lambda z, mean, std: \
+                spsta.norm.pdf(
+                    z,
+                    loc=mean,
+                    scale=std
+                )
 
         # Although it is not specified in the scipy.optimize.curve_fit
         # f parameter, it seems that giving a function whose first
         # parameter is not vectorized results in an execution error
         gaussian = np.vectorize(
-            gaussian, excluded=(1, 2, 3) if fWithScaling else (1, 2)
+            gaussian,
+            excluded=(1, 2, 3) if fWithScaling else (1, 2)
         )
+
+        # Note that, in both cases, the std parameter is unbounded.
+        # In principle, we could set a lower bound of 0 for the std parameter.
+        # However, we have seen in previous executions of the gain analysis
+        # that std may be of the order of 1e-10. For such an small value,
+        # setting a lower bound of 0 (close to 1e-10) may make the 'trf'
+        # method unstable, p.e. causing a reflection in this 0 boundary.
+        if fit_parameters_bounds is None:
+            if fWithScaling:
+                fit_parameters_bounds_ = (
+                    np.array([-np.inf, -np.inf, 0.0]),
+                    np.array([np.inf, np.inf, np.inf])
+                )
+            else:
+                fit_parameters_bounds_ = (
+                    np.array([-np.inf, -np.inf]),
+                    np.array([np.inf, np.inf])
+                )
+        else:
+            fit_parameters_bounds_ = fit_parameters_bounds
 
         popt, pcov = [], []
         for i in range(len(mean_seeds)):
-            mask = x >= (mean_seeds[i] - (std_no * std_seeds[i]))
-            mask *= x <= (mean_seeds[i] + (std_no * std_seeds[i]))
-            fit_x, fit_y = x[mask], y[mask]
 
-            if len(fit_x) < (2 if not fWithScaling else 3):
-                raise cuex.NotEnoughFitSamples(
-                    htype.generate_exception_message(
-                        "SiPMMeas.piecewise_gaussian_fits",
-                        83500,
-                        extra_info=f"The fit_x array does not contain samples "
-                        f"enough ({len(fit_x)}) to fit a gaussian with "
-                        f"{2 if not fWithScaling else 3} free parameters.",
-                    )
-                )
+            seeds_package = [
+                mean_seeds[i], std_seeds[i], scaling_seeds_[i]
+            ]
 
-            seeds_package = [mean_seeds[i], std_seeds[i], scaling_seeds_[i]]
-            p0 = seeds_package if fWithScaling else seeds_package[:-1]
+            # Use copy to avoid modifying the
+            # original seeds_package when scaling p0
+            p0 = seeds_package if fWithScaling \
+                else seeds_package[:-1]
 
-            # Note that, in both cases, the std parameter is unbounded.
-            # In principle, we could set a lower bound of 0 for the std parameter.
-            # However, we have seen in previous executions of the gain analysis
-            # that std may be of the order of 1e-10. For such an small value,
-            # setting a lower bound of 0 (close to 1e-10) may make the 'trf'
-            # method unstable, p.e. causing a reflection in this 0 boundary.
-            if fit_parameters_bounds is None:
-                if fWithScaling:
-                    fit_parameters_bounds_ = (
-                        np.array([-np.inf, -np.inf, 0.0]),
-                        np.array([np.inf, np.inf, np.inf])
-                    )
-                else:
-                    fit_parameters_bounds_ = (
-                        np.array([-np.inf, -np.inf]),
-                        np.array([np.inf, np.inf])
-                    )
-            else:
-                fit_parameters_bounds_ = fit_parameters_bounds
-
-            for i in range(len(p0)):
+            for j in range(len(p0)):
                 try:
-                    if p0[i] < fit_parameters_bounds_[0][i] or p0[i] > fit_parameters_bounds_[1][i]:
+                    if p0[j] < fit_parameters_bounds_[0][j] or \
+                        p0[j] > fit_parameters_bounds_[1][j]:
 
                         aux = np.clip(
-                            p0[i],
-                            fit_parameters_bounds_[0][i],
-                            fit_parameters_bounds_[1][i]
+                            p0[j],
+                            fit_parameters_bounds_[0][j],
+                            fit_parameters_bounds_[1][j]
                         )
 
                         print(
                             "In function SiPMMeas.piecewise_gaussian_fits(): "
-                            f"The seed value {p0[i]} for the {i}-th fit parameter"
+                            f"The seed value {p0[j]} for the {j}-th fit parameter"
                             " is not within the used bounds "
-                            f"({fit_parameters_bounds_[0][i]}, {fit_parameters_bounds_[1][i]})."
+                            f"({fit_parameters_bounds_[0][j]}, {fit_parameters_bounds_[1][j]})."
                             f" This seed will be replaced by the closest bound ({aux})."
                         )
 
-                        p0[i] = aux
+                        p0[j] = aux
 
                 except IndexError:
                     raise cuex.InvalidParameterDefinition(
@@ -1684,20 +1732,239 @@ class SiPMMeas(ABC):
                         )
                     )
 
-            aux_popt, aux_pcov = spopt.curve_fit(
-                gaussian,
-                fit_x,
-                fit_y,
-                p0=p0,
-                bounds=fit_parameters_bounds_,
-                method='trf',
-                #### OPEN ISSUE: Try to debug the usage of the following
-                #### two lines which will make the piecewise gaussian fits
-                #### more robust. For the moment, they throw an error
-                #### when running the gain analysis.
-                # sigma=np.sqrt(fit_y) if np.all(fit_y >= 0) else None,
-                # absolute_sigma=True
-            )
+            # Scale and shift the input data to make it
+            # (approximatedly) distributed as a gaussian
+            # with mean ~0.0 and std ~1.0, avoiding
+            # extreme orders of magnitude and making the
+            # fit more numerically stable.
+            horizontal_axis_shift_for_fit = mean_seeds[i]
+            horizontal_axis_scaling_for_fit = std_seeds[i]
+
+            # Re-set the seeds accordingly
+            p0[0] = 0.
+            p0[1] = 1.
+
+            # Note 1: This transformation preserves the
+            # clipped values, since we will transform the
+            # bounds are scaled as well
+            # Note 2: The seeds and bounds are only used
+            # for the optimization process, i.e. they are
+            # not returned as part of the output of this
+            # function, so they don't need to be rescaled
+            # back at any point later
+            # Note 3: The seeds (p0) are defined within
+            # this loop (current value of i), so they are
+            # are scaled for every iteration, but the
+            # bounds (fit_parameters_bounds_) are defined
+            # outside this loop, so they are only scaled
+            # in the first iteration of this loop.
+            if i == 0:
+                for j in (0, 1):
+                    # Scale the mean bounds
+                    fit_parameters_bounds_[j][0] = \
+                        (fit_parameters_bounds_[j][0] - horizontal_axis_shift_for_fit) \
+                        / horizontal_axis_scaling_for_fit
+
+                    # Scale the std bounds
+                    fit_parameters_bounds_[j][1] /= horizontal_axis_scaling_for_fit
+
+            # Select the data range for fitting
+            x_min = mean_seeds[i] - (std_no * std_seeds[i])
+            x_max = mean_seeds[i] + (std_no * std_seeds[i])
+
+            if optimize_poisson_likelihood:
+
+                # In this case, ignore the scaling seeds
+                p0 = p0[:2]
+                fit_parameters_bounds_ = fit_parameters_bounds_[:2]
+
+                mask_edges = (
+                    (bin_edges[:-1] >= x_min)
+                    & (bin_edges[1:] <= x_max)
+                )
+                if not np.any(mask_edges):
+                    raise cuex.NotEnoughFitSamples(
+                        htype.generate_exception_message(
+                            "SiPMMeas.piecewise_gaussian_fits",
+                            68959,
+                            extra_info="The selected histogram interval does not "
+                            "contain bins for the requested fit."
+                        )
+                    )
+
+                fit_counts = y[mask_edges]
+                fit_edges = copy.deepcopy(
+                    np.concatenate(
+                        (
+                            bin_edges[:-1][mask_edges],
+                            # Right edge of the last bin
+                            np.array(
+                                [bin_edges[1:][mask_edges][-1]],
+                                dtype=np.float64
+                            ),
+                        )
+                    )
+                )
+
+                if len(fit_counts) < 2:
+                    raise cuex.NotEnoughFitSamples(
+                        htype.generate_exception_message(
+                            "SiPMMeas.piecewise_gaussian_fits",
+                            68958,
+                            extra_info=f"The selected histogram interval does not "
+                            f"contain enough bins ({len(fit_counts)}) to fit "
+                            f"2 parameters."
+                        )
+                    )
+                
+                cumulative_model = lambda edges, mean_, std_: \
+                    spsta.norm.cdf(
+                        edges,
+                        loc=mean_,
+                        scale=std_
+                    )
+
+                # Compute the normalization factor (the area) of the
+                # histogram in the selected interval, which will be used
+                # to scale the fitted normalized gaussian, so that it
+                # matches the scale of the histogram. It does not matter
+                # if this is done before of after scaling the edges, but
+                # the resulting scaling factors are computed using the
+                # scaled or re-scaled result of the fit sigma parameter
+                # depending on the order of these two operations. I.e.
+                # if we compute the area before scaling the edges, then the
+                # the scaling factor is computed using the resulting sigma
+                # which has been re-scaled back to the original scale.
+                aux_area = np.sum(
+                    fit_counts * np.diff(fit_edges)
+                )
+
+                # Transform the edges for the optimization process
+                fit_edges = \
+                    (fit_edges - horizontal_axis_shift_for_fit) \
+                    / horizontal_axis_scaling_for_fit
+
+                # Define the cost function
+                cost = BinnedNLL(
+                    fit_counts,
+                    fit_edges,
+                    cumulative_model
+                )
+
+                param_names = (
+                    "mean",
+                    "std",
+                )
+
+                m = Minuit(
+                    cost,
+                    *p0,
+                    name=param_names
+                )
+
+                # Set the limits
+                for j in range(len(p0)):
+                    lower = fit_parameters_bounds_[0][j]
+                    upper = fit_parameters_bounds_[1][j]
+
+                    m.limits[param_names[j]] = (
+                        None if np.isneginf(lower) else lower,
+                        None if np.isposinf(upper) else upper
+                    )
+
+                # Run the optimization
+                m.migrad()
+
+                # Compute the covariance matrix at the minimum
+                m.hesse()
+
+                if not m.valid:
+                    raise RuntimeError(
+                        "In function SiPMMeas.piecewise_gaussian_fits(): "
+                        "iminuit failed to converge to a valid minimum."
+                    )
+
+                aux_popt = np.array(m.values)
+
+                if m.covariance is None:
+                    raise RuntimeError(
+                        "In function SiPMMeas.piecewise_gaussian_fits(): "
+                        "iminuit could not compute a covariance matrix."
+                    )
+
+                aux_pcov = np.array(m.covariance)
+
+            else:
+
+                mask = (x >= x_min) & (x <= x_max)
+                fit_centers, fit_counts = x[mask], y[mask]
+
+                if len(fit_centers) < (2 if not fWithScaling else 3):
+                    raise cuex.NotEnoughFitSamples(
+                        htype.generate_exception_message(
+                            "SiPMMeas.piecewise_gaussian_fits",
+                            83500,
+                            extra_info=f"The fit_centers array does not contain "
+                            f"samples enough ({len(fit_centers)}) to fit a "
+                            f"gaussian with {2 if not fWithScaling else 3} free "
+                            "parameters.",
+                        )
+                    )
+                
+                # Scale the centers for the optimization process
+                fit_centers = \
+                    (fit_centers - horizontal_axis_shift_for_fit) \
+                    / horizontal_axis_scaling_for_fit
+
+                aux_popt, aux_pcov = spopt.curve_fit(
+                    gaussian,
+                    fit_centers,
+                    fit_counts,
+                    p0=p0,
+                    bounds=fit_parameters_bounds_,
+                    method='trf',
+                    sigma=np.array([
+                        math.sqrt(val) if val >= 1 else 1.0
+                        for val in fit_counts
+                    ]),
+                    absolute_sigma=True
+                )
+
+            # Reescale back the optimal parameters
+            aux_popt[0] = (aux_popt[0] * horizontal_axis_scaling_for_fit) \
+                + horizontal_axis_shift_for_fit
+
+            aux_popt[1] *= horizontal_axis_scaling_for_fit
+
+            # Reescaling of the covariance matrix
+            # mean variance, std variance and mean-std covariance
+            aux_pcov[0:2, 0:2] *= (horizontal_axis_scaling_for_fit ** 2)
+
+            if optimize_poisson_likelihood:
+                # In this case, the scaling factor was not a fit parameter,
+                # so we need to compute it and add it to the list of optimal
+                # parameters. Since BinnedNLL fits a PDF (automatically
+                # normalizes the given counts), scale the fitted normalized
+                # gaussian by the area of the histogram in the selected
+                # interval. Also, add the inverse of the normalization factor
+                # of the normal distribution given by spsta.norm.pdf() to
+                # compensate it, so that the computed optimal scaling is
+                # understood as an scaling factor which is directly applied
+                # to exp(...), and not the whole normalized gaussian.
+                aux_popt = np.append(
+                    aux_popt,
+                    # The area of the histogram in the selected interval gives
+                    # the scaling factor for the normalized gaussian fit
+                    aux_area / (aux_popt[1] * math.sqrt(2.*spcon.pi)),
+                )
+            else:
+                # If not optimize_poisson_likelihood, then the covariance
+                # matrix is 3x3, and we should re-escale the covariances
+                # between the mean and the scaling factor, and between the
+                # std and the scaling factor
+                for j in (0, 1):
+                    aux_pcov[j, 2] *= horizontal_axis_scaling_for_fit
+                    aux_pcov[2, j] *= horizontal_axis_scaling_for_fit
 
             popt.append(aux_popt)
             pcov.append(aux_pcov)
@@ -1758,7 +2025,7 @@ class SiPMMeas(ABC):
         This method returns the evaluated sum of Gaussians at x.
         """
 
-        # This function may be evaluated lots of times during the fit, 
+        # This function may be evaluated lots of times during the fit,
         # so we are not performing any checks here. P.e. we are trusting
         # that len(scaling_factors) matches gaussians_number.
 
@@ -1772,10 +2039,17 @@ class SiPMMeas(ABC):
                     (i * std_increment * std_increment)
             )
 
-            result += scaling_factors[i] * np.exp(
-                -0.5 * ((x - mu_i) / sigma_i) ** 2
-            )
-
+            # Compensate the normalization factor of the
+            # normal distribution given by spsta.norm.pdf()
+            result += \
+                scaling_factors[i] * \
+                    sigma_i * math.sqrt(2. * spcon.pi) * \
+                        spsta.norm.pdf(
+                            x,
+                            loc=mu_i,
+                            scale=sigma_i
+                        )
+ 
         return result
 
     @staticmethod
