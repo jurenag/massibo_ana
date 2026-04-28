@@ -4,6 +4,7 @@ import math
 import numpy as np
 import matplotlib
 from scipy import stats as spsta
+from scipy import constants as spcon
 
 import massibo_ana.utils.htype as htype
 import massibo_ana.utils.custom_exceptions as cuex
@@ -690,9 +691,15 @@ class GainMeas(SiPMMeas):
                     # SiPMMeas.fit_gaussians_to_the_n_highest_peaks()
                     # gives scaling seeds to SiPMMeas.piecewise_gaussian_fits(),
                     # therefore this is the fitting function.
-                    gaussian = lambda z, mean, std, scaling: scaling * math.exp(
-                        -0.5 * (z - mean) * (z - mean) / (std * std)
-                    )
+                    gaussian = lambda z, mean, std, scaling: \
+                        scaling * \
+                            std * math.sqrt(2. * spcon.pi) * \
+                                spsta.norm.pdf(
+                                    z,
+                                    loc=mean,
+                                    scale=std
+                                )
+
                     gaussian = np.vectorize(
                         gaussian,
                         excluded=(1, 2, 3)
