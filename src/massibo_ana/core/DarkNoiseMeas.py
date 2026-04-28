@@ -478,6 +478,7 @@ class DarkNoiseMeas(SiPMMeas):
         timedelay_cut=0.0,
         amplitude_cut=None,
         peak_distance_in_bins=5,
+        optimize_poisson_likelihood=False,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -544,6 +545,10 @@ class DarkNoiseMeas(SiPMMeas):
         (in histogram bins) between detected peaks. It is given to the
         'peak_distance_in_bins' keyword argument of
         SiPMMeas.fit_gaussians_to_the_n_highest_peaks().
+        - optimize_poisson_likelihood (scalar boolean): If False (default),
+        scipy.optimize.curve_fit() is used for the Gaussian histogram fits.
+        If True, the fits are performed with a Poisson-likelihood model via
+        iminuit.
 
         This method computes the voltage amplitudes matching 0.5 and 1.5
         photoelectrons. Those values are stored into the self.__half_a_pe and
@@ -746,7 +751,8 @@ class DarkNoiseMeas(SiPMMeas):
             step_fraction=step_fraction,
             minimal_prominence_wrt_max=minimal_prominence_wrt_max,
             std_no=std_no,
-            peak_distance_in_bins=peak_distance_in_bins
+            peak_distance_in_bins=peak_distance_in_bins,
+            optimize_poisson_likelihood=optimize_poisson_likelihood
         )
 
         # Assess which fit matches which peak
