@@ -655,7 +655,8 @@ class SiPMMeas(ABC):
         fit_parameters_bounds=None,
         std_no=3.0,
         peak_distance_in_bins=5,
-        use_correlated_gaussians=False
+        use_correlated_gaussians=False,
+        optimize_poisson_likelihood=False
     ):
         """This static method gets the following optional keyword arguments:
 
@@ -700,15 +701,14 @@ class SiPMMeas(ABC):
         fraction of the samples histogram amplitude. For more information
         check the SiPMMeas.__spot_first_peaks_in_CalibrationHistogram()
         docstring.
-        - fit_parameters_bounds (None or 2-tuple of array-like): It is
-        eventually given to the 'bounds' keyword argument of
-        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
-        gaussian fit parameters. The structure of this parameter depends on
-        the value of use_correlated_gaussians. When False (independent fits),
-        the bounds apply to mean, std, and scaling if applicable, for each
-        Gaussian. When True (correlated fit), the bounds apply to
-        [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]. If
-        None, default bounds are used.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It sets
+        the lower and upper bounds on the gaussian fit parameters. The
+        structure of this parameter depends on the value of
+        use_correlated_gaussians. When False (independent fits), the bounds
+        apply to mean, std, and scaling if applicable, for each Gaussian.
+        When True (correlated fit), the bounds apply to [center_0,
+        mean_increment, std_0, std_increment, S_0, S_1, ...]. If None,
+        default bounds are used.
         - std_no (scalar float): It must be positive (>0.0). This parameter
         is given to the std_no keyword argument of
         SiPMMeas.piecewise_gaussian_fits() or SiPMMeas.correlated_gaussians_fit().
@@ -723,6 +723,10 @@ class SiPMMeas(ABC):
         correlated Gaussians is performed via SiPMMeas.correlated_gaussians_fit(),
         where the peak means follow mu_i = center_0 + i*gain and the standard
         deviations follow sigma_i = sqrt(std_0^2 + i*std_increment^2).
+        - optimize_poisson_likelihood (scalar boolean): If False (default),
+        scipy.optimize.curve_fit() is used in the selected fitting method.
+        If True, iminuit.BinnedNLL is used to maximize a Poisson likelihood
+        for the histogram counts.
 
         This method fits Gaussian functions to peaks within the histogram
         of samples. By default (use_correlated_gaussians=False), it fits one
@@ -936,6 +940,14 @@ class SiPMMeas(ABC):
                     23163
                 )
             )
+        htype.check_type(
+            optimize_poisson_likelihood,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.fit_gaussians_to_the_n_highest_peaks",
+                92831
+            ),
+        )
         y_values, bin_edges = np.histogram(
             samples,
             bins=bins_no,
@@ -1028,9 +1040,11 @@ class SiPMMeas(ABC):
             y_values,
             mean_seeds,
             std_seeds,
+            bin_edges=bin_edges,
             scaling_seeds=scaling_seeds,
             fit_parameters_bounds=fit_parameters_bounds,
-            std_no=std_no
+            std_no=std_no,
+            optimize_poisson_likelihood=optimize_poisson_likelihood
         )
 
     @staticmethod

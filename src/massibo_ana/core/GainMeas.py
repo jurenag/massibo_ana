@@ -346,6 +346,7 @@ class GainMeas(SiPMMeas):
         plot_charge_range=None,
         plot_fit=True,
         use_correlated_gaussians=False,
+        optimize_poisson_likelihood=False,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -401,20 +402,17 @@ class GainMeas(SiPMMeas):
         to a fraction of the self.ChargeEntries histogram maximum. For more
         information check the
         SiPMMeas.fit_gaussians_to_the_n_highest_peaks() docstring.    
-        - fit_parameters_bounds (None or 2-tuple of array-like): It is
-        eventually given to the 'bounds' keyword argument of
-        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
-        gaussian fit parameters, i.e. for the gaussian mean and standard
-        deviation. Note that, additionally, if the scaling_seeds are defined,
-        then the bounds for the scaling should also be set. If it is None,
-        then, then only the [0, np.inf] bounds are used for the scaling factor
-        (if applicable) while the rest of the parameters are unbounded
-        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
-        elements of the tuple must contain as many entries as fit parameters.
-        The i-th entry of the first (resp. second) element of the tuple
-        contains the lower (resp. upper) bound for the i-th fit parameter.
-        If defined, this parameter is not checked, but given to
-        scipy.optimize.curve_fit() as is.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It sets
+        the lower and upper bounds on the gaussian fit parameters, i.e. for
+        the gaussian mean and standard deviation. Note that, additionally,
+        if the scaling_seeds are defined, then the bounds for the scaling
+        should also be set. If it is None, then only the [0, np.inf] bounds
+        are used for the scaling factor (if applicable) while the rest of
+        the parameters are unbounded (-np.inf, np.inf). Otherwise, if this
+        parameter is defined, then both elements of the tuple must contain
+        as many entries as fit parameters. The i-th entry of the first
+        (resp. second) element of the tuple contains the lower (resp. upper)
+        bound for the i-th fit parameter.
         - std_no (scalar float): It must be positive (>0.0). It is given to
         the static method SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
         which in turn, gives it to SiPMMeas.piecewise_gaussian_fits(). Check
@@ -458,6 +456,11 @@ class GainMeas(SiPMMeas):
             - When True: returns (popt, pcov) where popt is a single array
             [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]
             and pcov is the full covariance matrix. The gain is popt[1].
+
+        - optimize_poisson_likelihood (scalar boolean): If False (default),
+        scipy.optimize.curve_fit() is used in the selected fitting method.
+        If True, iminuit.BinnedNLL is used to maximize a Poisson likelihood
+        for the histogram counts.
 
         This method histograms self.__charge_entries and fits Gaussian
         functions to peaks. By default (use_correlated_gaussians=False),
@@ -634,7 +637,8 @@ class GainMeas(SiPMMeas):
                 fit_parameters_bounds=fit_parameters_bounds,
                 std_no=std_no,
                 peak_distance_in_bins=peak_distance_in_bins,
-                use_correlated_gaussians=use_correlated_gaussians
+                use_correlated_gaussians=use_correlated_gaussians,
+                optimize_poisson_likelihood=optimize_poisson_likelihood
             )
 
         if fPlot:
@@ -727,6 +731,7 @@ class GainMeas(SiPMMeas):
                         )
                         for i in range(len(popt))
                     ]
+
                     piecewise_ys = [
                         gaussian(piecewise_xs[i], popt[i][0], popt[i][1], popt[i][2])
                         for i in range(len(popt))
@@ -794,6 +799,7 @@ class GainMeas(SiPMMeas):
         plot_charge_range=None,
         plot_histogram_fit=True,
         use_correlated_gaussians=False,
+        optimize_poisson_likelihood=False,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -857,20 +863,17 @@ class GainMeas(SiPMMeas):
         whose prominence is bigger or equal to a fraction
         np.max(self.ChargeEntries) histogram maximum. For more information
         check the SiPMMeas.fit_peaks_histogram() docstring.
-        - fit_parameters_bounds (None or 2-tuple of array-like): It is
-        eventually given to the 'bounds' keyword argument of
-        scipy.optimize.curve_fit(). It sets the lower and upper bounds on the
-        gaussian fit parameters, i.e. for the gaussian mean and standard
-        deviation. Note that, additionally, if the scaling_seeds are defined,
-        then the bounds for the scaling should also be set. If it is None,
-        then, then only the [0, np.inf] bounds are used for the scaling factor
-        (if applicable) while the rest of the parameters are unbounded
-        (-np.inf, np.inf). Otherwise, if this parameter is defined, then both
-        elements of the tuple must contain as many entries as fit parameters.
-        The i-th entry of the first (resp. second) element of the tuple
-        contains the lower (resp. upper) bound for the i-th fit parameter.
-        If defined, this parameter is not checked, but given to
-        scipy.optimize.curve_fit() as is.
+        - fit_parameters_bounds (None or 2-tuple of array-like): It sets
+        the lower and upper bounds on the gaussian fit parameters, i.e. for
+        the gaussian mean and standard deviation. Note that, additionally,
+        if the scaling_seeds are defined, then the bounds for the scaling
+        should also be set. If it is None, then only the [0, np.inf] bounds
+        are used for the scaling factor (if applicable) while the rest of
+        the parameters are unbounded (-np.inf, np.inf). Otherwise, if this
+        parameter is defined, then both elements of the tuple must contain
+        as many entries as fit parameters. The i-th entry of the first
+        (resp. second) element of the tuple contains the lower (resp. upper)
+        bound for the i-th fit parameter.
         - std_no (scalar float): It must be positive (>0.0). It is given to the
         GainMeas.fit_peaks_histogram() method, which in turn gives it to the
         static method SiPMMeas.fit_gaussians_to_the_n_highest_peaks(),
@@ -918,6 +921,10 @@ class GainMeas(SiPMMeas):
         where the gain is directly available as a fit parameter (mean_increment).
         In this case, the linear regression is skipped and errors are computed
         via error propagation from the fit covariance matrix.
+        - optimize_poisson_likelihood (scalar boolean): If False (default),
+        scipy.optimize.curve_fit() is used in the selected fitting method.
+        If True, iminuit.BinnedNLL is used to maximize a Poisson likelihood
+        for the histogram counts.
 
         This method calls self.fit_peaks_histogram() to fit Gaussian functions
         to the charge histogram peaks which meet the specified prominence
@@ -1049,6 +1056,7 @@ class GainMeas(SiPMMeas):
             plot_charge_range=plot_charge_range,
             plot_fit=plot_histogram_fit,
             use_correlated_gaussians=use_correlated_gaussians,
+            optimize_poisson_likelihood=optimize_poisson_likelihood,
         )
 
         if use_correlated_gaussians:
