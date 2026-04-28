@@ -1,12 +1,16 @@
 import os
 import json
 import math
+import copy
 from datetime import datetime
 from abc import ABC
 import numpy as np
 from scipy import signal as spsi
 from scipy import constants as spcon
 from scipy import optimize as spopt
+from scipy import stats as spsta
+from iminuit import Minuit
+from iminuit.cost import BinnedNLL
 
 import massibo_ana.utils.htype as htype
 import massibo_ana.utils.custom_exceptions as cuex
