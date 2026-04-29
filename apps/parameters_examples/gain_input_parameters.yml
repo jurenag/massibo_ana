@@ -149,6 +149,10 @@ peak_distance_in_bins: 5
 # piecewise gaussian fits.
 use_correlated_gaussians: false
 
+# Whether to optimize a Poisson likelihood for the
+# histogram fit (iminuit) instead of using curve_fit.
+optimize_poisson_likelihood: false
+
 # Regarding the following five parameters: The charge
 # histogram fit is performed for every
 # (peaks_to_detect, bins_no) combination over a certain
