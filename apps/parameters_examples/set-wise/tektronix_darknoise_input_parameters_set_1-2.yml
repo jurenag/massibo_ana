@@ -187,6 +187,10 @@ gaussian_fit_std_no: 3.0
 # parameter of scipy.signal.find_peaks().
 peak_distance_in_bins: 5
 
+# Whether to optimize a Poisson likelihood for the
+# histogram fit (iminuit) instead of using curve_fit.
+optimize_poisson_likelihood: false
+
 # The following parameter has to do with how the
 # NotEnoughFitSamples exception is handled when
 # attempting the gaussian fits to the first two
