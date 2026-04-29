@@ -2722,8 +2722,7 @@ class SiPMMeas(ABC):
             #  s'_i = (k * s_i) / ((sqrt(2 * pi) * \sum _{j=0}^{N-1} s_j * sigma_j))
             #
             # where s_{N-1} = 1.0, and k is the `aux_area` computed above.
-            
-            
+              
             reconstructed_sigmas = np.array([
                 math.sqrt((popt[2] * popt[2]) + (i * popt[3] * popt[3]))
                 for i in range(gaussians_number)
