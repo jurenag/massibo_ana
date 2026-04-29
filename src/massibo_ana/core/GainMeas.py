@@ -1,4 +1,3 @@
-import os
 import json
 import math
 import numpy as np
@@ -188,7 +187,7 @@ class GainMeas(SiPMMeas):
 
         # self.fit_chi2 = None
         # self.fit_parameters = None
-        # self.fit_parameters_erros = None
+        # self.fit_parameters_errors = None
         # self.gain = None
         # self.gain_error = None
 
