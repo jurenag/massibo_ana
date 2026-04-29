@@ -118,11 +118,16 @@ peak_search_starting_fraction: 0.0
 # The percentage step to increase the charge-histogram
 # to consider in successive calls of
 # scipy.signal.find_peaks(). It must belong to the
-# (0.0, 1.0] range. For more information check the
-# documentation of the 'step_fraction' parameter of
-# the GainMeas.fit_gain() method. It must belong to
-# the [0.0, 1.0] range.
-peak_search_step_fraction: 0.01
+# (0.0, 1.0] range. A too small value makes the peak
+# search process analyze too many fractions, some of
+# them potentially including only the left part of a
+# peak, which may lead to mis-identification of
+# fluctuations as peaks. An optimal value is
+# ~1/number_of_peaks_displayed_in_charge_histogram.
+# For more information check the documentation of the
+# 'step_fraction' parameter of the GainMeas.fit_gain()
+# method.
+peak_search_step_fraction: 0.1
 
 # It sets a minimal prominence for a peak to be fit,
 # based on a fraction of the maximum value within the
