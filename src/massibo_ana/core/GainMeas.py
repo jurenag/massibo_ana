@@ -787,26 +787,48 @@ class GainMeas(SiPMMeas):
                 else:
                     n_fitted_peaks_text = f"{len(popt)} f. p."
 
-            fit_annotation_text = "\n".join(
-                [n_fitted_peaks_text] + fit_annotation_lines
+            fit_parameters_lines_no = len(fit_annotation_lines)
+            first_column_lines_no = (fit_parameters_lines_no + 1) // 2
+
+            first_column_lines = fit_annotation_lines[:first_column_lines_no]
+            second_column_lines = fit_annotation_lines[first_column_lines_no:]
+
+            first_column_text = "\n".join(
+                [n_fitted_peaks_text] + first_column_lines
             )
 
+            aux_bbox = {
+                "facecolor": "white",
+                "edgecolor": "black",
+                "alpha": 0.8,
+                "boxstyle": "round",
+            }
+
             plot_axes.text(
-                .01,
-                .98,
-                fit_annotation_text,
+                .02,
+                .97,
+                first_column_text,
                 fontsize='xx-small',
                 # Make the coordinates relative to the axes system
                 transform=plot_axes.transAxes,
                 verticalalignment='top',
                 horizontalalignment='left',
-                bbox={
-                    "facecolor": "white",
-                    "edgecolor": "black",
-                    "alpha": 0.8,
-                    "boxstyle": "round",
-                }
+                bbox=aux_bbox
             )
+
+            if len(second_column_lines) > 0:
+                second_column_text = "\n".join(second_column_lines)
+                plot_axes.text(
+                    .52,
+                    .97,
+                    second_column_text,
+                    fontsize='xx-small',
+                    # Make the coordinates relative to the axes system
+                    transform=plot_axes.transAxes,
+                    verticalalignment='top',
+                    horizontalalignment='left',
+                    bbox=aux_bbox
+                )
 
             plot_axes.set_xlabel(f"Charge (C)")
             plot_axes.set_ylabel(f"Hits")
