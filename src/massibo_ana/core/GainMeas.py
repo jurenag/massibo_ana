@@ -656,6 +656,8 @@ class GainMeas(SiPMMeas):
                 plot_axes.set_ylim(10**-1)
 
             if plot_fit:
+                fit_annotation_lines = []
+
                 if use_correlated_gaussians:
                     # For correlated Gaussians, plot the continuous fit function
                     # popt = [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...]
@@ -690,6 +692,24 @@ class GainMeas(SiPMMeas):
 
                     # For the text annotation, show number of Gaussians in the fit
                     n_fitted_peaks_text = f"{n_gaussians} f. p. (corr.)"
+
+                    # If optimize_poisson_likelihood is True, then a non-fitted
+                    # scaling factor (computed out of a normalization condition)
+                    # may have been appended to `popt`. That's why `pcov` is used
+                    # here to determine the number of fitted parameters, instead
+                    # of `popt`.
+                    fitted_parameters_no = np.shape(pcov)[0]
+                    parameters_names = (
+                        [r'$\mu_0$', r'$\Delta\mu$', r'$\sigma_0$', r'$\Delta\sigma$']
+                        + [fr'$S_{{{i}}}$' for i in range(max(0, fitted_parameters_no - 4))]
+                    )
+
+                    for i in range(fitted_parameters_no):
+                        variance = pcov[i, i]
+                        error = math.sqrt(variance) if variance >= 0.0 else float("nan")
+                        fit_annotation_lines.append(
+                            fr"{parameters_names[i]} = {GainMeas.format_with_uncertainty(popt[i], error)}"
+                        )
 
                 else:
                     # SiPMMeas.fit_gaussians_to_the_n_highest_peaks()
@@ -749,6 +769,17 @@ class GainMeas(SiPMMeas):
 
                     n_fitted_peaks_text = f"{len(popt)} f. p."
 
+                    for peak_no in range(len(popt)):
+                        fitted_parameters_no = np.shape(pcov[peak_no])[0]
+                        parameter_names = (r'\mu', r'\sigma', r'S')
+
+                        for i in range(fitted_parameters_no):
+                            variance = pcov[peak_no][i, i]
+                            error = math.sqrt(variance) if variance >= 0.0 else float("nan")
+                            fit_annotation_lines.append(
+                                fr"${parameter_names[i]}_{{{peak_no}}}$ = "
+                                f"{GainMeas.format_with_uncertainty(popt[peak_no][i], error)}"
+                            )
             else:
                 # plot_fit is False
                 if use_correlated_gaussians:
@@ -756,16 +787,25 @@ class GainMeas(SiPMMeas):
                 else:
                     n_fitted_peaks_text = f"{len(popt)} f. p."
 
-            # Add some text giving the number
-            # of fitted peaks in the histogram
+            fit_annotation_text = "\n".join(
+                [n_fitted_peaks_text] + fit_annotation_lines
+            )
+
             plot_axes.text(
-                .99,
+                .01,
                 .98,
-                n_fitted_peaks_text,
+                fit_annotation_text,
+                fontsize='xx-small',
                 # Make the coordinates relative to the axes system
                 transform=plot_axes.transAxes,
                 verticalalignment='top',
-                horizontalalignment='right'
+                horizontalalignment='left',
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": "black",
+                    "alpha": 0.8,
+                    "boxstyle": "round",
+                }
             )
 
             plot_axes.set_xlabel(f"Charge (C)")
@@ -1516,3 +1556,63 @@ class GainMeas(SiPMMeas):
         ThermalCycle and Date attributes of this SiPMMeas object."""
 
         return super().get_title(abbreviate=abbreviate) + f", OV {round(10.*self.Overvoltage_V)} dV"
+
+    @staticmethod
+    def format_with_uncertainty(
+            value,
+            uncertainty
+        ):
+        """This static method gets the following parameters:
+
+        - value (scalar float): The value to be formatted.
+        - uncertainty (scalar float): The uncertainty associated
+        with the value.
+
+        This method returns a string which contains the value
+        and its uncertainty, formatted in a way that is visually
+        clear and concise.
+        """
+
+        if not np.isfinite(value) \
+            or not np.isfinite(uncertainty) \
+                or uncertainty <= 0.0:
+
+            return f"{value:.6g} ± {uncertainty:.6g}"
+
+        exponent_source = abs(value) if value != 0.0 else abs(uncertainty)
+        exponent = math.floor(math.log10(exponent_source))
+        scale = 10.0 ** exponent
+
+        scaled_value = value / scale
+        scaled_uncertainty = uncertainty / scale
+
+        # Determine the order of magnitude of the
+        # uncertainty wih respect to the computed scale
+        order = math.floor(math.log10(abs(scaled_uncertainty)))
+
+        # Determine the first significant digit of the uncertainty
+        first_significant_digit = abs(scaled_uncertainty) / (10.0 ** order)
+
+        # Keep two significant digits for uncertainties
+        # that start with 1 or 2, and one otherwise.
+        significant_digits = 2 if first_significant_digit < 3.0 else 1
+
+        # Compute the number of decimals to show
+        decimals = max(
+            0,
+            -order + (significant_digits - 1)
+        )
+
+        # If the order of magnitude of the value is either
+        # -1, 0 or 1, then is visually cleaner to not use
+        # scientific notation
+        if -1 <= exponent <= 1:
+            return f"{value:.{decimals}f} "+r'$\pm$ '+f"{uncertainty:.{decimals}f}"
+
+        # In other case, use scientific notation with the
+        # same exponent for the value and the uncertainty
+        return (
+            f"({scaled_value:.{decimals}f} "+r'$\pm$ ' +
+            f"{scaled_uncertainty:.{decimals}f}) x "+r'$10^{' +
+            str(exponent) + r'}$'
+        )
