@@ -4,6 +4,7 @@ import copy
 import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
+from scipy import stats as spsta
 
 import massibo_ana.utils.htype as htype
 import massibo_ana.utils.custom_exceptions as cuex
@@ -861,24 +862,57 @@ class DarkNoiseMeas(SiPMMeas):
             )
         return int(np.sum(self.__amplitude > self.__one_and_a_half_pe))
 
-    def get_cross_talk_probability(self):
-        """This method returns a tuple (xtp, xtp_error) where xtp is a float
-        scalar which is the cross-talk event probability and xtp_error is its
-        associated statistical uncertainty.
+    def get_cross_talk_probability(
+            self,
+            alpha=0.32
+        ):
+        """This method gets the following optional keyword arguments:
 
-        The xtp value is computed as the number of cross talk events, as
-        returned by self.get_cross_talk_number(), divided by the number of dark
-        counts as returned by self.get_dark_counts_number(). The xtp_error
-        value is computed as the binomial standard deviation estimator
-        sqrt(xtp * (1 - xtp) / N), where N is the number of dark counts from
-        self.get_dark_counts_number()."""
+        - alpha (scalar float): Significance level for the confidence interval
+        of the cross-talk event probability. It must be between 0.0001 and 1.
+        
+        This method returns a tuple (xtp, xtp_lower_error, xtp_upper_error) where:
+
+            - `xtp` is a float scalar which is the cross-talk event probability.
+            It is computed as the number of cross talk events, as returned by
+            self.get_cross_talk_number(), divided by the number of dark counts
+            as returned by self.get_dark_counts_number().
+
+            - `xtp_lower_error` (resp. `xtp_upper_error`) are the associated
+            statistical uncertainties, so that the confidence interval for xtp,
+            at a confidence level of 1-alpha, is given by [xtp-xtp_lower_error,
+            xtp+xtp_upper_error]. The confidence interval is computed with the
+            Clopper-Pearson method, where the number of trials is given by the
+            number of dark counts, and the number of successes is given by the
+            number of cross talk events.
+        """
 
         dark_counts_number = float(self.get_dark_counts_number())
+        cross_talk_number = float(self.get_cross_talk_number())
 
-        xtp = float(self.get_cross_talk_number()) / dark_counts_number
-        xtp_error = np.sqrt(xtp * (1.0 - xtp) / dark_counts_number)
+        xtp = cross_talk_number / dark_counts_number
 
-        return xtp, xtp_error
+        if cross_talk_number == 0:
+            xtp_low = 0.
+            xtp_high = 1. - ((alpha / 2.) ** (1. / dark_counts_number))
+
+        elif cross_talk_number == dark_counts_number:
+            xtp_low = (alpha / 2.) ** (1. / dark_counts_number)
+            xtp_high = 1.
+
+        else:
+            xtp_low = spsta.beta.ppf(
+                alpha / 2.,
+                cross_talk_number,
+                dark_counts_number - cross_talk_number + 1.
+            )
+            xtp_high = spsta.beta.ppf(
+                1. - (alpha / 2.),
+                cross_talk_number + 1.,
+                dark_counts_number - cross_talk_number
+            )
+
+        return xtp, xtp - xtp_low, xtp_high - xtp
 
     # The after pulse threshold which was used by M. A. García et al is 5 microseconds.
     def get_after_pulse_number(self, afterpulse_threshold_in_s=5e-6):
@@ -902,30 +936,63 @@ class DarkNoiseMeas(SiPMMeas):
             )
         return int(np.sum(self.__timedelay < afterpulse_threshold_in_s))
 
-    def get_after_pulse_probability(self):
-        """This method returns a tuple (app, app_error) where app is a float
-        scalar which is the after-pulse event probability and app_error is its
-        associated statistical uncertainty.
+    def get_after_pulse_probability(
+            self,
+            alpha=0.32
+        ):
+        """This method gets the following optional keyword argument:
 
-        The app value is computed as the number of after pulse events, as
-        returned by self.get_after_pulse_number(), divided by the number of
-        dark counts, as returned by self.get_dark_counts_number(), minus one.
-        This correction has to do with the fact that the number of time-delay
-        entries is one unit smaller than the number of dark counts, since the
-        first spotted peak does not have a defined time delay with respect to
-        the previous one. In other words, the first dark count could have
-        been, or not, the after pulse of a pulse that happened right before
-        the acquisition started, which we cannot possibly know. The app_error
-        value is computed as the binomial standard deviation estimator
-        sqrt(app * (1 - app) / N), where N is the number of dark counts from
-        self.get_dark_counts_number()."""
+        - alpha (scalar float): Significance level for the confidence interval
+        of the after-pulse event probability. It must be between 0.0001 and 1.
+        
+        This method returns a tuple (app, app_lower_error, app_upper_error) where:
+
+            - `app` is a float scalar which is the after-pulse event probability.
+            It is computed as the number of after pulse events, as returned by
+            self.get_after_pulse_number(), divided by the number of dark counts
+            as returned by self.get_dark_counts_number(), minus one. This
+            correction has to do with the fact that the number of time-delay
+            entries is one unit smaller than the number of dark counts, since the
+            first spotted peak does not have a defined time delay with respect to
+            the previous one. In other words, the first dark count could have
+            been, or not, the after pulse of a pulse that happened right before
+            the acquisition started, which we cannot possibly know.
+            
+            - `app_lower_error` (resp. `app_upper_error`) are the associated
+            statistical uncertainties, so that the confidence interval for app,
+            at a confidence level of 1-alpha, is given by [app-app_lower_error,
+            app+app_upper_error]. The confidence interval is computed with the
+            Clopper-Pearson method, where the number of trials is given by the
+            number of dark counts minus one, and the number of successes is given
+            by the number of after pulse events.
+        """
 
         dark_counts_number = float(self.get_dark_counts_number())
+        after_pulse_number = float(self.get_after_pulse_number())
 
-        app = float(self.get_after_pulse_number()) / (dark_counts_number - 1.)
-        app_error = np.sqrt(app * (1.0 - app) / (dark_counts_number - 1.))
+        app = after_pulse_number / (dark_counts_number - 1.)
+        
+        if after_pulse_number == 0:
+            app_low = 0.
+            app_high = 1. - ((alpha / 2.) ** (1. / (dark_counts_number - 1.)))
 
-        return app, app_error
+        elif after_pulse_number == dark_counts_number - 1:
+            app_low = (alpha / 2.) ** (1. / (dark_counts_number - 1.))
+            app_high = 1.
+
+        else:
+            app_low = spsta.beta.ppf(
+                alpha / 2.,
+                after_pulse_number,
+                (dark_counts_number - 1) - after_pulse_number + 1.
+            )
+            app_high = spsta.beta.ppf(
+                1. - (alpha / 2.),
+                after_pulse_number + 1.,
+                (dark_counts_number - 1.) - after_pulse_number
+            )
+
+        return app, app - app_low, app_high - app
 
     # The default values for the parameters given in M. García et al paper.
     def identify_bursts(self, min_events_no=5, timedelay_threshold_in_s=0.1):  # 100 ms
@@ -1768,13 +1835,14 @@ class DarkNoiseMeas(SiPMMeas):
         self.__half_a_pe, self.__one_and_a_half_pe,
         self.get_dark_counts_number(),
         self.get_dark_count_rate_in_mHz_per_mm2(*args) (both value and
-        Poisson error), self.get_cross_talk_probability() (both value
-        and binomial error) and self.get_after_pulse_probability()
-        (both value and binomial error) values are included in the output
-        dictionary under the keys "timedelay", "amplitude", "frame_idx",
-        "half_a_pe", "one_and_a_half_pe", "DC#", "DCR_mHz_per_mm2",
-        "DCR_mHz_per_mm2_error", "XTP", "XTP_error", "APP" and
-        "APP_error", respectively. If this
+        Poisson error), self.get_cross_talk_probability() (value, lower
+        error and upper error) and self.get_after_pulse_probability()
+        (value, lower error and upper error) values are included in the
+        output dictionary under the keys "timedelay", "amplitude",
+        "frame_idx", "half_a_pe", "one_and_a_half_pe", "DC#",
+        "DCR_mHz_per_mm2", "DCR_mHz_per_mm2_error", "XTP",
+        "XTP_lower_error", "XTP_upper_error", "APP", "APP_lower_error" and
+        "APP_upper_error", respectively. If this
         parameter is False, then these keys are still included in the
         output dictionary, but their value is set to float('nan').
         - overwrite (bool): This parameter only makes a difference if
@@ -1851,16 +1919,26 @@ class DarkNoiseMeas(SiPMMeas):
         (self.get_dark_count_rate_in_mHz_per_mm2(*args)[1]) if
         include_analysis_results and float('nan') otherwise,
         - "XTP": Contains the XTP value
-        (self.get_cross_talk_probability())[0] if
+        (self.get_cross_talk_probability()[0]) if
         include_analysis_results and float('nan') otherwise,
-        - "XTP_error": Contains the XTP binomial statistical
-        error (self.get_cross_talk_probability()[1]) if
+        - "XTP_lower_error": Contains the XTP binomial lower error
+        computed with the Clopper-Pearson method
+        (self.get_cross_talk_probability()[1]) if
+        include_analysis_results and float('nan') otherwise,
+        - "XTP_upper_error": Contains the XTP binomial upper error
+        computed with the Clopper-Pearson method
+        (self.get_cross_talk_probability()[2]) if
         include_analysis_results and float('nan') otherwise,
         - "APP": Contains the APP value
-        (self.get_after_pulse_probability())[0] if
+        (self.get_after_pulse_probability()[0]) if
         include_analysis_results and float('nan') otherwise,
-        - "APP_error": Contains the APP binomial statistical
-        error (self.get_after_pulse_probability()[1]) if
+        - "APP_lower_error": Contains the APP binomial lower error
+        computed with the Clopper-Pearson method
+        (self.get_after_pulse_probability()[1]) if
+        include_analysis_results and float('nan') otherwise,
+        - "APP_upper_error": Contains the APP binomial upper error
+        computed with the Clopper-Pearson method
+        (self.get_after_pulse_probability()[2]) if
         include_analysis_results and float('nan') otherwise.
 
         This method returns a summary dictionary of the DarkNoiseMeas
@@ -1899,8 +1977,8 @@ class DarkNoiseMeas(SiPMMeas):
 
         if include_analysis_results:
             dcr_value, dcr_error = self.get_dark_count_rate_in_mHz_per_mm2(*args)
-            xtp_value, xtp_error = self.get_cross_talk_probability()
-            app_value, app_error = self.get_after_pulse_probability()
+            xtp_value, xtp_lower_error, xtp_upper_error = self.get_cross_talk_probability()
+            app_value, app_lower_error, app_upper_error = self.get_after_pulse_probability()
 
             analysis_results = {
                 # Object of type numpy.ndarray is not
@@ -1918,9 +1996,11 @@ class DarkNoiseMeas(SiPMMeas):
                 "DCR_mHz_per_mm2": dcr_value,
                 "DCR_mHz_per_mm2_error": dcr_error,
                 "XTP": xtp_value,
-                "XTP_error": xtp_error,
+                "XTP_lower_error": xtp_lower_error,
+                "XTP_upper_error": xtp_upper_error,
                 "APP": app_value,
-                "APP_error": app_error
+                "APP_lower_error": app_lower_error,
+                "APP_upper_error": app_upper_error
             }
         else:
             analysis_results = {
