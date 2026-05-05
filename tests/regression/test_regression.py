@@ -561,13 +561,31 @@ def test_regression(
         computed_dataframe
     )
 
+    errors = []
+
     for column in columns_to_compare:
-        np.testing.assert_allclose(
-            computed_dataframe[column].values, # actual
-            expected_dataframe[column].values, # desired
-            rtol=columns_to_compare[column][0],
-            atol=columns_to_compare[column][1],
-            err_msg=f"Mismatch in column {column} for {set_number}"
+        try:
+            np.testing.assert_allclose(
+                computed_dataframe[column].values, # actual
+                expected_dataframe[column].values, # desired
+                rtol=columns_to_compare[column][0],
+                atol=columns_to_compare[column][1],
+                err_msg=f"Mismatch in column {column} for {set_number}"
+            )
+        except AssertionError as e:
+            errors.append((column, str(e)))
+
+    if errors:
+        error_message = f"Test ({test_type}) failed for the "+\
+            f"following {len(errors)} column(s) in set {set_number}:\n"
+        
+        for error in errors:
+            error_message += f"\t- '{error[0]}'\n"
+
+        error_message += "\nErrors:\n" + "\n".join(
+            error[1] for error in errors
         )
+
+        raise AssertionError(error_message)
 
     return
