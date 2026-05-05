@@ -862,6 +862,47 @@ class DarkNoiseMeas(SiPMMeas):
             )
         return int(np.sum(self.__amplitude > self.__one_and_a_half_pe))
 
+    @staticmethod
+    def _compute_clopper_pearson_interval(
+            alpha,
+            n_trials,
+            n_successes
+        ):
+        """This method gets the following positional arguments:
+
+        - alpha (scalar float): Significance level for the confidence interval.
+        - n_trials (scalar float): Number of Bernoulli trials.
+        - n_successes (scalar float): Number of successes among n_trials.
+
+        This method computes and returns a tuple (ci_low, ci_high), where
+        ci_low and ci_high are the lower and upper limits, respectively,
+        of the confidence interval at confidence level 1-alpha, computed
+        with the Clopper-Pearson method for a binomial sample with n_trials
+        trials and n_successes successes.
+        """
+
+        if n_successes == 0:
+            ci_low = 0.
+            ci_high = 1. - ((alpha / 2.) ** (1. / n_trials))
+
+        elif n_successes == n_trials:
+            ci_low = (alpha / 2.) ** (1. / n_trials)
+            ci_high = 1.
+
+        else:
+            ci_low = spsta.beta.ppf(
+                alpha / 2.,
+                n_successes,
+                n_trials - n_successes + 1.
+            )
+            ci_high = spsta.beta.ppf(
+                1. - (alpha / 2.),
+                n_successes + 1.,
+                n_trials - n_successes
+            )
+
+        return ci_low, ci_high
+
     def get_cross_talk_probability(
             self,
             alpha=0.32
@@ -891,26 +932,11 @@ class DarkNoiseMeas(SiPMMeas):
         cross_talk_number = float(self.get_cross_talk_number())
 
         xtp = cross_talk_number / dark_counts_number
-
-        if cross_talk_number == 0:
-            xtp_low = 0.
-            xtp_high = 1. - ((alpha / 2.) ** (1. / dark_counts_number))
-
-        elif cross_talk_number == dark_counts_number:
-            xtp_low = (alpha / 2.) ** (1. / dark_counts_number)
-            xtp_high = 1.
-
-        else:
-            xtp_low = spsta.beta.ppf(
-                alpha / 2.,
-                cross_talk_number,
-                dark_counts_number - cross_talk_number + 1.
-            )
-            xtp_high = spsta.beta.ppf(
-                1. - (alpha / 2.),
-                cross_talk_number + 1.,
-                dark_counts_number - cross_talk_number
-            )
+        xtp_low, xtp_high = DarkNoiseMeas._compute_clopper_pearson_interval(
+            alpha,
+            dark_counts_number,
+            cross_talk_number
+        )
 
         return xtp, xtp - xtp_low, xtp_high - xtp
 
@@ -969,28 +995,14 @@ class DarkNoiseMeas(SiPMMeas):
 
         dark_counts_number = float(self.get_dark_counts_number())
         after_pulse_number = float(self.get_after_pulse_number())
+        n_trials = dark_counts_number - 1.
 
-        app = after_pulse_number / (dark_counts_number - 1.)
-        
-        if after_pulse_number == 0:
-            app_low = 0.
-            app_high = 1. - ((alpha / 2.) ** (1. / (dark_counts_number - 1.)))
-
-        elif after_pulse_number == dark_counts_number - 1:
-            app_low = (alpha / 2.) ** (1. / (dark_counts_number - 1.))
-            app_high = 1.
-
-        else:
-            app_low = spsta.beta.ppf(
-                alpha / 2.,
-                after_pulse_number,
-                (dark_counts_number - 1) - after_pulse_number + 1.
-            )
-            app_high = spsta.beta.ppf(
-                1. - (alpha / 2.),
-                after_pulse_number + 1.,
-                (dark_counts_number - 1.) - after_pulse_number
-            )
+        app = after_pulse_number / n_trials
+        app_low, app_high = DarkNoiseMeas._compute_clopper_pearson_interval(
+            alpha,
+            n_trials,
+            after_pulse_number
+        )
 
         return app, app - app_low, app_high - app
 
