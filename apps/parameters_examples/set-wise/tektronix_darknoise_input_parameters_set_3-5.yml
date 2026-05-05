@@ -74,6 +74,16 @@ merged_points: 8
 # in mHz per mm2.
 sipm_sensitive_surface_area_in_mm2: 36.
 
+# Significance level for the confidence interval of
+# the cross-talk probability (XTP), computed with the
+# Clopper-Pearson method.
+XTP_significance_level: 0.32
+
+# Significance level for the confidence interval of
+# the after-pulse probability (APP), computed with the
+# Clopper-Pearson method.
+APP_significance_level: 0.32
+
 ### Parameters for the configuration of the peak detection algorithm
 # It must belong to the interval [0.0, 1.0]. For
 # each waveform, this value represents the fraction
