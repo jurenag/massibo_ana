@@ -1820,6 +1820,8 @@ class DarkNoiseMeas(SiPMMeas):
         additional_entries={},
         folderpath=None,
         include_analysis_results=True,
+        xtp_significance_level=0.32,
+        app_significance_level=0.32,
         overwrite=False,
         indent=None,
         verbose=False
@@ -1847,16 +1849,27 @@ class DarkNoiseMeas(SiPMMeas):
         self.__half_a_pe, self.__one_and_a_half_pe,
         self.get_dark_counts_number(),
         self.get_dark_count_rate_in_mHz_per_mm2(*args) (both value and
-        Poisson error), self.get_cross_talk_probability() (value, lower
-        error and upper error) and self.get_after_pulse_probability()
+        Poisson error), self.get_cross_talk_probability(
+        alpha=xtp_significance_level) (value, lower error and upper error)
+        and self.get_after_pulse_probability(alpha=app_significance_level)
         (value, lower error and upper error) values are included in the
-        output dictionary under the keys "timedelay", "amplitude",
-        "frame_idx", "half_a_pe", "one_and_a_half_pe", "DC#",
-        "DCR_mHz_per_mm2", "DCR_mHz_per_mm2_error", "XTP",
-        "XTP_lower_error", "XTP_upper_error", "APP", "APP_lower_error" and
-        "APP_upper_error", respectively. If this
+        output dictionary under the keys "timedelay", "amplitude", "frame_idx",
+        "half_a_pe", "one_and_a_half_pe", "DC#", "DCR_mHz_per_mm2",
+        "DCR_mHz_per_mm2_error", "XTP", "XTP_lower_error",
+        "XTP_upper_error", "APP", "APP_lower_error" and "APP_upper_error",
+        respectively. If this
         parameter is False, then these keys are still included in the
         output dictionary, but their value is set to float('nan').
+        - xtp_significance_level (scalar float): Used only if
+        include_analysis_results is True. In that case, it gives the
+        significance level for the confidence interval of the cross-talk
+        event probability. This parameter is given to the alpha parameter of
+        self.get_cross_talk_probability().
+        - app_significance_level (scalar float): Used only if
+        include_analysis_results is True. In that case, it gives the
+        significance level for the confidence interval of the after-pulse
+        event probability. This parameter is given to the alpha parameter of
+        self.get_after_pulse_probability().
         - overwrite (bool): This parameter only makes a difference if
         the 'folderpath' parameter is defined and if there is already
         a file in the given folder path whose name matches
@@ -1931,26 +1944,26 @@ class DarkNoiseMeas(SiPMMeas):
         (self.get_dark_count_rate_in_mHz_per_mm2(*args)[1]) if
         include_analysis_results and float('nan') otherwise,
         - "XTP": Contains the XTP value
-        (self.get_cross_talk_probability()[0]) if
+        (self.get_cross_talk_probability(alpha=xtp_significance_level)[0]) if
         include_analysis_results and float('nan') otherwise,
         - "XTP_lower_error": Contains the XTP binomial lower error
         computed with the Clopper-Pearson method
-        (self.get_cross_talk_probability()[1]) if
+        (self.get_cross_talk_probability(alpha=xtp_significance_level)[1]) if
         include_analysis_results and float('nan') otherwise,
         - "XTP_upper_error": Contains the XTP binomial upper error
         computed with the Clopper-Pearson method
-        (self.get_cross_talk_probability()[2]) if
+        (self.get_cross_talk_probability(alpha=xtp_significance_level)[2]) if
         include_analysis_results and float('nan') otherwise,
         - "APP": Contains the APP value
-        (self.get_after_pulse_probability()[0]) if
+        (self.get_after_pulse_probability(alpha=app_significance_level)[0]) if
         include_analysis_results and float('nan') otherwise,
         - "APP_lower_error": Contains the APP binomial lower error
         computed with the Clopper-Pearson method
-        (self.get_after_pulse_probability()[1]) if
+        (self.get_after_pulse_probability(alpha=app_significance_level)[1]) if
         include_analysis_results and float('nan') otherwise,
         - "APP_upper_error": Contains the APP binomial upper error
         computed with the Clopper-Pearson method
-        (self.get_after_pulse_probability()[2]) if
+        (self.get_after_pulse_probability(alpha=app_significance_level)[2]) if
         include_analysis_results and float('nan') otherwise.
 
         This method returns a summary dictionary of the DarkNoiseMeas
@@ -1968,12 +1981,27 @@ class DarkNoiseMeas(SiPMMeas):
                 "DarkNoiseMeas.output_summary", 71007
             ),
         )
-
         htype.check_type(
             include_analysis_results,
             bool,
             exception_message=htype.generate_exception_message(
                 "DarkNoiseMeas.output_summary", 45625
+            ),
+        )
+        htype.check_type(
+            xtp_significance_level,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.output_summary", 93621
+            ),
+        )
+        htype.check_type(
+            app_significance_level,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.output_summary", 47582
             ),
         )
 
@@ -1989,8 +2017,10 @@ class DarkNoiseMeas(SiPMMeas):
 
         if include_analysis_results:
             dcr_value, dcr_error = self.get_dark_count_rate_in_mHz_per_mm2(*args)
-            xtp_value, xtp_lower_error, xtp_upper_error = self.get_cross_talk_probability()
-            app_value, app_lower_error, app_upper_error = self.get_after_pulse_probability()
+            xtp_value, xtp_lower_error, xtp_upper_error = \
+                self.get_cross_talk_probability(alpha=xtp_significance_level)
+            app_value, app_lower_error, app_upper_error = \
+                self.get_after_pulse_probability(alpha=app_significance_level)
 
             analysis_results = {
                 # Object of type numpy.ndarray is not
