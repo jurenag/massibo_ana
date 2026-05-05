@@ -1011,6 +1011,8 @@ def _plot_channel_scatter(
         meas_legend_handles,
         board_legend_handles,
         error_key=None,
+        error_lower_key=None,
+        error_upper_key=None,
         connect_linewidth=0.6,
         connect_linestyle='--',
         marker_size=35,
@@ -1041,7 +1043,9 @@ def _plot_channel_scatter(
     - channel_data (list of dict): Each dict must contain keys
       'channel', 'meas_no', 'board_no', 'strip_id', 'sipm_loc',
       and the key given by value_key. If error_key is not None,
-      each dict must also contain the key given by error_key.
+      each dict must also contain the key given by error_key. If
+      error_lower_key and error_upper_key are not None, each dict
+      must also contain those keys.
     - value_key (str): Key within each channel_data dict for the
       y-axis value.
     - ylabel (str): Label for the y-axis.
@@ -1056,6 +1060,12 @@ def _plot_channel_scatter(
     - error_key (None or str): If not None, the key within each
       channel_data dict for the y-axis error bar values. When
       provided, error bars are drawn on each scatter point.
+    - error_lower_key (None or str): If not None, and if
+      error_upper_key is also not None, this key is interpreted as
+      the lower y-axis error for asymmetric error bars.
+    - error_upper_key (None or str): If not None, and if
+      error_lower_key is also not None, this key is interpreted as
+      the upper y-axis error for asymmetric error bars.
 
     Additional optional keyword arguments control line, marker,
     separator, font and grid styling (see parameter names)."""
@@ -1087,7 +1097,26 @@ def _plot_channel_scatter(
             ec = edge_color_first if m['sipm_loc'] == 1 else 'none'
             ew = edge_width_first if m['sipm_loc'] == 1 else 0.0
 
-            if error_key is not None and error_key in m:
+            if \
+                error_lower_key is not None \
+                and error_upper_key is not None \
+                and error_lower_key in m \
+                and error_upper_key in m:
+                ax.errorbar(
+                    m['channel'],
+                    m[value_key],
+                    yerr=np.array(
+                        [[m[error_lower_key]], [m[error_upper_key]]],
+                        dtype=float
+                    ),
+                    fmt='none',
+                    ecolor=c,
+                    elinewidth=1.0,
+                    capsize=3,
+                    alpha=marker_alpha,
+                    zorder=3,
+                )
+            elif error_key is not None and error_key in m:
                 ax.errorbar(
                     m['channel'],
                     m[value_key],
@@ -1423,8 +1452,12 @@ def generate_quantity_vs_channel_plots(
     It also gets the following optional keyword argument:
 
     - errors (None or dict): If not None, a mapping from quantity name
-      (str) to a list of per-SiPM error values. Only quantities present
-      in this dict will have error bars drawn on the scatter plots.
+      (str) to either:
+        - a list of per-SiPM error values (symmetric errors), or
+        - a dict with keys 'lower' and 'upper', each one containing
+          a list of per-SiPM errors (asymmetric errors).
+      Only quantities present in this dict will have error bars drawn
+      on the scatter plots.
 
     This function gets optional keyword arguments controlling the
     styling of the plots (see parameter names). These match the same
@@ -1495,8 +1528,26 @@ def generate_quantity_vs_channel_plots(
         )
 
         has_errors = quantity_name in errors
+        has_symmetric_errors = False
+        has_asymmetric_errors = False
         if has_errors:
-            err_values = errors[quantity_name]
+            err_info = errors[quantity_name]
+            if isinstance(err_info, dict):
+                if \
+                    'lower' in err_info \
+                    and 'upper' in err_info:
+                    has_asymmetric_errors = True
+                    err_lower_values = err_info['lower']
+                    err_upper_values = err_info['upper']
+                else:
+                    raise cuex.InvalidParameterDefinition(
+                        "In tools.generate_quantity_vs_channel_plots(): "
+                        "For asymmetric errors, errors[quantity_name] "
+                        "must contain 'lower' and 'upper' keys."
+                    )
+            else:
+                has_symmetric_errors = True
+                err_values = err_info
 
         # Build channel_data, skipping NaN entries
         channel_data = []
@@ -1512,7 +1563,10 @@ def generate_quantity_vs_channel_plots(
                 'sipm_loc': dno.SiPMLocation,
                 'value': val,
             }
-            if has_errors:
+            if has_asymmetric_errors:
+                entry['error_lower'] = err_lower_values[i]
+                entry['error_upper'] = err_upper_values[i]
+            elif has_symmetric_errors:
                 entry['error'] = err_values[i]
             channel_data.append(entry)
 
@@ -1527,7 +1581,9 @@ def generate_quantity_vs_channel_plots(
             board_to_color=board_to_color,
             meas_legend_handles=meas_legend_handles,
             board_legend_handles=board_legend_handles,
-            error_key='error' if has_errors else None,
+            error_key='error' if has_symmetric_errors else None,
+            error_lower_key='error_lower' if has_asymmetric_errors else None,
+            error_upper_key='error_upper' if has_asymmetric_errors else None,
             **scatter_kwargs,
         )
         fig.tight_layout()
@@ -1542,24 +1598,42 @@ def fetch_error_column(
     ):
     """This function gets the following positional arguments:
     - name (str): The base name of the column to look for in the
-    source_df DataFrame. The function will look for a column named
-    name+'_error' in source_df.
+    source_df DataFrame. The function will look for associated error
+    columns in source_df.
     - source_df (pd.DataFrame): The DataFrame from which to look for
-    the error column.
+    the error columns.
     - target_dict (dict): The dictionary to which the error values
-    will be added if the error column is found in source_df. The key
-    under which the error values will be added is name+'_error'.
+    will be added if matching error columns are found in source_df.
 
-    This function checks if there is a column named name+'_error' in
-    source_df. If such column exists, then the function adds an entry
-    to target_dict with key name+'_error' and value equal to the list
-    of values in the name+'_error' column of source_df. Otherwise,
-    the function does nothing. Note that this function modifies
-    target_dict in-place.
+    This function first checks if there are columns named
+    name+'_lower_error' and name+'_upper_error' in source_df. If both
+    exist, then this function adds an entry to target_dict with key
+    name and value equal to
+    {'lower': list(source_df[name+'_lower_error']),
+     'upper': list(source_df[name+'_upper_error'])}.
+
+    Otherwise, this function checks if there is a column named
+    name+'_error' in source_df. If such column exists, then this
+    function adds an entry to target_dict with key name and value
+    equal to list(source_df[name+'_error']).
+
+    If none of the previous conditions is met, this function does
+    nothing. Note that this function modifies target_dict in-place.
     """
 
-    if name+'_error' in source_df.columns:
+    lower_col_name = name + '_lower_error'
+    upper_col_name = name + '_upper_error'
+    symmetric_col_name = name + '_error'
+
+    if \
+        lower_col_name in source_df.columns \
+        and upper_col_name in source_df.columns:
+        target_dict[name] = {
+            'lower': list(source_df[lower_col_name]),
+            'upper': list(source_df[upper_col_name]),
+        }
+    elif symmetric_col_name in source_df.columns:
         target_dict[name] = \
-            list(source_df[name+'_error'])
+            list(source_df[symmetric_col_name])
         
     return
