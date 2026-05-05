@@ -2025,9 +2025,11 @@ class DarkNoiseMeas(SiPMMeas):
                 "DCR_mHz_per_mm2": float('nan'),
                 "DCR_mHz_per_mm2_error": float('nan'),
                 "XTP": float('nan'),
-                "XTP_error": float('nan'),
+                "XTP_lower_error": float('nan'),
+                "XTP_upper_error": float('nan'),
                 "APP": float('nan'),
-                "APP_error": float('nan')
+                "APP_lower_error": float('nan'),
+                "APP_upper_error": float('nan')
             }
 
         darknoisemeas_additional_output.update(analysis_results)
