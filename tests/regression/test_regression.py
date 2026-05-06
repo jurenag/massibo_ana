@@ -214,9 +214,75 @@ def _run_gain_analysis(
         path_to_gain_YAML: str,
         temporal_workspace_folder: str
 ):
-    """Should do the same as _run_darknoise_analysis(),
-    but for the gain analysis."""
-    pass
+    """This function runs the gain analysis for a given set number,
+    using the data that should have been copied to the temporal
+    workspace folder by the bring_data_to_temporal_workspace() function,
+    and that should have been preprocessed by the _run_preprocessor()
+    function. The function modifies the gain analysis parameters
+    YAML file to set the correct workspace folder and to disable the
+    generation of the report, and then it runs the gain analysis
+    by executing the corresponding shell script. After running the
+    gain analysis, the function restores the original gain
+    analysis parameters YAML file, by moving the backup copy to the
+    original location.
+    """
+
+    # Create a backup copy of the original gain analysis
+    # parameters YAML file, to restore it after running
+    # the gain analysis
+    gain_parameters_path = Path(path_to_gain_YAML)
+    gain_parameters_backup_path = Path(
+        path_to_gain_YAML.replace('.yml', '_backup.yml')
+    )
+    if not gain_parameters_backup_path.exists():
+        subprocess.run(
+            [
+                "cp",
+                gain_parameters_path,
+                gain_parameters_backup_path
+            ],
+            check=True
+        )
+    else:
+        raise Exception(
+            "In function _run_gain_analysis(): The backup copy of the "
+            "gain analysis parameters YAML file already exists. This "
+            "should not happen, because the backup copy should be "
+            "removed after running the gain analysis for each set."
+        )
+    
+    # Load the gain analysis parameters YAML file, change the
+    # values of the parameters, and save the modified YAML file
+    with open(gain_parameters_path, 'r') as file:
+        gain_parameters = yaml.safe_load(file)
+
+    gain_parameters['workspace_dir'] = str(
+        Path(temporal_workspace_folder)
+    )
+    gain_parameters['generate_report'] = False
+    
+    with open(gain_parameters_path, 'w') as file:
+        yaml.safe_dump(gain_parameters, file)
+
+    subprocess.run(
+        [
+            "./ci/aux/b4_run_gain_batch_analyzer.sh",
+            path_to_gain_YAML
+        ],
+        check=True
+    )
+
+    # Restore the original gain analysis parameters YAML file
+    subprocess.run(
+        [
+            "mv",
+            gain_parameters_backup_path,
+            gain_parameters_path
+        ],
+        check=True
+    )
+
+    return
 
 def find_config_and_desired_output(
         set_number: int,
