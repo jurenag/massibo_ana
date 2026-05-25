@@ -1461,6 +1461,75 @@ class NumpyDataPreprocessor:
         timestamp = sample_interval_s * timestamp.astype(np.float64)
 
         return timestamp, waveforms
+
+    @staticmethod
+    def has_epoch_timestamp_column(filepath):
+        """This static method gets the following mandatory positional
+        argument:
+
+        - filepath (string): Path to a numpy file whose second column may
+          contain epoch timestamps in milliseconds.
+
+        This method returns True if the input numpy array is bidimensional,
+        has at least three columns, and the second column satisfies two
+        checks: it is monotonically increasing and its average value is
+        greater than 1.e8. Otherwise, it returns False.
+        """
+
+        htype.check_type(
+            filepath,
+            str,
+            exception_message=htype.generate_exception_message(
+                "NumpyDataPreprocessor.has_epoch_timestamp_column",
+                91001
+            ),
+        )
+
+        data = np.load(
+            filepath,
+            mmap_mode="r"
+        )
+
+        if data.ndim != 2 or data.shape[1] < 3 or data.shape[0] < 2:
+            return False
+
+        second_column = np.asarray(data[:, 1])
+
+        second_column_int = second_column.astype(np.int64)
+
+        if not np.all(np.diff(second_column_int) >= 0):
+            return False
+
+        if np.mean(second_column) <= 1.e8:
+            return False
+
+        if np.std(second_column) == 0.0:
+            return False
+
+        return True
+
+    @staticmethod
+    def get_first_epoch_timestamp_s(filepath):
+        """This static method gets the following mandatory positional
+        argument:
+
+        - filepath (string): Path to a numpy file whose second column may
+          contain epoch timestamps in milliseconds.
+
+        This method returns the first epoch timestamp in seconds if the
+        second column passes NumpyDataPreprocessor.has_epoch_timestamp_column().
+        Otherwise, it returns None.
+        """
+
+        if not NumpyDataPreprocessor.has_epoch_timestamp_column(filepath):
+            return None
+
+        data = np.load(
+            filepath,
+            mmap_mode="r"
+        )
+
+        return float(data[0, 1]) / 1000.0
         
     @staticmethod
     def __get_coredata_v0(
