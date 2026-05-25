@@ -39,6 +39,7 @@ class GainMeas(SiPMMeas):
         operation_voltage_V=None,
         overvoltage_V=None,
         PDE=None,
+        elapsed_cryo_time_min=None,
         status=None,
         LED_voltage_V=None,
         LED_frequency_kHz=None,
@@ -99,6 +100,9 @@ class GainMeas(SiPMMeas):
         - overvoltage_V (semipositive float): Feeding voltage given to the measured SiPM, measured
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
+        - elapsed_cryo_time_min (None or semipositive float): Time elapsed between the SiPM
+        immersion in LN2 and the first waveform acquisition, in minutes. For backwards compatibility,
+        this parameter may evaluate to None, which means that this information is not available.
         - status (string): String which identifies the status of the measured SiPM.
         - LED_voltage_V (positive float): Amplitude of the voltage (pulsed) signal that feeds the LED,
         in volts. It is loaded into the object-attribute self.__LED_voltage_V.
@@ -218,6 +222,7 @@ class GainMeas(SiPMMeas):
             operation_voltage_V=operation_voltage_V,
             overvoltage_V=overvoltage_V,
             PDE=PDE,
+            elapsed_cryo_time_min=elapsed_cryo_time_min,
             status=status,
             verbose=verbose,
             **kwargs,
@@ -1238,8 +1243,8 @@ class GainMeas(SiPMMeas):
         "electronic_board_number", "electronic_board_location", 
         "electronic_board_socket", "sipm_location", "sampling_ns", 
         "cover_type", "operation_voltage_V", "overvoltage_V", 
-        "PDE", "status", "LED_voltage_V", "LED_frequency_kHz",
-        "LED_pulse_shape", "LED_high_width_ns" and
+        "PDE", "elapsed_cryo_time_min", "status", "LED_voltage_V",
+        "LED_frequency_kHz", "LED_pulse_shape", "LED_high_width_ns" and
         "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it is not meant to be
@@ -1312,6 +1317,7 @@ class GainMeas(SiPMMeas):
             "operation_voltage_V": float,
             "overvoltage_V": float,
             "PDE": float,
+            "elapsed_cryo_time_min": float,
             "status": str,
             "LED_voltage_V": float,
             "LED_frequency_kHz": float,
@@ -1475,9 +1481,10 @@ class GainMeas(SiPMMeas):
         - "operation_voltage_V": Contains self.OperationVoltage_V
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
+        - "elapsed_cryo_time_min": Contains self.ElapsedCryoTime_min,
         - "N_events": Contains self.NEvents
         - "signal_unit": Contains self.SignalUnit
-        - "status": Contains self.Status
+        - "status": Contains self.Status,
         - "acquisition_time_min": Contains self.AcquisitionTime_min,
 
         - "LED_voltage_V": Contains self.__LED_voltage_V,

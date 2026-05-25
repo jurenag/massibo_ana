@@ -40,6 +40,7 @@ class DarkNoiseMeas(SiPMMeas):
         operation_voltage_V=None,
         overvoltage_V=None,
         PDE=None,
+        elapsed_cryo_time_min=None,
         status=None,
         threshold_mV=None,
         verbose=True,
@@ -97,6 +98,9 @@ class DarkNoiseMeas(SiPMMeas):
         - overvoltage_V (semipositive float): Feeding voltage given to the measured SiPM, measured
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
+        - elapsed_cryo_time_min (None or semipositive float): Time elapsed between the SiPM
+        immersion in LN2 and the first waveform acquisition, in minutes. For backwards compatibility,
+        this parameter may evaluate to None, which means that this information is not available.
         - status (string): String which identifies the status of the measured SiPM.
         - threshold_mV (float): Trigger threshold which was used for acquiring the waveforms.
         - verbose (boolean): Whether to print functioning related messages.
@@ -189,6 +193,7 @@ class DarkNoiseMeas(SiPMMeas):
             operation_voltage_V=operation_voltage_V,
             overvoltage_V=overvoltage_V,
             PDE=PDE,
+            elapsed_cryo_time_min=elapsed_cryo_time_min,
             status=status,
             verbose=verbose,
             **kwargs,
@@ -1306,7 +1311,8 @@ class DarkNoiseMeas(SiPMMeas):
         "electronic_board_number", "electronic_board_location", 
         "electronic_board_socket", "sipm_location", "sampling_ns", 
         "cover_type", "operation_voltage_V", "overvoltage_V", 
-        "PDE", "status", "threshold_mV" and "wvfset_json_filepath".
+        "PDE", "elapsed_cryo_time_min", "status", "threshold_mV" and
+        "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it is not meant to be
         read from darknoisemeas_config_json. The value for
@@ -1378,6 +1384,7 @@ class DarkNoiseMeas(SiPMMeas):
             "operation_voltage_V": float,
             "overvoltage_V": float,
             "PDE": float,
+            "elapsed_cryo_time_min": float,
             "status": str,
             "threshold_mV": float,
             "wvfset_json_filepath": str,
@@ -1918,6 +1925,7 @@ class DarkNoiseMeas(SiPMMeas):
         - "operation_voltage_V": Contains self.OperationVoltage_V
         - "overvoltage_V": Contains self.Overvoltage_V
         - "PDE": Contains self.PDE
+        - "elapsed_cryo_time_min": Contains self.ElapsedCryoTime_min,
         - "N_events": Contains self.NEvents
         - "signal_unit": Contains self.SignalUnit
         - "status": Contains self.Status
