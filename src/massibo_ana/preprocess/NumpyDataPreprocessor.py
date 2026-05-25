@@ -1185,6 +1185,43 @@ class NumpyDataPreprocessor:
             'PreTrigger length': 64,
             'Timestamp Bytes': 5
         }
+
+    @staticmethod
+    def __get_metadata_v3(
+        filepath,
+        verbose=True
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.get_metadata() method i.e. it is not intended
+        to be called directly by the user. No type checks are done here. Its
+        purpose is to carry out the second bullet of the
+        NumpyDataPreprocessor.get_metadata() docstring, for the particular
+        case when the version parameter is equal to 3.
+
+        This version is the same as version 2 if the second column cannot be
+        identified as an epoch timestamp in milliseconds. If the second column
+        passes the epoch-timestamp checks, then the first two columns are
+        treated as timestamp columns and the waveform record length is the
+        number of columns minus two.
+        """
+
+        result = NumpyDataPreprocessor.__get_metadata_v2(filepath)
+
+        if NumpyDataPreprocessor.has_epoch_timestamp_column(filepath):
+            result.update(
+                {
+                    'Record Length': result['Record Length'] - 1
+                }
+            )
+        elif verbose:
+            print(
+                "In function NumpyDataPreprocessor.__get_metadata_v3(): "
+                f"The second column of {filepath} was not identified as an "
+                "epoch timestamp in milliseconds. Falling back to packing "
+                "version 2 metadata."
+            )
+        
+        return result
     
     @staticmethod
     def __get_npy_file_shape_and_dtype(filepath):
@@ -1514,6 +1551,36 @@ class NumpyDataPreprocessor:
 
         timestamp = data[:,0]
         waveforms = np.transpose(data[:,1:])
+
+        return timestamp, waveforms
+    
+    @staticmethod
+    def __get_coredata_v3(
+        filepath
+    ):
+        """This is a helper method which should only be called by the
+        NumpyDataPreprocessor.extract_homemade_bin_coredata() method i.e. it
+        is not intended to be called directly by the user. No type checks are
+        done here. Its purpose is to carry out the extraction of the core/bulk
+        data of the given homemade binary file, for the particular case when
+        its packing version is equal to 3.
+        """
+
+        try:
+            aux = np.load(filepath)
+
+        except Exception as e:
+            raise cuex.BinReadException(
+                htype.generate_exception_message(
+                    "NumpyDataPreprocessor.__get_coredata_v3",
+                    91002,
+                    extra_info="Caught the following error while trying "
+                    f"to read the core data of the file {filepath}: {e}"
+                )
+            )
+
+        timestamp = aux[:,0]
+        waveforms = np.transpose(aux[:,2:])
 
         return timestamp, waveforms
 
