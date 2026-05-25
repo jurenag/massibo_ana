@@ -45,6 +45,7 @@ class SiPMMeas(ABC):
         operation_voltage_V=None,
         overvoltage_V=None,
         PDE=None,
+        elapsed_cryo_time_min=None,
         status=None,
         verbose=True,
         **kwargs,
@@ -102,6 +103,9 @@ class SiPMMeas(ABC):
         - overvoltage_V (semipositive float): Feeding voltage given to the measured SiPM, measured
         with respect to the breakdown voltage.
         - PDE (semipositive float): Photon detection efficiency of the measured SiPM.
+        - elapsed_cryo_time_min (None or semipositive float): Time elapsed between the SiPM
+        immersion in LN2 and the first waveform acquisition, in minutes. For backwards compatibility,
+        this parameter may evaluate to None, which means that this information is not available.
         - status (string): String which identifies the status of the measured SiPM.
         - verbose (boolean): Whether to print functioning related messages.
         - kwargs: These keyword arguments are given to WaveformSet.from_files. The expected keywords
@@ -401,6 +405,22 @@ class SiPMMeas(ABC):
                 )
             self.__PDE = PDE
 
+        self.__elapsed_cryo_time_min = None
+        if elapsed_cryo_time_min is not None:
+            htype.check_type(
+                elapsed_cryo_time_min,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "SiPMMeas.__init__", 47294
+                ),
+            )
+            if elapsed_cryo_time_min < 0.0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message("SiPMMeas.__init__", 90002)
+                )
+            self.__elapsed_cryo_time_min = elapsed_cryo_time_min
+
         self.__status = None
         if status is not None:
             htype.check_type(
@@ -593,6 +613,10 @@ class SiPMMeas(ABC):
     @property
     def PDE(self):
         return self.__PDE
+    
+    @property
+    def ElapsedCryoTime_min(self):
+        return self.__elapsed_cryo_time_min
 
     @property
     def NEvents(self):
@@ -2787,7 +2811,8 @@ class SiPMMeas(ABC):
         "electronic_board_number", "electronic_board_location",
         "electronic_board_socket", "sipm_location", "sampling_ns",
         "cover_type", "operation_voltage_V", "overvoltage_V",
-        "PDE", "status" and "wvfset_json_filepath".
+        "PDE", "elapsed_cryo_time_min", "status" and
+        "wvfset_json_filepath".
 
         Although "sampling_ns" appears here, it is not meant to be
         read from sipmmeas_config_json. The value for
@@ -2860,6 +2885,7 @@ class SiPMMeas(ABC):
             "operation_voltage_V": float,
             "overvoltage_V": float,
             "PDE": float,
+            "elapsed_cryo_time_min": float,
             "status": str,
             "wvfset_json_filepath": str,
         }
@@ -3017,6 +3043,7 @@ class SiPMMeas(ABC):
         - "operation_voltage_V": Contains self.__operation_voltage_V
         - "overvoltage_V": Contains self.__overvoltage_V
         - "PDE": Contains self.__PDE
+        - "elapsed_cryo_time_min": Contains self.__elapsed_cryo_time_min
         - "N_events": Contains self.__N_events
         - "signal_unit": Contains self.__signal_unit
         - "status": Contains self.__status
@@ -3141,6 +3168,7 @@ class SiPMMeas(ABC):
             "operation_voltage_V": self.__operation_voltage_V,
             "overvoltage_V": self.__overvoltage_V,
             "PDE": self.__PDE,
+            "elapsed_cryo_time_min": self.__elapsed_cryo_time_min,
             "N_events": self.__N_events,
             "signal_unit": self.__signal_unit,
             "status": self.__status,
