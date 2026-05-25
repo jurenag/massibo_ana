@@ -1007,6 +1007,13 @@ class NumpyDataPreprocessor:
                     filepath
                 )
             )
+        elif packing_version == 3:
+            result.update(
+                NumpyDataPreprocessor.__get_metadata_v3(
+                    filepath,
+                    verbose=verbose
+                )
+            )
 
         else:
             raise cuex.InvalidParameterDefinition(
@@ -1395,6 +1402,24 @@ class NumpyDataPreprocessor:
             timestamp, waveforms = NumpyDataPreprocessor.__get_coredata_v1(
                     filepath,
                     verbose=verbose
+                )
+
+        elif packing_version == 3:
+            if NumpyDataPreprocessor.has_epoch_timestamp_column(filepath):
+                timestamp, waveforms = NumpyDataPreprocessor.__get_coredata_v3(
+                    filepath
+                )
+            else:
+                if verbose:
+                    print(
+                        "In function "
+                        "NumpyDataPreprocessor.extract_homemade_bin_coredata(): "
+                        f"The second column of {filepath} was not identified "
+                        "as an epoch timestamp in milliseconds. Falling back "
+                        "to packing version 2 core-data extraction."
+                    )
+                timestamp, waveforms = NumpyDataPreprocessor.__get_coredata_v0(
+                    filepath
                 )
         else:
             raise cuex.InvalidParameterDefinition(
