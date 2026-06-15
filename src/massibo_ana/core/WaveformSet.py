@@ -2276,7 +2276,7 @@ class WaveformSet(OneTypeRTL):
 
         - model_y (unidimensional float numpy array): model_y[i]
         is the i-th y-value of the curve whose correlation
-        with waveform.Signal is studied.Its length must match
+        with waveform.Signal is studied. Its length must match
         that of waveform.Time. In that case, it is assumed that
         the time value for model_y[i] matches that of
         waveform.Signal[i], i.e. waveform.Time[i].
