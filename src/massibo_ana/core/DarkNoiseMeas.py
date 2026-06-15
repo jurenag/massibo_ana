@@ -161,10 +161,16 @@ class DarkNoiseMeas(SiPMMeas):
         # and whose amplitude is self.__amplitude[i].
         self.__frame_idx = None
 
-        # In order to compute both, self.__half_a_pe and self.__one_and_a_half_pe,
-        # the user needs to call self.compute_amplitude_levels(), which relies on
-        # self.__amplitude. Therefore, such array should have been computed prior to
+        # In order to compute self.__average_SPE_amplitude, self.__half_a_pe and
+        # self.__one_and_a_half_pe, the user needs to call
+        # self.compute_amplitude_levels(), which relies on self.__amplitude.
+        # Therefore, such array should have been computed prior to
         # self.compute_amplitude_levels() calling, p.e. via self.analyze().
+        # self.__average_SPE_amplitude is the fitted center of the 1-PE peak.
+        # Contrary to self.__half_a_pe and self.__one_and_a_half_pe, it does not
+        # depend on the fit of the 2-PE peak center, which makes it a more robust
+        # relative estimator of the system gain.
+        self.__average_SPE_amplitude = None
         self.__half_a_pe = None
         self.__one_and_a_half_pe = None
 
@@ -291,6 +297,12 @@ class DarkNoiseMeas(SiPMMeas):
             )
         self.__frame_idx = input
         return
+
+    @property
+    def AverageSPEAmplitude(self):
+        """Voltage amplitude of a single photoelectron, i.e. the fitted
+        center of the 1-PE peak."""
+        return self.__average_SPE_amplitude
 
     @property
     def HalfAPE(self):
@@ -556,8 +568,10 @@ class DarkNoiseMeas(SiPMMeas):
         If True, the fits are performed with a Poisson-likelihood model via
         iminuit.
 
-        This method computes the voltage amplitudes matching 0.5 and 1.5
-        photoelectrons. Those values are stored into the self.__half_a_pe and
+        This method computes the voltage amplitudes matching a single
+        photoelectron (the fitted 1-PE peak center), 0.5 and 1.5
+        photoelectrons. Those values are stored into the
+        self.__average_SPE_amplitude, self.__half_a_pe and
         self.__one_and_a_half_pe attributes, respectively. To do so, this
         method
 
@@ -769,6 +783,7 @@ class DarkNoiseMeas(SiPMMeas):
         )
 
         # Compute the desired amplitude levels
+        self.__average_SPE_amplitude = amplitudes_means[0]
         self.__half_a_pe = amplitudes_means[0] - (
             (amplitudes_means[1] - amplitudes_means[0]) / 2.0
         )
@@ -1853,15 +1868,16 @@ class DarkNoiseMeas(SiPMMeas):
         will be saved.
         - include_analysis_results (bool): If this parameter is True, then 
         self.__timedelay, self.__amplitude, self.__frame_idx,
-        self.__half_a_pe, self.__one_and_a_half_pe,
-        self.get_dark_counts_number(),
+        self.__average_SPE_amplitude, self.__half_a_pe,
+        self.__one_and_a_half_pe, self.get_dark_counts_number(),
         self.get_dark_count_rate_in_mHz_per_mm2(*args) (both value and
         Poisson error), self.get_cross_talk_probability(
         alpha=xtp_significance_level) (value, lower error and upper error)
         and self.get_after_pulse_probability(alpha=app_significance_level)
         (value, lower error and upper error) values are included in the
         output dictionary under the keys "timedelay", "amplitude", "frame_idx",
-        "half_a_pe", "one_and_a_half_pe", "DC#", "DCR_mHz_per_mm2",
+        "average_SPE_amplitude", "half_a_pe", "one_and_a_half_pe", "DC#",
+        "DCR_mHz_per_mm2",
         "DCR_mHz_per_mm2_error", "XTP", "XTP_lower_error",
         "XTP_upper_error", "APP", "APP_lower_error" and "APP_upper_error",
         respectively. If this
@@ -1938,6 +1954,9 @@ class DarkNoiseMeas(SiPMMeas):
         include_analysis_results and float('nan') otherwise,
         - "frame_idx": Contains self.__frame_idx if
         include_analysis_results and float('nan') otherwise,
+        - "average_SPE_amplitude": Contains self.__average_SPE_amplitude
+        (the fitted 1-PE peak center) if include_analysis_results and
+        float('nan') otherwise,
         - "half_a_pe": Contains self.__half_a_pe if
         include_analysis_results and float('nan') otherwise,
         - "one_and_a_half_pe": Contains self.__one_and_a_half_pe if
@@ -2040,6 +2059,7 @@ class DarkNoiseMeas(SiPMMeas):
                 # This is actually a python open issue:
                 # https://bugs.python.org/issue24313
                 "frame_idx": [int(aux) for aux in self.__frame_idx],
+                "average_SPE_amplitude": self.__average_SPE_amplitude,
                 "half_a_pe": self.__half_a_pe,
                 "one_and_a_half_pe": self.__one_and_a_half_pe,
                 "DC#": self.get_dark_counts_number(),
@@ -2057,6 +2077,7 @@ class DarkNoiseMeas(SiPMMeas):
                 "timedelay": float('nan'),
                 "amplitude": float('nan'),
                 "frame_idx": float('nan'),
+                "average_SPE_amplitude": float('nan'),
                 "half_a_pe": float('nan'),
                 "one_and_a_half_pe": float('nan'),
                 "DC#": float('nan'),
