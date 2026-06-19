@@ -162,17 +162,23 @@ class DarkNoiseMeas(SiPMMeas):
         self.__frame_idx = None
 
         # In order to compute self.__average_SPE_amplitude, self.__half_a_pe and
-        # self.__one_and_a_half_pe, the user needs to call
-        # self.compute_amplitude_levels(), which relies on self.__amplitude.
-        # Therefore, such array should have been computed prior to
-        # self.compute_amplitude_levels() calling, p.e. via self.analyze().
+        # self.__one_and_a_half_pe (and their associated errors), the user needs
+        # to call self.compute_amplitude_levels(), which relies on
+        # self.__amplitude. Therefore, such array should have been computed prior
+        # to self.compute_amplitude_levels() calling, p.e. via self.analyze().
         # self.__average_SPE_amplitude is the fitted center of the 1-PE peak.
         # Contrary to self.__half_a_pe and self.__one_and_a_half_pe, it does not
         # depend on the fit of the 2-PE peak center, which makes it a more robust
-        # relative estimator of the system gain.
+        # relative estimator of the system gain. The *_error attributes hold the
+        # one-sigma uncertainty of each amplitude level, derived from the
+        # covariance matrix of the gaussian fits performed within
+        # self.compute_amplitude_levels().
         self.__average_SPE_amplitude = None
+        self.__average_SPE_amplitude_error = None
         self.__half_a_pe = None
+        self.__half_a_pe_error = None
         self.__one_and_a_half_pe = None
+        self.__one_and_a_half_pe_error = None
 
         # N.B.: acquisition_time_min does not appear in
         # this list because it comes from the WaveformSet
@@ -305,14 +311,29 @@ class DarkNoiseMeas(SiPMMeas):
         return self.__average_SPE_amplitude
 
     @property
+    def AverageSPEAmplitudeError(self):
+        """One-sigma uncertainty of self.__average_SPE_amplitude."""
+        return self.__average_SPE_amplitude_error
+
+    @property
     def HalfAPE(self):
         """Voltage amplitude of 0.5 photoelectrons."""
         return self.__half_a_pe
 
     @property
+    def HalfAPEError(self):
+        """One-sigma uncertainty of self.__half_a_pe."""
+        return self.__half_a_pe_error
+
+    @property
     def OneAndAHalfPE(self):
         """Voltage amplitude of 1.5 photoelectrons."""
         return self.__one_and_a_half_pe
+
+    @property
+    def OneAndAHalfPEError(self):
+        """One-sigma uncertainty of self.__one_and_a_half_pe."""
+        return self.__one_and_a_half_pe_error
 
     def filter_out_peaks_based_on_prominence_wrt_baseline(
         self, prominennce_wrt_baseline
@@ -572,8 +593,11 @@ class DarkNoiseMeas(SiPMMeas):
         photoelectron (the fitted 1-PE peak center), 0.5 and 1.5
         photoelectrons. Those values are stored into the
         self.__average_SPE_amplitude, self.__half_a_pe and
-        self.__one_and_a_half_pe attributes, respectively. To do so, this
-        method
+        self.__one_and_a_half_pe attributes, respectively. Their one-sigma
+        uncertainties are stored, in parallel, into the
+        self.__average_SPE_amplitude_error, self.__half_a_pe_error and
+        self.__one_and_a_half_pe_error attributes, respectively. To do so,
+        this method
 
         1) creates a filtered version of self.__amplitude, by applying the
         following cuts, in this order:
@@ -596,8 +620,15 @@ class DarkNoiseMeas(SiPMMeas):
         attributes. Say that the fit mean of the gaussian function which fits to the
         1-PE (resp. 2-PE) peak is mu_1 (resp. mu_2), then the attributes are
         computed in the following way:
-            6.1) The 0.5-PE voltage amplitude is computed as mu_1 -((mu_2-mu_1)/2)
-            6.2) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2
+            6.1) The single-PE voltage amplitude is mu_1
+            6.2) The 0.5-PE voltage amplitude is computed as mu_1 -((mu_2-mu_1)/2)
+            6.3) The 1.5-PE voltage amplitude is computed as (mu_1+mu_2)/2
+        The matching one-sigma uncertainties are computed from the variances of
+        mu_1 and mu_2 (taken from the diagonal of each gaussian-fit covariance
+        matrix). Since the 1-PE and 2-PE peaks are fit independently, their
+        covariance is null, so the uncertainties of the 0.5-PE and 1.5-PE
+        amplitudes follow from standard (uncorrelated) error propagation, while
+        the single-PE amplitude error is just the uncertainty of mu_1.
         7) Finally, it returns the samples that were used to compute the histogram
         which was fit, and a callable which evaluates the sum of the resulting
         gaussian fits."""
@@ -752,7 +783,7 @@ class DarkNoiseMeas(SiPMMeas):
 
         # Note that we filtered out 'inf' and 'nan' entries JUST FOR 1.5 PE amplitude
         # computation. Such entries may still be contained wihtin self.__amplitude.
-        popt, _, fit_functions_sum = SiPMMeas.fit_gaussians_to_the_n_highest_peaks(
+        popt, pcov, fit_functions_sum = SiPMMeas.fit_gaussians_to_the_n_highest_peaks(
             samples,
             peaks_to_detect=peaks_to_detect,
             peaks_to_fit=(0, 1),
@@ -782,12 +813,47 @@ class DarkNoiseMeas(SiPMMeas):
             else (popt[1][0], popt[0][0])
         )
 
+        # The one-sigma uncertainty of each fitted peak center is the square
+        # root of the matching diagonal entry of its covariance matrix (the
+        # peak center is the 0-th fit parameter). The clip guards against the
+        # (numerically pathological) case of a negative diagonal entry. These
+        # errors are sorted in parallel to amplitudes_means, so that
+        # amplitudes_means_errors[0] (resp. [1]) is the error of the 1-PE
+        # (resp. 2-PE) peak center.
+        amplitudes_means_errors = (
+            (
+                np.sqrt(np.clip(pcov[0][0][0], 0.0, None)),
+                np.sqrt(np.clip(pcov[1][0][0], 0.0, None)),
+            )
+            if popt[0][0] < popt[1][0]
+            else (
+                np.sqrt(np.clip(pcov[1][0][0], 0.0, None)),
+                np.sqrt(np.clip(pcov[0][0][0], 0.0, None)),
+            )
+        )
+
         # Compute the desired amplitude levels
         self.__average_SPE_amplitude = amplitudes_means[0]
         self.__half_a_pe = amplitudes_means[0] - (
             (amplitudes_means[1] - amplitudes_means[0]) / 2.0
         )
         self.__one_and_a_half_pe = (amplitudes_means[0] + amplitudes_means[1]) / 2.0
+
+        # Propagate the uncertainties of the fitted peak centers to the
+        # amplitude levels. The 1-PE and 2-PE centers come from independent
+        # gaussian fits, so their covariance is null and the propagation only
+        # involves the individual variances. The average-SPE amplitude is the
+        # 1-PE center itself, so its error needs no propagation.
+        # half_a_pe = (3/2)*mu_1 - (1/2)*mu_2, and
+        # one_and_a_half_pe = (1/2)*(mu_1 + mu_2).
+        self.__average_SPE_amplitude_error = amplitudes_means_errors[0]
+        self.__half_a_pe_error = np.sqrt(
+            (((3.0 / 2.0) * amplitudes_means_errors[0]) ** 2)
+            + (((1.0 / 2.0) * amplitudes_means_errors[1]) ** 2)
+        )
+        self.__one_and_a_half_pe_error = (1.0 / 2.0) * np.sqrt(
+            (amplitudes_means_errors[0] ** 2) + (amplitudes_means_errors[1] ** 2)
+        )
 
         return samples, fit_functions_sum
 
@@ -1866,18 +1932,21 @@ class DarkNoiseMeas(SiPMMeas):
         - folderpath (string): If it is defined, it must be a path
         which points to an existing folder, where an output json file
         will be saved.
-        - include_analysis_results (bool): If this parameter is True, then 
+        - include_analysis_results (bool): If this parameter is True, then
         self.__timedelay, self.__amplitude, self.__frame_idx,
-        self.__average_SPE_amplitude, self.__half_a_pe,
-        self.__one_and_a_half_pe, self.get_dark_counts_number(),
+        self.__average_SPE_amplitude, self.__average_SPE_amplitude_error,
+        self.__half_a_pe, self.__half_a_pe_error,
+        self.__one_and_a_half_pe, self.__one_and_a_half_pe_error,
+        self.get_dark_counts_number(),
         self.get_dark_count_rate_in_mHz_per_mm2(*args) (both value and
         Poisson error), self.get_cross_talk_probability(
         alpha=xtp_significance_level) (value, lower error and upper error)
         and self.get_after_pulse_probability(alpha=app_significance_level)
         (value, lower error and upper error) values are included in the
         output dictionary under the keys "timedelay", "amplitude", "frame_idx",
-        "average_SPE_amplitude", "half_a_pe", "one_and_a_half_pe", "DC#",
-        "DCR_mHz_per_mm2",
+        "average_SPE_amplitude", "average_SPE_amplitude_error", "half_a_pe",
+        "half_a_pe_error", "one_and_a_half_pe", "one_and_a_half_pe_error",
+        "DC#", "DCR_mHz_per_mm2",
         "DCR_mHz_per_mm2_error", "XTP", "XTP_lower_error",
         "XTP_upper_error", "APP", "APP_lower_error" and "APP_upper_error",
         respectively. If this
@@ -1957,9 +2026,19 @@ class DarkNoiseMeas(SiPMMeas):
         - "average_SPE_amplitude": Contains self.__average_SPE_amplitude
         (the fitted 1-PE peak center) if include_analysis_results and
         float('nan') otherwise,
+        - "average_SPE_amplitude_error": Contains
+        self.__average_SPE_amplitude_error (the one-sigma uncertainty of the
+        fitted 1-PE peak center) if include_analysis_results and float('nan')
+        otherwise,
         - "half_a_pe": Contains self.__half_a_pe if
         include_analysis_results and float('nan') otherwise,
+        - "half_a_pe_error": Contains self.__half_a_pe_error (the one-sigma
+        uncertainty of self.__half_a_pe) if include_analysis_results and
+        float('nan') otherwise,
         - "one_and_a_half_pe": Contains self.__one_and_a_half_pe if
+        include_analysis_results and float('nan') otherwise,
+        - "one_and_a_half_pe_error": Contains self.__one_and_a_half_pe_error
+        (the one-sigma uncertainty of self.__one_and_a_half_pe) if
         include_analysis_results and float('nan') otherwise,
         - "DC#" Contains :self.get_dark_counts_number() if
         include_analysis_results and float('nan') otherwise,
@@ -2060,8 +2139,11 @@ class DarkNoiseMeas(SiPMMeas):
                 # https://bugs.python.org/issue24313
                 "frame_idx": [int(aux) for aux in self.__frame_idx],
                 "average_SPE_amplitude": self.__average_SPE_amplitude,
+                "average_SPE_amplitude_error": self.__average_SPE_amplitude_error,
                 "half_a_pe": self.__half_a_pe,
+                "half_a_pe_error": self.__half_a_pe_error,
                 "one_and_a_half_pe": self.__one_and_a_half_pe,
+                "one_and_a_half_pe_error": self.__one_and_a_half_pe_error,
                 "DC#": self.get_dark_counts_number(),
                 "DCR_mHz_per_mm2": dcr_value,
                 "DCR_mHz_per_mm2_error": dcr_error,
@@ -2078,8 +2160,11 @@ class DarkNoiseMeas(SiPMMeas):
                 "amplitude": float('nan'),
                 "frame_idx": float('nan'),
                 "average_SPE_amplitude": float('nan'),
+                "average_SPE_amplitude_error": float('nan'),
                 "half_a_pe": float('nan'),
+                "half_a_pe_error": float('nan'),
                 "one_and_a_half_pe": float('nan'),
+                "one_and_a_half_pe_error": float('nan'),
                 "DC#": float('nan'),
                 "DCR_mHz_per_mm2": float('nan'),
                 "DCR_mHz_per_mm2_error": float('nan'),
