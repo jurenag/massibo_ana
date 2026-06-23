@@ -161,6 +161,19 @@ class DarkNoiseMeas(SiPMMeas):
         # and whose amplitude is self.__amplitude[i].
         self.__frame_idx = None
 
+        # This is intended to be a one dimensional float numpy array, whose length
+        # matches that of self.__timedelay, self.__amplitude and self.__frame_idx.
+        # self.__peak_time[i] is the absolute time of occurrence of the peak whose
+        # time delay, amplitude and frame index are self.__timedelay[i],
+        # self.__amplitude[i] and self.__frame_idx[i], respectively. It is a cache
+        # which is populated by self.analyze() (where the peaks map is already built
+        # via self.construct_absolute_time_peaks_map()) and which is later used by
+        # self.compute_average_SPE_integral() to locate, within each waveform, the
+        # peaks that are integrated for the average-SPE-integral estimation. Caching
+        # it here avoids an expensive re-call of
+        # self.construct_absolute_time_peaks_map() in that method.
+        self.__peak_time = None
+
         # In order to compute self.__average_SPE_amplitude, self.__half_a_pe and
         # self.__one_and_a_half_pe (and their associated errors), the user needs
         # to call self.compute_amplitude_levels(), which relies on
@@ -179,6 +192,25 @@ class DarkNoiseMeas(SiPMMeas):
         self.__half_a_pe_error = None
         self.__one_and_a_half_pe = None
         self.__one_and_a_half_pe_error = None
+
+        # In order to compute self.__average_SPE_integral (and its associated
+        # error and the number of single-photoelectron pulses used for the
+        # estimation), the user needs to call self.compute_average_SPE_integral(),
+        # which relies on self.__amplitude, self.__frame_idx, self.__peak_time and
+        # self.__average_SPE_amplitude. Therefore, those arrays should have been
+        # computed prior to its calling, p.e. via self.analyze().
+        # self.__average_SPE_integral is the mean of the trapezoidal integral of
+        # the single-photoelectron pulses, i.e. those spotted peaks whose amplitude
+        # is compatible with self.__average_SPE_amplitude. It is an integral-based
+        # (rather than amplitude-based) relative estimator of the system gain, which
+        # is less sensitive to single-sample amplitude noise.
+        # self.__average_SPE_integral_error is the standard error of such mean
+        # (sample standard deviation divided by the square root of the number of
+        # used pulses), and self.__number_of_SPEs_used_for_average_SPE_integral is
+        # the number of pulses that entered the estimation.
+        self.__average_SPE_integral = None
+        self.__average_SPE_integral_error = None
+        self.__number_of_SPEs_used_for_average_SPE_integral = None
 
         # N.B.: acquisition_time_min does not appear in
         # this list because it comes from the WaveformSet
@@ -226,6 +258,10 @@ class DarkNoiseMeas(SiPMMeas):
     @property
     def FrameIDX(self):
         return self.__frame_idx
+
+    @property
+    def PeakTime(self):
+        return self.__peak_time
 
     @TimeDelay.setter
     def TimeDelay(self, input):
@@ -334,6 +370,23 @@ class DarkNoiseMeas(SiPMMeas):
     def OneAndAHalfPEError(self):
         """One-sigma uncertainty of self.__one_and_a_half_pe."""
         return self.__one_and_a_half_pe_error
+
+    @property
+    def AverageSPEIntegral(self):
+        """Mean trapezoidal integral of the single-photoelectron pulses,
+        used as an integral-based relative estimator of the system gain."""
+        return self.__average_SPE_integral
+
+    @property
+    def AverageSPEIntegralError(self):
+        """Standard error of self.__average_SPE_integral."""
+        return self.__average_SPE_integral_error
+
+    @property
+    def NumberOfSPEsUsedForAverageSPEIntegral(self):
+        """Number of single-photoelectron pulses used to compute
+        self.__average_SPE_integral."""
+        return self.__number_of_SPEs_used_for_average_SPE_integral
 
     def filter_out_peaks_based_on_prominence_wrt_baseline(
         self, prominennce_wrt_baseline
@@ -458,7 +511,11 @@ class DarkNoiseMeas(SiPMMeas):
         DarkNoiseMeas.construct_absolute_time_peaks_map() docstring for
         more information). Thirdly, self.__frame_idx[i] contains the
         iterator value, within self.Waveforms, for the waveform where the
-        (i+1)-th peak occurred. This method also computes the attributes
+        (i+1)-th peak occurred. Fourthly, self.__peak_time[i] contains the
+        absolute time of occurrence of the (i+1)-th peak, which is cached here
+        so that DarkNoiseMeas.compute_average_SPE_integral() can later locate
+        the peaks to integrate without re-building the peaks map. This method
+        also computes the attributes
         self.__half_a_pe and self.__one_and_a_half_pe via
         self.compute_amplitude_levels(). For more information on the
         computing-algorithm of such attributes, check the docstring of
@@ -502,6 +559,12 @@ class DarkNoiseMeas(SiPMMeas):
         # whose amplitude is given by self.__amplitude[i-1].
         self.__amplitude = aux_a[1:]
         self.__frame_idx = aux_i[1:]
+
+        # Cache the absolute peak times (aligned 1:1 with self.__timedelay,
+        # self.__amplitude and self.__frame_idx) so that
+        # self.compute_average_SPE_integral() can locate the peaks to integrate
+        # without re-calling self.construct_absolute_time_peaks_map().
+        self.__peak_time = aux_t[1:]
 
         return self.compute_amplitude_levels(**kwargs)
 
@@ -856,6 +919,210 @@ class DarkNoiseMeas(SiPMMeas):
         )
 
         return samples, fit_functions_sum
+
+    def compute_average_SPE_integral(
+        self,
+        spe_pulse_start_idx_wrt_max,
+        spe_pulse_end_idx_wrt_max,
+        relative_amplitude_tolerance,
+        timedelay_cut=0.0,
+    ):
+        """This method gets the following positional arguments:
+
+        - spe_pulse_start_idx_wrt_max (seminegative integer): It must be
+        < 0. It gives the index of the beginning of the single-photoelectron
+        (SPE) pulse with respect to the index of its maximum, i.e. the
+        (semipositive) number of samples between the start of the pulse and
+        the pulse maximum, with a minus sign. It is meant to be derived from
+        the SPE template, p.e. as
+        template.find_beginning_of_rise(return_iterator=True) minus the index
+        of the template maximum.
+        - spe_pulse_end_idx_wrt_max (semipositive integer): It must be > 0.
+        It gives the index of the end of the SPE pulse (the first baseline
+        crossing after the pulse maximum) with respect to the index of its
+        maximum, i.e. the number of samples between the pulse maximum and the
+        end of the pulse. It is meant to be derived from the SPE template,
+        p.e. as template.find_first_baseline_crossing_after_idx(idx_peak)
+        minus the index of the template maximum.
+        - relative_amplitude_tolerance (positive scalar float): It must be
+        > 0.0. A spotted peak is considered to be a single-photoelectron pulse
+        (and is therefore integrated) if the relative difference between its
+        amplitude and self.AverageSPEAmplitude is smaller or equal to this
+        value, i.e. if abs(amplitude - average_SPE_amplitude) /
+        average_SPE_amplitude <= relative_amplitude_tolerance.
+
+        This method gets the following optional keyword argument:
+
+        - timedelay_cut (semipositive scalar float): It must be >= 0.0. It is
+        used as an inclusive lower bound for the time-delay value of the peaks
+        which are considered. Only the peaks whose matching time-delay value
+        is bigger or equal to timedelay_cut are eligible to be integrated.
+        This cut is useful to discard secondary peaks (such as after-pulses),
+        whose amplitude (and hence whose integral) is not correctly evaluated
+        by DarkNoiseMeas.construct_absolute_time_peaks_map() (check its
+        docstring for more information).
+
+        This method estimates an integral-based relative estimator of the
+        system gain, by integrating, via the trapezoid rule, every spotted
+        peak which is considered to be a single-photoelectron pulse. To do so,
+        it relies on self.__amplitude, self.__frame_idx, self.__peak_time and
+        self.__average_SPE_amplitude, which should have been computed
+        beforehand, p.e. via self.analyze(). For each eligible peak, this
+        method locates the peak within its waveform (using self.__peak_time),
+        and integrates the waveform signal (minus its first-peak baseline)
+        over the window [peak_idx + spe_pulse_start_idx_wrt_max,
+        peak_idx + spe_pulse_end_idx_wrt_max], (spe_pulse_start_idx_wrt_max
+        < 0) where peak_idx is the index of the peak maximum within its
+        waveform. Peaks whose integration window falls outside of the available
+        samples are skipped. The mean of the resulting integrals is stored
+        into self.__average_SPE_integral, its standard error (the sample
+        standard deviation divided by the square root of the number of
+        integrated pulses) is stored into self.__average_SPE_integral_error,
+        and the number of integrated pulses is stored into
+        self.__number_of_SPEs_used_for_average_SPE_integral. If no eligible
+        peak is found (or if the required attributes have not been computed
+        yet), these three attributes are set to float('nan'), float('nan')
+        and 0, respectively. This method returns the tuple
+        (self.__average_SPE_integral, self.__average_SPE_integral_error,
+        self.__number_of_SPEs_used_for_average_SPE_integral)."""
+
+        htype.check_type(
+            spe_pulse_start_idx_wrt_max,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_average_SPE_integral", 10001
+            ),
+        )
+        if spe_pulse_start_idx_wrt_max >= 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_average_SPE_integral", 10002
+                )
+            )
+        htype.check_type(
+            spe_pulse_end_idx_wrt_max,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_average_SPE_integral", 10003
+            ),
+        )
+        if spe_pulse_end_idx_wrt_max <= 0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_average_SPE_integral", 10004
+                )
+            )
+        htype.check_type(
+            relative_amplitude_tolerance,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_average_SPE_integral", 10005
+            ),
+        )
+        if relative_amplitude_tolerance <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_average_SPE_integral", 10006
+                )
+            )
+        htype.check_type(
+            timedelay_cut,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_average_SPE_integral", 10007
+            ),
+        )
+        if timedelay_cut < 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_average_SPE_integral", 10008
+                )
+            )
+
+        # If the required arrays are not available (p.e. self.analyze() has not
+        # been run, or the amplitude levels could not be computed), there is no
+        # data to estimate the average SPE integral.
+        if (
+            self.__amplitude is None
+            or self.__frame_idx is None
+            or self.__peak_time is None
+            or self.__timedelay is None
+            or self.__average_SPE_amplitude is None
+        ):
+            self.__average_SPE_integral = float("nan")
+            self.__average_SPE_integral_error = float("nan")
+            self.__number_of_SPEs_used_for_average_SPE_integral = 0
+            return (
+                self.__average_SPE_integral,
+                self.__average_SPE_integral_error,
+                self.__number_of_SPEs_used_for_average_SPE_integral,
+            )
+
+        spe = self.__average_SPE_amplitude
+
+        # A peak is eligible to be integrated if its time-delay is big enough
+        # (so that secondary peaks, whose amplitude is mis-evaluated, are
+        # discarded) and its amplitude is compatible with the SPE amplitude.
+        selection_mask = (self.__timedelay >= timedelay_cut) & (
+            np.abs(self.__amplitude - spe) / spe <= relative_amplitude_tolerance
+        )
+        selected_idcs = np.where(selection_mask)[0]
+
+        integrals = []
+        for k in selected_idcs:
+            wvf = self.Waveforms[int(self.__frame_idx[k])]
+
+            # self.__peak_time[k] is the absolute peak time, i.e.
+            # wvf.Time[peak_idx] + wvf.T0. Hence, peak_idx is the index of the
+            # entry of wvf.Time which is closest to self.__peak_time[k] - wvf.T0.
+            local_t = self.__peak_time[k] - wvf.T0
+            peak_idx = int(np.argmin(np.abs(wvf.Time - local_t)))
+
+            lo = peak_idx + spe_pulse_start_idx_wrt_max
+            hi = peak_idx + spe_pulse_end_idx_wrt_max
+
+            # Skip peaks whose integration window does not fully fit within the
+            # available samples, to avoid biased (partial-window) integrals.
+            if lo < 0 or hi >= len(wvf.Signal):
+                continue
+
+            # Trapezoidal integral of the baseline-subtracted signal over the
+            # SPE window. We deliberately use np.trapz here instead of
+            # wvf.integrate(), so that wvf.Integral (and the integration limits
+            # stored in wvf.Signs) are not overwritten as a side effect.
+            integrals.append(
+                np.trapz(
+                    wvf.Signal[lo : hi + 1]
+                    - wvf.Signs["first_peak_baseline"][0],
+                    x=wvf.Time[lo : hi + 1],
+                )
+            )
+
+        n_used = len(integrals)
+
+        if n_used == 0:
+            self.__average_SPE_integral = float("nan")
+            self.__average_SPE_integral_error = float("nan")
+        else:
+            integrals = np.array(integrals)
+            self.__average_SPE_integral = float(np.mean(integrals))
+            # Standard error of the mean. It is not defined for a single
+            # sample (np.std with ddof=1 would be nan in that case anyway).
+            self.__average_SPE_integral_error = float(
+                np.std(integrals, ddof=1) / np.sqrt(n_used)
+            ) if n_used > 1 else float("nan")
+
+        self.__number_of_SPEs_used_for_average_SPE_integral = n_used
+
+        return (
+            self.__average_SPE_integral,
+            self.__average_SPE_integral_error,
+            self.__number_of_SPEs_used_for_average_SPE_integral,
+        )
 
     def get_dark_counts_number(self):
         """This method returns an integer scalar which is the number of peaks which
@@ -1937,6 +2204,8 @@ class DarkNoiseMeas(SiPMMeas):
         self.__average_SPE_amplitude, self.__average_SPE_amplitude_error,
         self.__half_a_pe, self.__half_a_pe_error,
         self.__one_and_a_half_pe, self.__one_and_a_half_pe_error,
+        self.__average_SPE_integral, self.__average_SPE_integral_error,
+        self.__number_of_SPEs_used_for_average_SPE_integral,
         self.get_dark_counts_number(),
         self.get_dark_count_rate_in_mHz_per_mm2(*args) (both value and
         Poisson error), self.get_cross_talk_probability(
@@ -1946,6 +2215,8 @@ class DarkNoiseMeas(SiPMMeas):
         output dictionary under the keys "timedelay", "amplitude", "frame_idx",
         "average_SPE_amplitude", "average_SPE_amplitude_error", "half_a_pe",
         "half_a_pe_error", "one_and_a_half_pe", "one_and_a_half_pe_error",
+        "average_SPE_integral", "average_SPE_integral_error",
+        "number_of_SPEs_used_for_average_SPE_integral",
         "DC#", "DCR_mHz_per_mm2",
         "DCR_mHz_per_mm2_error", "XTP", "XTP_lower_error",
         "XTP_upper_error", "APP", "APP_lower_error" and "APP_upper_error",
@@ -2040,6 +2311,17 @@ class DarkNoiseMeas(SiPMMeas):
         - "one_and_a_half_pe_error": Contains self.__one_and_a_half_pe_error
         (the one-sigma uncertainty of self.__one_and_a_half_pe) if
         include_analysis_results and float('nan') otherwise,
+        - "average_SPE_integral": Contains self.__average_SPE_integral (the
+        mean trapezoidal integral of the single-photoelectron pulses) if
+        include_analysis_results and float('nan') otherwise,
+        - "average_SPE_integral_error": Contains
+        self.__average_SPE_integral_error (the standard error of
+        self.__average_SPE_integral) if include_analysis_results and
+        float('nan') otherwise,
+        - "number_of_SPEs_used_for_average_SPE_integral": Contains
+        self.__number_of_SPEs_used_for_average_SPE_integral (the number of
+        single-photoelectron pulses used to compute self.__average_SPE_integral)
+        if include_analysis_results and float('nan') otherwise,
         - "DC#" Contains :self.get_dark_counts_number() if
         include_analysis_results and float('nan') otherwise,
         - "DCR_mHz_per_mm2": Contains the DCR value
@@ -2144,6 +2426,10 @@ class DarkNoiseMeas(SiPMMeas):
                 "half_a_pe_error": self.__half_a_pe_error,
                 "one_and_a_half_pe": self.__one_and_a_half_pe,
                 "one_and_a_half_pe_error": self.__one_and_a_half_pe_error,
+                "average_SPE_integral": self.__average_SPE_integral,
+                "average_SPE_integral_error": self.__average_SPE_integral_error,
+                "number_of_SPEs_used_for_average_SPE_integral": \
+                    self.__number_of_SPEs_used_for_average_SPE_integral,
                 "DC#": self.get_dark_counts_number(),
                 "DCR_mHz_per_mm2": dcr_value,
                 "DCR_mHz_per_mm2_error": dcr_error,
@@ -2165,6 +2451,9 @@ class DarkNoiseMeas(SiPMMeas):
                 "half_a_pe_error": float('nan'),
                 "one_and_a_half_pe": float('nan'),
                 "one_and_a_half_pe_error": float('nan'),
+                "average_SPE_integral": float('nan'),
+                "average_SPE_integral_error": float('nan'),
+                "number_of_SPEs_used_for_average_SPE_integral": float('nan'),
                 "DC#": float('nan'),
                 "DCR_mHz_per_mm2": float('nan'),
                 "DCR_mHz_per_mm2_error": float('nan'),
