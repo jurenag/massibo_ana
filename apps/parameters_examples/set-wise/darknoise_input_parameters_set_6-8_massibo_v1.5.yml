@@ -251,6 +251,23 @@ timedelay_cut_for_gaussian_fit: 1.e-4
 # is fitted to find the 1.5-PE level.
 amplitude_cut_for_gaussian_fit: 60.
 
+### Parameters for the average-SPE-integral estimation
+# A spotted peak is integrated (i.e. it contributes to
+# the average-SPE-integral estimation) only if the
+# relative difference between its amplitude and the
+# fitted SPE amplitude (average_SPE_amplitude) is
+# smaller or equal to this value.
+relative_amplitude_tolerance_for_SPE_integral: 0.1
+
+# Inclusive lower bound for the time-delay of the peaks
+# that are integrated for the average-SPE-integral
+# estimation. It discards secondary peaks (e.g. after-
+# pulses), whose amplitude and integral are not correctly
+# evaluated. The integration window itself is derived from
+# the SPE template, whose rise onset is found using
+# tolerance_for_beginning_of_rise (defined below).
+timedelay_cut_for_SPE_integral: 1.e-4
+
 ### Parameters for integral filter
 # Cut for the integral of each waveform. I.e.
 # every waveform whose integral is less than this
@@ -267,7 +284,7 @@ minimum_integral: 1.6e-6 # This number was fine-tuned using the data for the boa
 # 'window_start_s' and 'integral_window_width_s',
 # which is a 'fixed' method but but has worked OK so
 # far
-tolerance_for_beginning_of_rise: 0.4       # Currently not used
+tolerance_for_beginning_of_rise: 0.1       # Also used by the average-SPE-integral estimation to locate the SPE-template rise onset
 delta_t_from_beginning_of_rise: 0.08e-5    # Currently not used
 window_start_s: 0.125e-5
 integral_window_width_s: 0.06e-5
