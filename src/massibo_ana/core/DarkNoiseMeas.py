@@ -1637,6 +1637,221 @@ class DarkNoiseMeas(SiPMMeas):
         axes.legend()
         return
 
+    @staticmethod
+    def plot_accumulated_dark_counts(
+        axes,
+        timedelay,
+        bursts_init_peak,
+        bursts_end_peak,
+        axes_title=None,
+        plot_burstless=True,
+        with_bursts_color="black",
+        burstless_color="red",
+        linewidth=0.8,
+    ):
+        """This method gets the following mandatory positional arguments:
+
+        - axes (matplotlib.axes._axes.Axes): The axes onto which the plot
+        is drawn.
+        - timedelay (unidimensional float numpy array or list): The
+        with-bursts time-delay array, i.e. the DarkNoiseMeas.TimeDelay
+        attribute as it stands before the bursts purge. timedelay[i] is
+        the time delay, in seconds, between the i-th counted dark count
+        and the previous one, so that np.cumsum(timedelay) gives the time
+        of each counted dark count since the start of the measurement.
+        - bursts_init_peak (list of integers): The iterator values, with
+        respect to the timedelay array, of the first counted dark count
+        of each identified burst. It matches the third output of
+        DarkNoiseMeas.identify_bursts(). Check its documentation for more
+        information.
+        - bursts_end_peak (list of integers): The iterator values, with
+        respect to the timedelay array, of the last counted dark count of
+        each identified burst. It matches the fourth output of
+        DarkNoiseMeas.identify_bursts(). bursts_init_peak and
+        bursts_end_peak must match in length.
+
+        This method also gets the following optional keyword arguments:
+
+        - axes_title (None or str): If defined, it is passed to
+        axes.set_title().
+        - plot_burstless (scalar boolean): If True, the burstless curve
+        (accumulated dark counts after purging the bursts) is drawn on
+        top of the with-bursts curve. The burstless curve is reconstructed
+        by masking the burst counted dark counts (the indices in
+        [bursts_init_peak[j], bursts_end_peak[j]] for every j) out of
+        the with-bursts absolute time axis, so both curves share the same
+        time axis. If False, only the with-bursts curve is
+        drawn (e.g. when the bursts purge has not been run, so no burst
+        boundaries are available).
+        - with_bursts_color (str): Color of the with-bursts curve.
+        - burstless_color (str): Color of the burstless curve.
+        - linewidth (scalar float): Line width of both staircase curves.
+
+        This method draws, onto the given axes, the accumulated number of
+        dark counts (y axis) as a function of the time in seconds since the
+        start of the measurement (x axis). The curve is a monotonically
+        increasing staircase whose approximately linear regions are set by
+        the background (burstless) dark count rate, and whose near-vertical
+        steps are the bursts. Up to two staircases are drawn: the
+        with-bursts one (from timedelay) and, if plot_burstless is True,
+        the burstless one (the same curve with the burst counted dark
+        counts removed). Each burst is tagged with its ordinal (1, 2, ...,
+        N, in chronological order) written above its step, using a black
+        bold font. This method returns None."""
+
+        htype.check_type(
+            axes,
+            matplotlib.axes._axes.Axes,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.plot_accumulated_dark_counts", 47298
+            ),
+        )
+        htype.check_type(
+            plot_burstless,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.plot_accumulated_dark_counts", 97916
+            ),
+        )
+        if axes_title is not None:
+            htype.check_type(
+                axes_title,
+                str,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas.plot_accumulated_dark_counts", 99100
+                ),
+            )
+
+        axes.set_title(axes_title)
+        axes.set_xlabel("Time since measurement start (s)")
+        axes.set_ylabel("Number of accumulated dark counts")
+        axes.grid(True)
+
+        timedelay = np.asarray(
+            timedelay,
+            dtype=np.float64
+        )
+
+        # If there are no entries to plot, just add a
+        # note stating it and return
+        if timedelay.size == 0:
+            axes.text(
+                0.5,
+                0.5,
+                "DarkNoiseMeas.plot_accumulated_dark_counts:\n"
+                "no time-delay samples were found.",
+                ha="center",
+                va="center",
+                transform=axes.transAxes,
+                fontsize=8,
+            )
+            return
+
+        n_counts = timedelay.size
+
+        # Absolute time of each counted dark count since
+        # the start of the measurement (the first spotted
+        # peak is at t=0 and is not counted, since it has
+        # no backwards time delay). A leading 0 is prepended
+        # so that the staircase starts at (0, 0).
+        cumulative_time = np.cumsum(timedelay)
+        time_axis = np.concatenate(
+            (np.array([0.0]), cumulative_time)
+        )
+
+        # With-bursts accumulated-counts staircase
+        axes.step(
+            time_axis,
+            np.arange(0, n_counts + 1),
+            where="post",
+            color=with_bursts_color,
+            linewidth=linewidth,
+            label="With bursts",
+        )
+
+        bursts_init_peak = [int(k) for k in np.atleast_1d(bursts_init_peak)]
+        bursts_end_peak = [int(k) for k in np.atleast_1d(bursts_end_peak)]
+
+        if len(bursts_init_peak) != len(bursts_end_peak):
+            raise cuex.MalFunction(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.plot_accumulated_dark_counts",
+                    33122,
+                    extra_info="bursts_init_peak and bursts_end_peak "
+                    "must match in length.",
+                )
+            )
+
+        # Per-burst ordinal label, placed above the corresponding step
+        # of the with-bursts curve
+        if len(bursts_init_peak) > 0:
+
+            # Offset as a fraction of the counts range, so the label
+            # clears the top of the step without colliding.
+            label_offset = 0.05 * n_counts
+
+            highest_label_top = 0.0
+            for j, (init, end) in enumerate(
+                zip(bursts_init_peak, bursts_end_peak)
+            ):
+                # Height of the step top (accumulated counts right after
+                # the last dark count of the burst)
+                step_top = end + 1
+
+                # Horizontal center of the (near-instantaneous) step
+                step_center = (
+                    cumulative_time[init] + cumulative_time[end]
+                ) / 2.0
+
+                label_y = step_top + label_offset
+                # Same black, bold, size-10 font as the burst-ordinal
+                # labels of the timedelay step plot, for style consistency
+                axes.text(
+                    step_center,
+                    label_y,
+                    f"{j + 1}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                    fontweight="bold",
+                )
+                highest_label_top = max(
+                    highest_label_top, label_y + label_offset
+                )
+
+            # Make sure the labels are not clipped at the top
+            current_top = axes.get_ylim()[1]
+            axes.set_ylim(top=max(current_top, highest_label_top))
+
+        if plot_burstless:
+            # Boolean mask, over the counted dark counts,
+            # flagging the ones which belong to a burst
+            # (indices in [init, end], both included)
+            burst_mask = np.zeros(n_counts, dtype=bool)
+            for init, end in zip(bursts_init_peak, bursts_end_peak):
+                burst_mask[init : end + 1] = True
+
+            # Burstless accumulated-counts staircase.
+            # Each surviving dark count keeps its original
+            # absolute time (np.cumsum(timedelay)), so both
+            # curves share the same time axis; its accumulated
+            # count is its rank among the survivors.
+            survivors = ~burst_mask
+            survivor_times = cumulative_time[survivors]
+            n_survivors = survivor_times.size
+
+            axes.step(
+                np.concatenate((np.array([0.0]), survivor_times)),
+                np.arange(0, n_survivors + 1),
+                where="post",
+                color=burstless_color,
+                linewidth=linewidth,
+                label="Without bursts",
+            )
+
+        axes.legend(loc="upper left")
+        return
+
     @classmethod
     def from_json_file(cls, darknoisemeas_config_json):
         """This class method is meant to be an alternative initializer
