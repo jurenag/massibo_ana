@@ -1359,25 +1359,65 @@ class DarkNoiseMeas(SiPMMeas):
 
         return app, app - app_low, app_high - app
 
-    # The default values for the parameters given in M. García et al paper.
-    def identify_bursts(self, min_events_no=5, timedelay_threshold_in_s=0.1):  # 100 ms
+    # The default values for the tag-method parameters are given in M. García et al paper.
+    def identify_bursts(
+        self,
+        burst_identification_method="tag",
+        min_events_no=5,
+        timedelay_threshold_in_s=0.1,  # 100 ms
+        psw_size_s=1.0,
+        significance_level=1.0e-3,
+        nominal_dcr_in_mHz_per_mm2=15.0,
+        sipm_sensitive_area_in_mm2=None,
+    ):
         """This method gets the following optional keyword arguments:
 
-        - min_events_no (scalar integer): Exclusive lower bound to the
-        number of peaks in a consecutive-peaks group, for it to be
-        considered a burst.
-        - timedelay_threshold_in_s (scalar float): Exclusive upper
-        bound to the time delay between every two time-adjacent peaks
-        in a consecutive-peaks group, for such group to be considered
-        a burst.
+        - burst_identification_method (string): It selects the algorithm
+        used to identify the bursts. It can be 'tag', 'psw' or 'combined'.
+        Any other value is interpreted as 'tag'. Check the docstrings of
+        the DarkNoiseMeas._identify_bursts_w_tag_method(),
+        DarkNoiseMeas._identify_bursts_w_PSW_method() and
+        DarkNoiseMeas._identify_bursts_w_combined_method() methods for
+        more information.
+        - min_events_no (None or scalar integer): Exclusive lower bound
+        to the number of peaks in a consecutive-peaks group, for it to be
+        considered a burst. It is only used by the tag method, i.e.
+        when burst_identification_method is 'tag' (or when the combined
+        method internally runs the tag method).
+        - timedelay_threshold_in_s (None or scalar float): Exclusive
+        upper bound to the time delay between every two time-adjacent
+        peaks in a consecutive-peaks group, for such group to be
+        considered a burst. Like min_events_no, it is only used by the
+        tag method (or when the combined method internally runs the tag
+        method).
+        - psw_size_s (None or scalar float): Width, in seconds, of the
+        sliding window used by the Poisson-sliding-window (PSW) method.
+        It is only used when burst_identification_method is 'psw' or
+        'combined'.
+        - significance_level (None or scalar float): One-sided p-value
+        threshold (alpha) below which the observed count in a sliding
+        window is deemed incompatible with the nominal Poisson rate. It
+        is only used when burst_identification_method is 'psw' or
+        'combined'.
+        - nominal_dcr_in_mHz_per_mm2 (None or scalar float): Nominal
+        dark count rate, expressed as a superficial density in millihertz
+        per square millimeter, expected in the absence of bursts. It is
+        only used when burst_identification_method is 'psw' (for
+        'combined', this rate is measured internally on a tag-purged copy).
+        - sipm_sensitive_area_in_mm2 (None or scalar float): Area of the
+        sensitive surface of the SiPM whose dark noise measurement matches
+        self, expressed in square millimeters. It is required (i.e. must
+        not be None) when burst_identification_method is 'psw' or
+        'combined', since it is used to convert the per-area dark count
+        rate into an absolute rate in hertz.
 
-        The functioning of this method relies on the concept of burst.
-
-        - Every group of time-consecutive peaks within the underlying
-        WaveformSet which contains more than min_events_no peaks,
-        meeting the requirement that the time delay between every two
-        time-adjacent peaks is smaller than timedelay_threshold_in_s
-        seconds, is a burst.
+        This method is an algorithm dispatcher: up to the value given to
+        burst_identification_method, it delegates the burst identification
+        to one of the DarkNoiseMeas._identify_bursts_w_*_method() helpers.
+        All of them return the same four lists of integers described below,
+        so that the code which consumes this method's output (e.g.
+        DarkNoiseMeas.purge_bursts()) works regardless of the selected
+        method.
 
         This method returns four lists of integers. The first two,
         say bursts_init_frame and bursts_end_frame, match in length.
@@ -1393,22 +1433,138 @@ class DarkNoiseMeas(SiPMMeas):
         iterator value, with respect to self.__timedelay, of the first
         (resp. last) peak of the i-th identified burst."""
 
+        # Type check block
         htype.check_type(
-            min_events_no,
-            int,
-            np.int64,
+            burst_identification_method,
+            str,
             exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.identify_bursts", 57281
+                "DarkNoiseMeas.identify_bursts", 68142
             ),
         )
-        htype.check_type(
-            timedelay_threshold_in_s,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas.identify_bursts", 23134
-            ),
-        )
+
+        if burst_identification_method == "psw":
+            # All of them should be float scalars
+            for value, error_code in (
+                (psw_size_s, 47186),
+                (significance_level, 94761),
+                (nominal_dcr_in_mHz_per_mm2, 91284),
+                (sipm_sensitive_area_in_mm2, 30517),
+            ):
+                htype.check_type(
+                    value,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "DarkNoiseMeas.identify_bursts", error_code
+                    ),
+                )
+
+        elif burst_identification_method == "combined":
+            htype.check_type(
+                min_events_no,
+                int,
+                np.int64,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas.identify_bursts", 57281
+                ),
+            )
+
+            # All of the leftover parameters should be float scalars.
+            # In this case, the timedelay_threshold_in_s parameter is
+            # used, but the nominal_dcr_in_mHz_per_mm2 parameter is not.
+            for value, error_code in (
+                (timedelay_threshold_in_s, 47183),
+                (psw_size_s, 87657),
+                (significance_level, 43241),
+                (sipm_sensitive_area_in_mm2, 88361),
+            ):
+                htype.check_type(
+                    value,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "DarkNoiseMeas.identify_bursts", error_code
+                    ),
+                )
+        
+        else: # 'tag' method
+            htype.check_type(
+                min_events_no,
+                int,
+                np.int64,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas.identify_bursts", 56265
+                ),
+            )
+            htype.check_type(
+                timedelay_threshold_in_s,
+                float,
+                np.float64,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas.identify_bursts", 11231
+                ),
+            )
+
+        # Dispatch block
+        if burst_identification_method == "psw":
+            # Convert the per-area nominal dark count rate (mHz/mm2) into
+            # an absolute rate in Hz for the whole SiPM sensitive surface.
+            rate_hz = (
+                nominal_dcr_in_mHz_per_mm2 * sipm_sensitive_area_in_mm2 / 1000.0
+            )
+
+            return self._identify_bursts_w_PSW_method(
+                psw_size_s,
+                significance_level,
+                rate_hz,
+            )
+
+        elif burst_identification_method == "combined":
+            return self._identify_bursts_w_combined_method(
+                min_events_no,
+                timedelay_threshold_in_s,
+                psw_size_s,
+                significance_level,
+                sipm_sensitive_area_in_mm2,
+            )
+
+        else:
+            return self._identify_bursts_w_tag_method(
+                min_events_no,
+                timedelay_threshold_in_s,
+            )
+
+    def _identify_bursts_w_tag_method(
+        self,
+        min_events_no,
+        timedelay_threshold_in_s
+    ):
+        """This method gets the following mandatory positional arguments:
+
+        - min_events_no (scalar integer): Exclusive lower bound to the
+        number of peaks in a consecutive-peaks group, for it to be
+        considered a burst.
+        - timedelay_threshold_in_s (scalar float): Exclusive upper
+        bound to the time delay between every two time-adjacent peaks
+        in a consecutive-peaks group, for such group to be considered
+        a burst.
+
+        This method implements the tag method, which was proposed in the
+        M. García et al. paper for the Hamamatsu SiPM down-selection study
+        of the DUNE Photon Detection System. The functioning of this
+        method relies on the concept of burst:
+
+        - Every group of time-consecutive peaks within the underlying
+        WaveformSet which contains more than min_events_no peaks,
+        meeting the requirement that the time delay between every two
+        time-adjacent peaks is smaller than timedelay_threshold_in_s
+        seconds, is a burst.
+
+        This method returns the four lists of integers described in the
+        docstring of DarkNoiseMeas.identify_bursts(), which is the
+        common output contract shared by every
+        DarkNoiseMeas._identify_bursts_w_*_method() helper."""
+
         bursts_init_frame, bursts_end_frame = [], []
         bursts_init_peak, bursts_end_peak = [], []
 
@@ -1461,6 +1617,188 @@ class DarkNoiseMeas(SiPMMeas):
             else:
                 i += 1
         return bursts_init_frame, bursts_end_frame, bursts_init_peak, bursts_end_peak
+
+    def _identify_bursts_w_PSW_method(
+        self,
+        psw_size_s,
+        significance_level,
+        rate_hz
+    ):
+        """This method gets the following mandatory positional arguments:
+
+        - psw_size_s (scalar float): Width, in seconds, of the sliding
+        window. It must be positive.
+        - significance_level (scalar float): One-sided p-value threshold
+        (alpha) below which the observed count in a window is deemed
+        incompatible with the nominal Poisson rate. It must be strictly
+        between 0 and 1.
+        - rate_hz (scalar float): Nominal (burstless) dark count rate of
+        the whole SiPM sensitive surface, expressed in hertz. It must be
+        positive.
+
+        This method implements the Poisson-sliding-window (PSW) method in
+        its event-anchored form. Let t[i] = np.cumsum(self.__timedelay)[i]
+        be the absolute time, in seconds since the first retained peak,
+        of the (i+1)-th counted dark count. For every counted dark count
+        i, the number n of counted dark counts falling in the window
+        [t[i] - psw_size_s, t[i]] is computed with a two-pointer sweep
+        (so the runtime is linear in the number of counted dark counts).
+        Under the null hypothesis of a stationary Poisson process of rate
+        rate_hz, the expected count in the window is
+        lambda = rate_hz * psw_size_s, and the one-sided p-value for an
+        excess is the Poisson tail probability P(N >= n) = poisson.sf(
+        n - 1, lambda). The window is flagged when this p-value is smaller
+        than significance_level.
+
+        Since several consecutive dark counts of the same physical burst
+        yield several overlapping (or peak-index-contiguous) flagged
+        windows, such windows are folded together into a single burst
+        (they are fragments of the same excess, not distinct bursts). The
+        resulting list of bursts is therefore mutually non-overlapping and
+        chronologically ordered, which is what
+        DarkNoiseMeas.lists_are_intertwined() requires downstream.
+
+        This method returns the four lists of integers described in the
+        docstring of DarkNoiseMeas.identify_bursts(), which is the common
+        output contract shared by every
+        DarkNoiseMeas._identify_bursts_w_*_method() helper."""
+
+        htype.check_type(
+            rate_hz,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas._identify_bursts_w_PSW_method", 58390
+            ),
+        )
+        if psw_size_s <= 0.0 or rate_hz <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas._identify_bursts_w_PSW_method",
+                    63712,
+                    extra_info="psw_size_s and rate_hz must be positive.",
+                )
+            )
+        if significance_level <= 0.0 or significance_level >= 1.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas._identify_bursts_w_PSW_method",
+                    84025,
+                    extra_info="significance_level must be strictly between "
+                    "0 and 1.",
+                )
+            )
+
+        n_peaks = len(self.__timedelay)
+        if n_peaks == 0:
+            return [], [], [], []
+
+        # Absolute time of each counted dark count since the first retained
+        # peak. t is aligned 1:1 with self.__timedelay/__amplitude/__frame_idx.
+        t = np.cumsum(self.__timedelay)
+        expected = rate_hz * psw_size_s
+
+        # Event-anchored two-pointer sweep. Each flagged entry is a
+        # [left, right] closed interval of peak-iterator values.
+        flagged = []
+        left = 0
+        for right in range(n_peaks):
+            while t[left] < t[right] - psw_size_s:
+                left += 1
+            n = right - left + 1
+            p_value = spsta.poisson.sf(n - 1, expected)  # P(N >= n)
+            if p_value < significance_level:
+                flagged.append((left, right))
+
+        if len(flagged) == 0:
+            return [], [], [], []
+
+        # Fold peak-index-overlapping or peak-index-contiguous flagged
+        # windows into single bursts (fragments of the same excess). Two
+        # windows belong to the same burst when there is no gap of
+        # unflagged peaks between them, i.e. when left <= previous_right + 1.
+        merged = [list(flagged[0])]
+        for lo, hi in flagged[1:]:
+            if lo <= merged[-1][1] + 1:
+                merged[-1][1] = max(merged[-1][1], hi)
+            else:
+                merged.append([lo, hi])
+
+        bursts_init_peak = [int(m[0]) for m in merged]
+        bursts_end_peak = [int(m[1]) for m in merged]
+        bursts_init_frame = [int(self.__frame_idx[m[0]]) for m in merged]
+        bursts_end_frame = [int(self.__frame_idx[m[1]]) for m in merged]
+
+        return bursts_init_frame, bursts_end_frame, bursts_init_peak, bursts_end_peak
+
+    def _identify_bursts_w_combined_method(
+        self,
+        min_events_no,
+        timedelay_threshold_in_s,
+        psw_size_s,
+        significance_level,
+        sipm_sensitive_area_in_mm2,
+    ):
+        """This method gets the following mandatory positional arguments:
+
+        - min_events_no (scalar integer): It is given to the tag method.
+        Check the DarkNoiseMeas._identify_bursts_w_tag_method() docstring.
+        - timedelay_threshold_in_s (scalar float): It is given to the tag
+        method. Check the DarkNoiseMeas._identify_bursts_w_tag_method()
+        docstring.
+        - psw_size_s (scalar float): It is given to the PSW method. Check
+        the DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
+        - significance_level (scalar float): It is given to the PSW method.
+        Check the DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
+        - sipm_sensitive_area_in_mm2 (scalar float): Area of the SiPM
+        sensitive surface, in square millimeters. It is used to measure
+        the nominal dark count rate on the tag-purged copy.
+
+        This method implements the combined method. It first builds a
+        throw-away copy of self which is purged from bursts with the tag
+        method (via DarkNoiseMeas.purge_bursts() with inplace=False, so
+        that self is not modified). On that tag-purged copy it measures
+        the nominal dark count rate (via
+        DarkNoiseMeas.get_dark_count_rate_in_mHz_per_mm2()), which is the
+        rate expected in the absence of bursts. Finally, it runs the PSW
+        method on self, using that measured rate as the nominal rate. This
+        does not introduce any circular dependency: the inner purge is run
+        with the 'tag' method, so it never re-enters the combined branch.
+
+        This method returns the four lists of integers described in the
+        docstring of DarkNoiseMeas.identify_bursts(), which is the common
+        output contract shared by every
+        DarkNoiseMeas._identify_bursts_w_*_method() helper."""
+
+        # Tag-purge a throw-away copy (inplace=False keeps self intact).
+        # Since the inner purge uses the 'tag' method, this call chain
+        # terminates and no circular dependency arises.
+        throwaway_copy, _ = DarkNoiseMeas.purge_bursts(
+            self,
+            min_events_no=min_events_no,
+            timedelay_threshold_in_s=timedelay_threshold_in_s,
+            burst_identification_method="tag",
+            correct_acquisition_time=True,
+            inplace=False,
+        )
+
+        # Nominal (burstless) dark count rate measured on the tag-purged
+        # copy, as a superficial density in mHz/mm2.
+        nominal_dcr_in_mHz_per_mm2 = \
+            throwaway_copy.get_dark_count_rate_in_mHz_per_mm2(
+                sipm_sensitive_area_in_mm2
+            )[0]
+
+        # Convert it into an absolute rate in Hz for the whole SiPM.
+        rate_hz = (
+            nominal_dcr_in_mHz_per_mm2 * sipm_sensitive_area_in_mm2 / 1000.0
+        )
+
+        return self._identify_bursts_w_PSW_method(
+            psw_size_s,
+            significance_level,
+            rate_hz,
+        )
 
     def plot_timedelay_vs_amplitude(
         self, axes, mode="2dhist", nbins=50, axes_title=None, plot_half_a_pe_level=False
@@ -2037,8 +2375,13 @@ class DarkNoiseMeas(SiPMMeas):
     def purge_bursts(
         cls,
         darknoisemeas_to_purge,
+        burst_identification_method="tag",
         min_events_no=5,
         timedelay_threshold_in_s=0.1,  # 100 ms
+        psw_size_s=1.0,
+        significance_level=1.0e-3,
+        nominal_dcr_in_mHz_per_mm2=15.0,
+        sipm_sensitive_area_in_mm2=None,
         correct_acquisition_time=True,
         inplace=False,
         verbose=False,
@@ -2057,13 +2400,31 @@ class DarkNoiseMeas(SiPMMeas):
 
         This class method gets the following optional keyword arguments:
 
+        - burst_identification_method (string): It selects the algorithm
+        used to identify the bursts. It can be 'tag', 'psw' or 'combined'.
+        Any other value is interpreted as 'tag'. This parameter, together
+        with the six parameters below, is passed unchanged to the
+        DarkNoiseMeas.identify_bursts() method of darknoisemeas_to_purge.
+        Check its docstring for more information.
         - min_events_no (scalar integer): Exclusive lower bound to the
         number of peaks in a consecutive-peaks group, for it to be
-        considered a burst.
+        considered a burst. It is only used by the tag method.
         - timedelay_threshold_in_s (scalar float): Exclusive upper
         bound to the time delay between every two time-adjacent peaks
         in a consecutive-peaks group, for such group to be considered
-        a burst.
+        a burst. It is only used by the tag method.
+        - psw_size_s (scalar float): Width, in seconds, of the sliding
+        window used by the PSW method. It is only used when
+        burst_identification_method is 'psw' or 'combined'.
+        - significance_level (scalar float): One-sided p-value threshold
+        (alpha) used by the PSW method. It is only used when
+        burst_identification_method is 'psw' or 'combined'.
+        - nominal_dcr_in_mHz_per_mm2 (scalar float): Nominal dark count
+        rate, in mHz/mm2, expected in the absence of bursts. It is only
+        used when burst_identification_method is 'psw'.
+        - sipm_sensitive_area_in_mm2 (None or scalar float): Area of the
+        SiPM sensitive surface, in mm2. It is required (must not be None)
+        when burst_identification_method is 'psw' or 'combined'.
         - correct_acquisition_time (bool): Whether the AcquisitionTime_min
         attribute of the returned object must be corrected by subtracting
         the sum of the time intervals that correspond to the purged
@@ -2169,8 +2530,13 @@ class DarkNoiseMeas(SiPMMeas):
 
         bursts_init_frame, bursts_end_frame, bursts_init_peak, bursts_end_peak = (
             darknoisemeas_to_purge.identify_bursts(
+                burst_identification_method=burst_identification_method,
                 min_events_no=min_events_no,
                 timedelay_threshold_in_s=timedelay_threshold_in_s,
+                psw_size_s=psw_size_s,
+                significance_level=significance_level,
+                nominal_dcr_in_mHz_per_mm2=nominal_dcr_in_mHz_per_mm2,
+                sipm_sensitive_area_in_mm2=sipm_sensitive_area_in_mm2,
             )
         )
 
