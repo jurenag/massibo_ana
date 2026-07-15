@@ -320,10 +320,35 @@ minimum_number_of_well_formed_waveforms: 100
 minimum_number_of_non_burst_waveforms: 100
 
 ### Parameters for bursts-purge
+# Method used to identify (and then purge) bursts. It can
+# be 'tag', 'psw' or 'combined'. Any other value is
+# interpreted as 'tag'. 'tag' uses the consecutive-peaks
+# tag method configured by the two parameters immediately
+# below; 'psw' uses the Poisson-sliding-window method;
+# 'combined' measures the nominal DCR on a tag-purged 
+# copy and then applies the 'psw' method with that measured
+# rate.
+burst_identification_method: 'tag'
+
 # The default values for these parameters 
 # are given in M. García et al paper.
 min_consecutive_peaks_for_burst: 5
 max_timedelay_for_consecutive_peak_in_s: 0.1   # 100 ms
+
+# Width, in seconds, of the Poisson sliding window. Only
+# used when burst_identification_method is 'psw' or 'combined'.
+psw_size_s: 1.0
+
+# One-sided p-value threshold (alpha) below which a window's
+# count is deemed incompatible with the nominal Poisson rate.
+# Only used when burst_identification_method is 'psw' or
+# 'combined'.
+burst_removal_significance_level: 1.e-3
+
+# Nominal dark count rate (in mHz/mm2) expected in the
+# absence of bursts. Only used when
+# burst_identification_method is 'psw'.
+nominal_dcr_in_mHz_per_mm2: 15.
 
 ### Parameters for filter-results report
 # Number of waveforms per persistency plot
