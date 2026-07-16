@@ -23,65 +23,111 @@ from typing import List, Optional
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 
+# Strip IDs measured in each (set, meas) pair. The outer key is the set
+# number and the inner key is the measurement (meas) number, i.e. one
+# thermal (cryogenic) bath. Every value is the list of strip IDs which
+# were simultaneously submerged in that bath. Sets 1-5 (first Massibo
+# setup, up to 3 strips per bath) have 7 meas each; sets 6 onwards
+# (Massibo v2, up to 9 strips per bath) have 2 meas each. Sets 1-5 were
+# built from clean_set_{j}/meas_{k}/darknoisemeas_metadata.json (keys
+# socket_{i}_strip_ID) and sets 6 onwards from the per-set Set_data.txt
+# files.
 strip_ids_of_set = {
-    1: [
-        '1425', '1426', '1429', '1431', '1432', 
-        '1435', '1436', '1437', '1438', '1441', 
-        '1442', '1443', '1444', '1445', '1446', 
-        '1447', '1449', '1451', '1452', '1456'
-    ],
-    2: [
-        # The following boards were measured with OVs 2.6, 3. and 3.4 V
-        '2210', '2213', '2214', '2216', '2218', '2219',
-        # The following boards were measured with OVs 2.6, 3. and 4. V
-        '2220', '2221', '2223', '2224', '2229', '2230',
-        '2234', '2239', '2240', '2243', '2251',
-        # The following boards were measured with OVs 2., 3. and 4. V
-        '2252', '2253', '2254'
-    ],
-    3: [
+    1: {
         # Measured with OVs 2., 3. and 4. V
-        '5030', '5033', '5036', '5049', '5050',
-        '5058', '5063', '6019', '6023', '6024',
-        '6025', '5976', '6029', '6034', '4918',
-        '6042', '6043', '6049', '6055', '6058'
-    ],
-    4: [
+        1: ['1425', '1426', '1429'],
+        2: ['1431', '1432', '1435'],
+        3: ['1436', '1437', '1438'],
+        4: ['1441', '1442', '1443'],
+        5: ['1444', '1445', '1446'],
+        6: ['1447', '1449', '1451'],
+        7: ['1452', '1456'],
+    },
+    2: {
+        # The first two meas (1 and 2) were measured with OVs 2.6, 3.0 and 3.4 V
+        1: ['2210', '2213', '2214'],
+        2: ['2216', '2218', '2219'],
+        # Meas 3, 4, 6 and 7 were measured with OVs 2.6, 3.0 and 4.0 V
+        3: ['2220', '2221', '2223'],
+        4: ['2224', '2243', '2251'],
+        # Meas 5 was measured with OVs 2.0, 3.0 and 4.0 V
+        5: ['2252', '2253', '2254'],
+        6: ['2229', '2230', '2234'],
+        7: ['2239', '2240'],
+    },
+    3: {
         # Measured with OVs 2., 3. and 4. V
-        '416', '318', '287', '450', '304',
-        '412', '225', '298', '311', '449',
-        '257', '439', '250', '297', '309',
-        '332', '540', '385', '477', '451'
-    ],
-    5: [
+        1: ['5030', '5033', '5036'],
+        2: ['5049', '5050', '5058'],
+        3: ['5063', '6019', '6023'],
+        4: ['6024', '6025', '5976'],
+        5: ['6029', '6034', '4918'],
+        6: ['6042', '6043', '6049'],
+        7: ['6055', '6058'],
+    },
+    4: {
         # Measured with OVs 2., 3. and 4. V
-        '1081', '1097', '1076', '1087', '1088',
-        '1094', '1467', '1077', '1085', '1461',
-        '1079', '1089', '1091', '1080', '1302',
-        '1276', '1273', '1083', '1086', '1281'
-    ],
-    6: [
+        1: ['416', '318', '287'],
+        2: ['450', '304', '412'],
+        3: ['225', '298', '311'],
+        4: ['449', '257', '439'],
+        5: ['250', '297', '309'],
+        6: ['332', '540', '385'],
+        7: ['477', '451'],
+    },
+    5: {
         # Measured with OVs 2., 3. and 4. V
-        '7281', '7286', '7291', '7296', '8549',
-        '8550', '8563', '8566', '8570', '8572',
-        '8576', '8579', '8581', '8589', '8590',
-        '8596', '8606', '8612', '8614'
-    ],
-    7: [
+        1: ['1081', '1097', '1076'],
+        2: ['1087', '1088', '1094'],
+        3: ['1467', '1077', '1085'],
+        4: ['1461', '1079', '1089'],
+        5: ['1091', '1080', '1302'],
+        6: ['1276', '1273', '1083'],
+        7: ['1086', '1281'],
+    },
+    6: {
         # Measured with OVs 2., 3. and 4. V
-        '5787', '5788', '5790', '7299', '7300',
-        '7304', '7306', '7308', '7309', '7310',
-        '7315', '7317', '7337', '7343', '7350',
-        '7320', '7330', '7334', '7352', '7353'
-    ],
-    8: [
+        1: ['8572', '7296', '8563', '7286', '8549', '8566', '7281', '8550', '8570'],
+        2: ['8576', '8589', '8606', '8579', '8590', '8612', '8581', '8596', '8614'],
+    },
+    7: {
         # Measured with OVs 2., 3. and 4. V
-        '1534', '1538', '1540', '1541', '1542',
-        '1543', '1546', '1547', '1550', '1553',
-        '1556', '1569', '1562', '1563', '1564',
-        '1566', '1567', '1568', '1572', '1573'
-    ]
-
+        # WARNING: the meas-2 data below come straight from Set_data.txt,
+        # which looks corrupted: '7308'/'7309' are duplicated from meas 1
+        # and '7230' is suspicious (the legacy one-level dict had '7330').
+        # Kept verbatim on purpose; fix once the correct IDs are known.
+        1: ['5785', '7299', '7308', '5788', '7304', '7309', '5790', '7306', '7310'],
+        2: ['7315', '7230', '7308', '7317', '7334', '7309', '7320', '7337', '7352'],
+    },
+    8: {
+        # Measured with OVs 2., 3. and 4. V
+        1: ['1534', '1541', '1546', '1538', '1542', '1547', '1540', '1543', '1550'],
+        2: ['1553', '1562', '1568', '1559', '1564', '1572', '1556', '1563', '1567'],
+    },
+    9: {
+        1: ['16508', '16512', '16531', '16509', '16523', '16525', '16514', '16535', '16534'],
+        2: ['16539', '16435', '16412', '16402', '16445', '16420', '16404', '16457', '16424'],
+    },
+    10: {
+        1: ['15985', '15994', '15999', '15991', '15995', '16001', '15992', '15998', '16003'],
+        2: ['16012', '16017', '16026', '16014', '16020', '16028', '16016', '16025', '16029'],
+    },
+    11: {
+        1: ['15506', '15509', '15513', '15507', '15511', '15592', '15508', '15512', '15516'],
+        2: ['15517', '15520', '15523', '15518', '15521', '15524', '15519', '15522', '15603'],
+    },
+    12: {
+        1: ['5118', '5139', '5170', '5120', '5149', '5173', '5136', '5158', '5177'],
+        2: ['5184', '6133', '6144', '5186', '6137', '6146', '6119', '6139', '6148'],
+    },
+    13: {
+        1: ['19960', '19970', '19979', '19968', '19976', '19984', '19969', '19977', '19986'],
+        2: ['19987', '21310', '21429', '21279', '21339', '21482', '21307', '21414', '21487'],
+    },
+    14: {
+        1: ['21071', '21093', '21100', '21073', '21094', '21112', '21080', '21098', '21114'],
+        2: ['21127', '21133', '21147', '21129', '21136', '21157', '21130', '21134', '21160'],
+    },
 }
 
 thresholds = {
@@ -818,16 +864,75 @@ def strip_ID_vs_sipm_location_dataframe(
 
     return table
 
+def get_strips_of_set_and_meas(
+        set_to_analyze: int,
+        meas_to_analyze: Optional[int] = None
+) -> List[str]:
+    """This function gets the following positional argument:
+
+    - set_to_analyze (integer): The set number whose strip IDs are
+    to be retrieved. It is used as the outer key of the global
+    strip_ids_of_set dictionary.
+
+    This function gets the following keyword argument:
+
+    - meas_to_analyze (None or integer): If None, then the strip IDs
+    of every meas (measurement) of the specified set are returned,
+    flattened in ascending meas-number order. If it is an integer,
+    then it is used as the inner key of strip_ids_of_set and only the
+    strip IDs of the specified meas are returned.
+
+    This function returns a list of strings (strip IDs). If
+    set_to_analyze is not a key of strip_ids_of_set, or meas_to_analyze
+    is not None and it is not a key of strip_ids_of_set[set_to_analyze],
+    then a cuex.NoAvailableData exception is raised.
+    """
+
+    try:
+        meas_dict = strip_ids_of_set[set_to_analyze]
+
+    except KeyError:
+        raise cuex.NoAvailableData(
+            htype.generate_exception_message(
+                "get_strips_of_set_and_meas",
+                1,
+                extra_info=f"Set {set_to_analyze} not found in available "
+                f"sets: {tuple(strip_ids_of_set.keys())}"
+            )
+        )
+
+    if meas_to_analyze is None:
+        return [
+            strip_id
+            for meas in sorted(meas_dict.keys())
+            for strip_id in meas_dict[meas]
+        ]
+
+    try:
+        return list(meas_dict[meas_to_analyze])
+
+    except KeyError:
+        raise cuex.NoAvailableData(
+            htype.generate_exception_message(
+                "get_strips_of_set_and_meas",
+                2,
+                extra_info=f"Meas {meas_to_analyze} not found in set "
+                f"{set_to_analyze}, whose available meas are: "
+                f"{tuple(meas_dict.keys())}"
+            )
+        )
+
 def build_list_of_SiPMMeas_objects(
         jsons_folder_path: str,
         strips_to_analyze: List[str],
         analyzable_marks: List[str],
         set_to_analyze: Optional[int] = None,
+        meas_to_analyze: Optional[int] = None,
         is_gain_meas: bool = False,
         verbose: bool = False
 ) -> List[SiPMMeas]:
     """This function gets the following positional argument:
-    
+
     - jsons_folder_path (string): The folder path where to look
     for the JSON files from which SiPMMeas objects (either GainMeas
     or DarkNoiseMeas objects, up to the is_gain_meas parameter)
@@ -845,10 +950,19 @@ def build_list_of_SiPMMeas_objects(
     then it must be set to an integer which identifies the measurements
     set to be analyzed. I.e. the strip IDs to be analyzed will be
     taken from a global variable called strip_ids_of_set, which is a
-    dictionary whose keys are integers (set numbers) and whose values
+    dictionary whose outer keys are integers (set numbers), whose
+    inner keys are integers (meas numbers) and whose innermost values
     are lists of strip IDs. If this parameter is null, then the
     strips_to_analyze parameter above is used to determine which strips
     are to be analyzed.
+    - meas_to_analyze (int or None): This parameter only makes a
+    difference if set_to_analyze is not None. In such case, if
+    meas_to_analyze is null, then every strip of the specified set is
+    analyzed; if it is an integer, then only the strips of the
+    specified set and meas (measurement, i.e. one cryogenic bath) are
+    analyzed. When set_to_analyze is None but meas_to_analyze is not,
+    the latter is ignored (this combination is meaningless) and
+    strips_to_analyze is honoured.
     - is_gain_meas (bool): Whether the SiPMMeas objects to be
     loaded are GainMeas or DarkNoiseMeas objects. If True (resp.
     False), only JSON files whose name contains the 'gain' (resp.
@@ -861,19 +975,20 @@ def build_list_of_SiPMMeas_objects(
     """
 
     if set_to_analyze is None:
+        if verbose and meas_to_analyze is not None:
+            print(
+                "In function build_list_of_SiPMMeas_objects(): WARNING: "
+                "meas_to_analyze is defined but set_to_analyze is None. "
+                "The former is ignored and strips_to_analyze is used."
+            )
         strips_to_analyze_ = strips_to_analyze
 
     else:
-        try:
-            strips_to_analyze_ = strip_ids_of_set[set_to_analyze]
+        strips_to_analyze_ = get_strips_of_set_and_meas(
+            set_to_analyze,
+            meas_to_analyze=meas_to_analyze
+        )
 
-        except KeyError:
-            raise cuex.NoAvailableData(
-                "In function build_list_of_SiPMMeas_objects(): "
-                f"Set {set_to_analyze} not found in available "
-                f"sets: {tuple(strip_ids_of_set.keys())}"
-            )
-        
     if verbose:
         print(
             "In function build_list_of_SiPMMeas_objects(): "
