@@ -22,6 +22,16 @@ output_folder_label: null
 # determine which strips are to be analyzed.
 set_to_analyze: 6 # 6, 7, ...
 
+# This parameter only makes a difference if the
+# set_to_analyze parameter is not null. In that
+# case, if this parameter is null, then every strip
+# of the specified set is analyzed; if it is set to
+# an integer, then only the strips measured in the
+# specified set and meas (measurement, i.e. one
+# cryogenic bath) are analyzed. If set_to_analyze
+# is null, this parameter is ignored.
+meas_to_analyze: null # 1, 2, ...
+
 # This parameter only makes a difference if
 # the set_to_analyze parameter is null. In
 # that case, every file in the load-directory
