@@ -2598,27 +2598,60 @@ class DarkNoiseMeas(SiPMMeas):
             # purge-associated timedelay entries are removed
             # from purged_copy.TimeDelay
 
-            time_to_remove_min = np.sum(
-                purged_copy.TimeDelay[
-                    # self.__timedelay[i] gives the time delay between the i-th
-                    # and the (i-1)-th peaks. P.e. if burst_init_peak[i]=2 and
-                    # burst_end_peak[i]=4, then we want to sum the time delay
-                    # from peak 3 to 2 (which is self.__timedelay[3]) and the
-                    # time delay from 4 to 3 (which is self.__timedelay[4]). I.e.
-                    # we want self.__timedelay[3] + self.__timedelay[4], which is 
-                    # np.sum(self.__timedelay[3:5]), which is
-                    # np.sum(self.__timedelay[2 + 1: 4 + 1]), which is
-                    # np.sum(
-                    # self.__timedelay[burst_init_peak[i] + 1: burst_end_peak[i] + 1]
-                    # ). Also, it is important to note that bursts_init_peak and
-                    # bursts_end_peak give iterator values with respect to
-                    # the self.__timedelay array.
-                    bursts_init_peak[i] + 1: bursts_end_peak[i] + 1
-                ]
-            ) / 60.0
+            time_to_remove_min = 0.0
+            for i in range(len(bursts_init_peak)):
+                time_to_remove_min += np.sum(
+                    purged_copy.TimeDelay[
+                        # self.__timedelay[i] gives the time delay between the i-th
+                        # and the (i-1)-th peaks. P.e. if burst_init_peak[i]=2 and
+                        # burst_end_peak[i]=4, then we want to sum the time delay
+                        # from peak 3 to 2 (which is self.__timedelay[3]) and the
+                        # time delay from 4 to 3 (which is self.__timedelay[4]). I.e.
+                        # we want self.__timedelay[3] + self.__timedelay[4], which is
+                        # np.sum(self.__timedelay[3:5]), which is
+                        # np.sum(self.__timedelay[2 + 1: 4 + 1]), which is
+                        # np.sum(
+                        # self.__timedelay[burst_init_peak[i] + 1: burst_end_peak[i] + 1]
+                        # ). Also, it is important to note that bursts_init_peak and
+                        # bursts_end_peak give iterator values with respect to
+                        # the self.__timedelay array.
+                        bursts_init_peak[i] + 1: bursts_end_peak[i] + 1
+                    ]
+                ) / 60.0
 
-            purged_copy.AcquisitionTime_min = \
+            corrected_acquisition_time_min = \
                 purged_copy.AcquisitionTime_min - time_to_remove_min
+
+            # A non-positive corrected acquisition time means that every
+            # peak of this measurement belongs to a burst, i.e. that the
+            # whole measurement is a burst. Since the AcquisitionTime_min
+            # setter rejects non-positive values, the correction is
+            # skipped in this case, so that the caller can still deal with
+            # such (pathological) data.
+            if corrected_acquisition_time_min > 0.0:
+                purged_copy.AcquisitionTime_min = corrected_acquisition_time_min
+            else:
+                print(
+                    "WARNING: In function DarkNoiseMeas.purge_bursts(): the "
+                    "bursts-purge would leave a non-positive acquisition time "
+                    f"({corrected_acquisition_time_min} minutes), so the "
+                    "correction has been skipped and AcquisitionTime_min is "
+                    "left unchanged. Such a result means that every peak of "
+                    "this measurement belongs to some burst. Note that, in "
+                    "that case, the leftover is not exactly null, but a small "
+                    "number of either sign, because the acquisition time is "
+                    "measured between the first and the last trigger "
+                    "timestamps, whereas the subtracted burst spans are "
+                    "measured from peak to peak, and each peak sits at some "
+                    "offset within its own waveform. I.e. the leftover is the "
+                    "time from the first trigger up to the first peak of the "
+                    "burst, minus the offset of the last peak within its own "
+                    "waveform (which is subtracted because such peak occurs "
+                    "after the last trigger, and so it falls outside of the "
+                    "acquisition time). Both terms are bounded by one waveform "
+                    "width, and the sign is left to rounding error when they "
+                    "cancel each other out."
+                )
 
         timedelay, amplitude, frame_idx = (
             list(purged_copy.TimeDelay),
