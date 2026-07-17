@@ -1765,6 +1765,15 @@ class DarkNoiseMeas(SiPMMeas):
         does not introduce any circular dependency: the inner purge is run
         with the 'tag' method, so it never re-enters the combined branch.
 
+        When the tag-purged copy retains no dark count, the measured
+        nominal rate is null and the PSW method is not well defined. In
+        that case, this method falls back to the identification which the
+        tag method already did (over self) to purge the throw-away copy.
+        Such fallback is the limit of the PSW method for a vanishing
+        nominal rate: with a null nominal rate, every window count is
+        incompatible with it, so every window would be flagged as a burst,
+        which is what the tag method already concluded about these data.
+
         This method returns the four lists of integers described in the
         docstring of DarkNoiseMeas.identify_bursts(), which is the common
         output contract shared by every
@@ -1773,7 +1782,7 @@ class DarkNoiseMeas(SiPMMeas):
         # Tag-purge a throw-away copy (inplace=False keeps self intact).
         # Since the inner purge uses the 'tag' method, this call chain
         # terminates and no circular dependency arises.
-        throwaway_copy, _ = DarkNoiseMeas.purge_bursts(
+        throwaway_copy, tag_bursts_info = DarkNoiseMeas.purge_bursts(
             self,
             min_events_no=min_events_no,
             timedelay_threshold_in_s=timedelay_threshold_in_s,
@@ -1793,6 +1802,47 @@ class DarkNoiseMeas(SiPMMeas):
         rate_hz = (
             nominal_dcr_in_mHz_per_mm2 * sipm_sensitive_area_in_mm2 / 1000.0
         )
+
+        if not np.isfinite(rate_hz):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas._identify_bursts_w_combined_method",
+                    64513,
+                    extra_info="significance_level must be strictly between "
+                    "0 and 1.",
+                )
+            )
+        # A non-positive measured rate means that the tag method
+        # retained no dark count, so that the PSW method is not
+        # well defined. Fall back to the identification which the
+        # tag method already did, above, over self.
+        elif rate_hz <= 0.0:
+            print(
+                "WARNING: In function "
+                "DarkNoiseMeas._identify_bursts_w_combined_method(): the "
+                "nominal dark count rate measured on the tag-purged copy "
+                f"({rate_hz} hertz) is not positive, so the PSW method is "
+                "not well defined. This means that the tag method retained "
+                "no dark count, i.e. that these data are dominated by "
+                "bursts. Falling back to the tag method identification."
+            )
+
+            bursts_init_peak = tag_bursts_info["bursts_init_peak"]
+            bursts_end_peak = tag_bursts_info["bursts_end_peak"]
+
+            # bursts_init_peak and bursts_end_peak give iterator values
+            # with respect to self.__timedelay/__amplitude/__frame_idx,
+            # which the purge above left untouched (it ran with
+            # inplace=False). Thus, the frame lists are recovered the same
+            # way every DarkNoiseMeas._identify_bursts_w_*_method() helper
+            # builds them, i.e. bursts_init_frame[i] is the frame where
+            # the bursts_init_peak[i]-th peak was spotted.
+            return (
+                [int(self.__frame_idx[peak]) for peak in bursts_init_peak],
+                [int(self.__frame_idx[peak]) for peak in bursts_end_peak],
+                bursts_init_peak,
+                bursts_end_peak,
+            )
 
         return self._identify_bursts_w_PSW_method(
             psw_size_s,
