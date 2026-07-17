@@ -333,7 +333,7 @@ minimum_number_of_non_burst_waveforms: 100
 # 'combined' measures the nominal DCR on a tag-purged 
 # copy and then applies the 'psw' method with that measured
 # rate.
-burst_identification_method: 'tag'
+burst_identification_method: 'combined'
 
 # The default values for these parameters 
 # are given in M. García et al paper.
