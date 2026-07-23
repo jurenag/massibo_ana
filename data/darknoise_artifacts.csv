@@ -1,0 +1,6 @@
+artifact,exclude,description
+sine_pickup,True,Sinusoidal pickup; does not self-trigger but misleads the peak-finder into spurious dark counts
+long_pretrigger,True,DAQ fault: pre-trigger window too long in most of the acquired waveforms
+very_noisy_ok,False,"Exceptionally noisy, but the offline filter handles it correctly. Informational only"
+blurry_CC_separation,False,"The pearson-CC does not clearly separate legit dark counts from noise, but all of the example fast frames look good"
+very_noisy_not_ok,True,"Exceptionally noisy, and the offline filter does not handle it correctly"
