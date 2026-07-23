@@ -1635,7 +1635,13 @@ class GainMeas(SiPMMeas):
         # -1, 0 or 1, then is visually cleaner to not use
         # scientific notation
         if -1 <= exponent <= 1:
-            return f"{value:.{decimals}f} "+r'$\pm$ '+f"{uncertainty:.{decimals}f}"
+            # 'decimals' was derived in the frame scaled by 10**exponent (that is
+            # the frame the scientific-notation branch below prints in). Here the
+            # RAW, unscaled numbers are printed, and they are 10**exponent larger,
+            # so they need 'exponent' fewer decimals to render the uncertainty at
+            # the same significant-figure precision.
+            display_decimals = max(0, decimals - exponent)
+            return f"{value:.{display_decimals}f} "+r'$\pm$ '+f"{uncertainty:.{display_decimals}f}"
 
         # In other case, use scientific notation with the
         # same exponent for the value and the uncertainty
