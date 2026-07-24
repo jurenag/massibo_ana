@@ -92,12 +92,8 @@ strip_ids_of_set = {
     },
     7: {
         # Measured with OVs 2., 3. and 4. V
-        # WARNING: the meas-2 data below come straight from Set_data.txt,
-        # which looks corrupted: '7308'/'7309' are duplicated from meas 1
-        # and '7230' is suspicious (the legacy one-level dict had '7330').
-        # Kept verbatim on purpose; fix once the correct IDs are known.
         1: ['5785', '7299', '7308', '5788', '7304', '7309', '5790', '7306', '7310'],
-        2: ['7315', '7230', '7308', '7317', '7334', '7309', '7320', '7337', '7352'],
+        2: ['7315', '7330', '7343', '7317', '7334', '7350', '7320', '7337', '7352'],
     },
     8: {
         # Measured with OVs 2., 3. and 4. V
