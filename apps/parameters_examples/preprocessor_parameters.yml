@@ -18,8 +18,39 @@ workspace_dir: 'ci_workspace/'
 # Whether to print functioning related messages
 verbose: true
 
-# Whether to use the traditional DataPreprocessor class (which
-# can handle the tektronix scope ASCII/binary (WFM) data) or
-# the NumpyDataPreprocessor class (which can handle the numpy
-# binary packing of the Daphne data).
-data_from_tektronix_scope: false
+# Selects which preprocessor class to use:
+#   0 - DataPreprocessor: for data acquired with the Tektronix
+#       oscilloscope (ASCII/binary WFM format).
+#   1 - NumpyDataPreprocessor: for data acquired with Daphne
+#       and packed into numpy binary format.
+#   2 - DewarDataPreprocessor: for data taken with Massibo v2,
+#       i.e. massibo using the cryogenic dewar.
+input_data_format_code: 2
+
+# Packing version for input numpy data. For input_data_format_code=2,
+# packing_version=3 enables epoch-timestamp detection and falls back
+# to packing_version=2 when the epoch-timestamp column is not found.
+packing_version: 3
+
+# Median-filter window size used to validate temperature-sensor
+# curves when input_data_format_code=2.
+median_filter_window_size: 5.0
+
+# Maximum allowed temperature fluctuation energy for a temperature
+# sensor curve to be considered well formed. The fluctuation energy
+# is the mean absolute deviation of the curve with respect to its
+# median-filtered version, i.e. it is normalised by the number of
+# samples, so that this threshold does not depend on how long the
+# LN2 fill took. This value was calibrated so that it tells apart
+# the well-formed curves (up to ~0.39) from those showing a
+# temperature rebound at the immersion moment (from ~0.53 on).
+temperature_fluctuations_threshold: 0.45
+
+# Maximum elapsed cryogenic time, in minutes, which is considered
+# plausible for a measurement. It is used to check that the
+# temperature data found in a MEAS folder actually describe the
+# cryogenic bath of that measurement: if the immersion times they
+# imply are not compatible with the epoch timestamp of the waveforms
+# of that measurement, the temperature data are rejected and no
+# elapsed cryogenic times are computed for it.
+max_elapsed_cryo_time_min: 600.0
