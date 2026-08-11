@@ -395,7 +395,8 @@ class WaveformSet(OneTypeRTL):
         fig_height = None,
         show_plots = True,
         color = 'black',
-        peak_cc_info = None
+        peak_cc_info = None,
+        highlighted_x0 = None,
     ):
         """This method gets the following keyword arguments:
 
@@ -480,6 +481,19 @@ class WaveformSet(OneTypeRTL):
         the key matching the iterator of this waveform within peak_cc_info are
         plotted as inverted triangles, colored green if the 'accepted' entry
         of the corresponding dictionary is True, and colored red otherwise.
+        - highlighted_x0 (None or list): This parameter only makes a
+        difference if mode is 'grid'. If it is not None, then it must be a
+        list whose length matches the number of selected waveforms, i.e. the
+        number of waveforms which this method will plot up to the value given
+        to wvfs_to_plot. Each of its entries must be either None or a scalar
+        float. For each selected waveform whose matching entry is not None,
+        a dashed vertical line is drawn, in its own axes, at the given
+        abscissa. It is meant to single out one particular feature of the
+        plotted waveform, such as the peak which was tagged as a cross-talk
+        or an after-pulse event. It is drawn in a color which is not used by
+        Waveform.plot(), so that it cannot be mistaken for the integration
+        limits (red), the baseline or the median cutoff (blue), or the peak
+        markers (green and red).
 
         This method returns a list of matplotlib.figure.Figure objects.
         This list contains every figure (canvas) produced by this method,
@@ -764,6 +778,35 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.plot", 37
                 ),
             )
+        if highlighted_x0 is not None:
+            htype.check_type(
+                highlighted_x0,
+                list,
+                exception_message=htype.generate_exception_message(
+                    "WaveformSet.plot", 39
+                ),
+            )
+            if len(highlighted_x0) != len(wvfs_indices):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.plot",
+                        40,
+                        extra_info="The length of highlighted_x0 "
+                        f"({len(highlighted_x0)}) must match the number of "
+                        f"selected waveforms ({len(wvfs_indices)}).",
+                    )
+                )
+            for elem in highlighted_x0:
+                if elem is None:
+                    continue
+                htype.check_type(
+                    elem,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "WaveformSet.plot", 41
+                    ),
+                )
 
         output = []
 
@@ -797,6 +840,15 @@ class WaveformSet(OneTypeRTL):
                         WaveformSet.set_custom_labels_visibility(
                             axs[iterator], iterator[0], iterator[1], nrows
                         )
+                        if highlighted_x0 is not None:
+                            if highlighted_x0[counter] is not None:
+                                axs[iterator].axvline(
+                                    x=highlighted_x0[counter],
+                                    linestyle="--",
+                                    linewidth=0.8,
+                                    color="darkorange",
+                                    zorder=11
+                                )
 
                     # If the number of waveforms to plot is not a multiple
                     # of nrows*ncols, in the last canvas (last value for i
