@@ -2894,6 +2894,10 @@ class DarkNoiseMeas(SiPMMeas):
         include_analysis_results=True,
         xtp_significance_level=0.32,
         app_significance_level=0.32,
+        afterpulse_threshold_in_s=5e-6,
+        dark_count_rate=None,
+        cross_talk_probability=None,
+        after_pulse_probability=None,
         overwrite=False,
         indent=None,
         verbose=False
@@ -2901,7 +2905,9 @@ class DarkNoiseMeas(SiPMMeas):
         """This method gets the following positional argument:
 
         - args: Extra positional arguments which are given to
-        self.get_dark_count_rate_in_mHz_per_mm2.
+        self.get_dark_count_rate_in_mHz_per_mm2. They are not used when
+        the 'dark_count_rate' parameter is defined, since in that case this
+        method does not call self.get_dark_count_rate_in_mHz_per_mm2.
 
         This method gets the following keyword arguments:
 
@@ -2950,6 +2956,29 @@ class DarkNoiseMeas(SiPMMeas):
         significance level for the confidence interval of the after-pulse
         event probability. This parameter is given to the alpha parameter of
         self.get_after_pulse_probability().
+        - afterpulse_threshold_in_s (scalar float): Used only if
+        include_analysis_results is True and after_pulse_probability is None.
+        In that case, it is given to the 'afterpulse_threshold_in_s' keyword
+        argument of self.get_after_pulse_probability(). Check its docstring
+        for more information.
+        - dark_count_rate (None or tuple): Used only if
+        include_analysis_results is True. If it is None, this method calls
+        self.get_dark_count_rate_in_mHz_per_mm2(*args) itself. If it is
+        defined, then it must be the tuple which such method returns, i.e.
+        (value, error), and it is used as it is. It is meant for callers which
+        have already computed this magnitude, so that it is not computed twice.
+        - cross_talk_probability (None or tuple): Used only if
+        include_analysis_results is True. If it is None, this method calls
+        self.get_cross_talk_probability(alpha=xtp_significance_level) itself.
+        If it is defined, then it must be the tuple which such method returns,
+        i.e. (value, lower error, upper error, indices), and it is used as it
+        is. It is meant for callers which have already computed this magnitude,
+        so that the cross-talk criterion is not evaluated twice. Note that in
+        that case it is the caller's responsibility to have used the intended
+        significance level, since xtp_significance_level is then ignored.
+        - after_pulse_probability (None or tuple): The after-pulse counterpart
+        of cross_talk_probability. If it is defined, then app_significance_level
+        and afterpulse_threshold_in_s are ignored.
         - overwrite (bool): This parameter only makes a difference if
         the 'folderpath' parameter is defined and if there is already
         a file in the given folder path whose name matches
@@ -3109,10 +3138,45 @@ class DarkNoiseMeas(SiPMMeas):
                 "DarkNoiseMeas.output_summary", 47582
             ),
         )
+        htype.check_type(
+            afterpulse_threshold_in_s,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.output_summary", 30514
+            ),
+        )
 
-        # The only parameters we are checking are additional_entries
-        # and include_analysis_results, because we are making use of
-        # them in the body of this function. The rest of them are
+        # Each already-computed magnitude must be given as the very tuple
+        # which its getter returns, so that this method can unpack it in
+        # exactly the same way it would unpack the result of calling it
+        for aux_name, aux_value, aux_length, aux_type_code, aux_length_code in (
+            ("dark_count_rate", dark_count_rate, 2, 62840, 51396),
+            ("cross_talk_probability", cross_talk_probability, 4, 19473, 74028),
+            ("after_pulse_probability", after_pulse_probability, 4, 85206, 36751),
+        ):
+            if aux_value is None:
+                continue
+
+            htype.check_type(
+                aux_value,
+                tuple,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas.output_summary", aux_type_code
+                ),
+            )
+            if len(aux_value) != aux_length:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas.output_summary",
+                        aux_length_code,
+                        extra_info=f"The given {aux_name} must be a "
+                        f"{aux_length}-tuple, as returned by its getter, but "
+                        f"a {len(aux_value)}-tuple was given.",
+                    )
+                )
+
+        # Apart from the parameters checked above, the rest of them are
         # only used by the overriden base class, so they are type-
         # and well-formedness- checked there.
 
@@ -3121,11 +3185,24 @@ class DarkNoiseMeas(SiPMMeas):
         }
 
         if include_analysis_results:
-            dcr_value, dcr_error = self.get_dark_count_rate_in_mHz_per_mm2(*args)
-            xtp_value, xtp_lower_error, xtp_upper_error = \
-                self.get_cross_talk_probability(alpha=xtp_significance_level)
-            app_value, app_lower_error, app_upper_error = \
-                self.get_after_pulse_probability(alpha=app_significance_level)
+
+            # The three magnitudes below can be handed over already computed,
+            # so that a caller which needs them before calling this method
+            # does not make this method evaluate them for a second time
+
+            dcr_value, dcr_error = \
+                self.get_dark_count_rate_in_mHz_per_mm2(*args) \
+                if dark_count_rate is None else dark_count_rate
+
+            xtp_value, xtp_lower_error, xtp_upper_error, _ = \
+                self.get_cross_talk_probability(alpha=xtp_significance_level) \
+                if cross_talk_probability is None else cross_talk_probability
+
+            app_value, app_lower_error, app_upper_error, _ = \
+                self.get_after_pulse_probability(
+                    alpha=app_significance_level,
+                    afterpulse_threshold_in_s=afterpulse_threshold_in_s
+                ) if after_pulse_probability is None else after_pulse_probability
 
             analysis_results = {
                 # Object of type numpy.ndarray is not
