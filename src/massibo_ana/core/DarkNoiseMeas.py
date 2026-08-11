@@ -1183,7 +1183,7 @@ class DarkNoiseMeas(SiPMMeas):
 
         aux = self.get_after_pulse_number(
             afterpulse_threshold_in_s=afterpulse_threshold_in_s
-        ) if exclude_afterpulses else 0
+        )[0] if exclude_afterpulses else 0
 
         dark_counts_number = self.get_dark_counts_number() - aux
         denominator = \
@@ -1325,10 +1325,22 @@ class DarkNoiseMeas(SiPMMeas):
         than afterpulse_threshold_in_s seconds apart, contribute as one
         after-pulse event.
 
-        This method returns an integer scalar which is the number of after-pulse
-        events which were spotted in this dark noise measurement. If no peaks-analysis
-        has been run (i.e. self.__timedelay is None), then this method raises a
-        cuex.NoAvailableData exception."""
+        This method returns a tuple (number, indices), where
+
+            - `number` is an integer scalar which is the number of after-pulse
+            events which were spotted in this dark noise measurement.
+
+            - `indices` is an unidimensional integer numpy array which hosts
+            the iterator values, within the per-peak arrays which are populated
+            by DarkNoiseMeas.analyze() (self.__timedelay, self.__amplitude,
+            self.__frame_idx and self.__peak_time), of the peaks which were
+            counted as after-pulse events. I.e. indices[i] points to the
+            second peak of the i-th pair of peaks which are closer than
+            afterpulse_threshold_in_s. By construction, len(indices) equals
+            number.
+
+        If no peaks-analysis has been run (i.e. self.__timedelay is None),
+        then this method raises a cuex.NoAvailableData exception."""
 
         if self.__timedelay is None:
             raise cuex.NoAvailableData(
@@ -1336,7 +1348,9 @@ class DarkNoiseMeas(SiPMMeas):
                     "DarkNoiseMeas.get_after_pulse_number", 25329
                 )
             )
-        return int(np.sum(self.__timedelay < afterpulse_threshold_in_s))
+        indices = np.where(self.__timedelay < afterpulse_threshold_in_s)[0]
+
+        return int(len(indices)), indices
 
     def get_after_pulse_probability(
             self,
@@ -1348,6 +1362,8 @@ class DarkNoiseMeas(SiPMMeas):
         of the after-pulse event probability. It must be between 0.0001 and 1.
         
         This method returns a tuple (app, app_lower_error, app_upper_error) where:
+        This method returns a tuple (app, app_lower_error, app_upper_error,
+        indices) where:
 
             - `app` is a float scalar which is the after-pulse event probability.
             It is computed as the number of after pulse events, as returned by
@@ -1367,6 +1383,13 @@ class DarkNoiseMeas(SiPMMeas):
             Clopper-Pearson method, where the number of trials is given by the
             number of dark counts minus one, and the number of successes is given
             by the number of after pulse events.
+
+            - `indices` is the unidimensional integer numpy array returned by
+            self.get_after_pulse_number(), which singles out the peaks that were
+            counted as after-pulse events. It is handed over unchanged, so that a
+            caller which needs both the probability and the samples it was built
+            from does not have to evaluate the after-pulse criterion twice. Check
+            DarkNoiseMeas.get_after_pulse_number() docstring for more information.
         """
 
         dark_counts_number = float(self.get_dark_counts_number())
@@ -1380,7 +1403,7 @@ class DarkNoiseMeas(SiPMMeas):
             after_pulse_number
         )
 
-        return app, app - app_low, app_high - app
+        return app, app - app_low, app_high - app, indices
 
     # The default values for the tag-method parameters are given in M. García et al paper.
     def identify_bursts(
