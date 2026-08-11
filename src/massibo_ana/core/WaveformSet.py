@@ -397,6 +397,7 @@ class WaveformSet(OneTypeRTL):
         color = 'black',
         peak_cc_info = None,
         highlighted_x0 = None,
+        show_x_axis_label = True
     ):
         """This method gets the following keyword arguments:
 
@@ -494,6 +495,14 @@ class WaveformSet(OneTypeRTL):
         Waveform.plot(), so that it cannot be mistaken for the integration
         limits (red), the baseline or the median cutoff (blue), or the peak
         markers (green and red).
+        - show_x_axis_label (boolean): This parameter only makes a difference
+        if mode is 'grid'. If it is True, the visibility of the x-axis label
+        follows the usual rule, i.e. it is shown for the axes which belong to
+        the last row of the grid. If it is False, then no axes of the produced
+        canvases shows the x-axis label. The x-ticks labels are not affected
+        in any case. Setting it to False is useful when several single-row
+        canvases are stacked so as to make up one single logical grid, where
+        only the bottom-most canvas should carry the x-axis label.
 
         This method returns a list of matplotlib.figure.Figure objects.
         This list contains every figure (canvas) produced by this method,
@@ -778,6 +787,15 @@ class WaveformSet(OneTypeRTL):
                     "WaveformSet.plot", 37
                 ),
             )
+
+        htype.check_type(
+            show_x_axis_label,
+            bool,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 38
+            ),
+        )
+
         if highlighted_x0 is not None:
             htype.check_type(
                 highlighted_x0,
@@ -840,6 +858,12 @@ class WaveformSet(OneTypeRTL):
                         WaveformSet.set_custom_labels_visibility(
                             axs[iterator], iterator[0], iterator[1], nrows
                         )
+                        if not show_x_axis_label:
+                            # Same mechanism used by
+                            # WaveformSet.set_custom_labels_visibility(), so
+                            # that the space the label took is actually freed
+                            axs[iterator].xaxis.set_label_text("")
+
                         if highlighted_x0 is not None:
                             if highlighted_x0[counter] is not None:
                                 axs[iterator].axvline(
