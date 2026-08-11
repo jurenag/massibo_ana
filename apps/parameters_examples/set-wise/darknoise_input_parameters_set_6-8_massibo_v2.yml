@@ -94,6 +94,15 @@ XTP_significance_level: 0.32
 # Clopper-Pearson method.
 APP_significance_level: 0.32
 
+# Any two consecutive spotted peaks which are less than this time
+# apart, in seconds, contribute as one after-pulse event. It is
+# therefore the criterion which defines the after-pulse probability
+# (APP), and the one used to pick the after-pulse examples which are
+# shown in the report. Note that it sets no condition on the amplitude
+# of the peaks. The default value, 5.e-6, is the one used by
+# M. A. Garcia et al.
+afterpulse_threshold_in_s: 5.e-6
+
 ### Parameters for the configuration of the peak detection algorithm
 # It must belong to the interval [0.0, 1.0]. For
 # each waveform, this value represents the fraction
