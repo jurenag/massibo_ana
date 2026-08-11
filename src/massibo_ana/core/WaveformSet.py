@@ -893,10 +893,18 @@ class WaveformSet(OneTypeRTL):
                     # of nrows*ncols, in the last canvas (last value for i
                     # in the outer loop), an IndexError will raise when
                     # there are no more waveforms to plot, but there are
-                    # some free spots in the plot-grid yet. Just handle it
-                    # by breaking out of the inner loop, and let the outer
-                    # loop naturally finish.
+                    # some free spots in the plot-grid yet. Blank the ticks
+                    # of the remaining axes, so that they read as empty
+                    # slots rather than as axes spanning a 0-1 range, then
+                    # break out of the inner loop and let the outer loop
+                    # naturally finish.
                     except IndexError:
+                        axs[iterator].set_xticks([])
+                        axs[iterator].set_yticks([])
+                        for k in range(j + 1, nrows * ncols):
+                            aux_iterator = next(index_generator)
+                            axs[aux_iterator].set_xticks([])
+                            axs[aux_iterator].set_yticks([])
                         break
                     counter += 1
                 fig.suptitle(
