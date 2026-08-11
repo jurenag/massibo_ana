@@ -404,7 +404,9 @@ class WaveformSet(OneTypeRTL):
         is an integer value, say N, this function plots N waveforms in the
         set. If this parameter is a list of integers, this function plots
         the waveforms whose iterator value within the set matches any
-        integer within wvfs_to_plot.
+        integer within wvfs_to_plot. In this last case, the given order is
+        respected and repeated entries are honoured, i.e. giving [3, 3]
+        plots the waveform number 3 in two different axes.
         - plot_peaks (boolean): For each waveform which should be plotted,
         up to wvfs_to_plot, this parameter is given to the 'plot_peaks'
         parameter of its Waveform.plot() method. If True, and there are
@@ -525,7 +527,11 @@ class WaveformSet(OneTypeRTL):
                     raise cuex.InvalidParameterDefinition(
                         htype.generate_exception_message("WaveformSet.plot", 5)
                     )
-            wvfs_indices = tuple(set(wvfs_to_plot))  # Purge matching entries
+            # The given order is respected and repeated entries are kept,
+            # so that the caller can deliberately plot the same waveform
+            # more than once, p.e. to single out two different peaks of
+            # the same waveform in two different axes.
+            wvfs_indices = tuple(wvfs_to_plot)
         else:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message("WaveformSet.plot", 6)
