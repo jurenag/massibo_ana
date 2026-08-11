@@ -509,6 +509,9 @@ class WaveformSet(OneTypeRTL):
         up to the given input parameters. I.e. if mode is 'grid', then
         such list will potentially contain more than one figure. If mode
         is 'superposition', then the list will contain only one figure.
+        In 'grid' mode, at least one canvas is always produced, even if
+        the set of selected waveforms is empty, in which case the returned
+        canvas hosts the requested grid with every axes left empty.
 
         """
 
@@ -830,7 +833,13 @@ class WaveformSet(OneTypeRTL):
 
         if mode != "superposition":  # Grid plot is default
             counter = 0
-            how_many_canvases = int(math.ceil(len(wvfs_indices) / (nrows * ncols)))
+            # Even an empty selection produces one canvas, which hosts
+            # the requested grid with every axes left empty. This way
+            # the caller always gets back the canvas it asked for.
+            how_many_canvases = max(
+                1,
+                int(math.ceil(len(wvfs_indices) / (nrows * ncols)))
+            )
             for i in range(how_many_canvases):
                 index_generator = WaveformSet.index_generator(nrows, ncols)
                 fig, axs = plt.subplots(
