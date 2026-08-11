@@ -841,10 +841,16 @@ class WaveformSet(OneTypeRTL):
                 int(math.ceil(len(wvfs_indices) / (nrows * ncols)))
             )
             for i in range(how_many_canvases):
-                index_generator = WaveformSet.index_generator(nrows, ncols)
+                index_generator = WaveformSet.bidimensional_index_generator(
+                    nrows, ncols
+                )
                 fig, axs = plt.subplots(
-                    nrows=nrows, 
+                    nrows=nrows,
                     ncols=ncols,
+                    # squeeze=False keeps axs a 2D-array even for single-row
+                    # or single-column grids, so that the axs[iterator]
+                    # indexing below is valid regardless of nrows and ncols
+                    squeeze=False,
                     figsize=(fig_width, fig_height) if fSetFigSize else None
                 )
                 for j in range(nrows * ncols):
