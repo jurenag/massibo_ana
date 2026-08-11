@@ -1195,11 +1195,23 @@ class DarkNoiseMeas(SiPMMeas):
         return dcr, dcr_error
 
     def get_cross_talk_number(self):
-        """This method returns an integer scalar which is the number of cross-talk
-        events which were spotted in this dark noise measurement. If no peaks-analysis
-        has been run (i.e. self.__timedelay is None) or self has not been analyzed
-        (i.e. self.__one_and_a_half_pe is None), then this method raises a
-        cuex.NoAvailableData exception."""
+        """This method returns a tuple (number, indices), where
+
+            - `number` is an integer scalar which is the number of cross-talk
+            events which were spotted in this dark noise measurement, i.e. the
+            number of spotted peaks whose amplitude is bigger than the 1.5-PE
+            amplitude, self.__one_and_a_half_pe.
+
+            - `indices` is an unidimensional integer numpy array which hosts
+            the iterator values, within the per-peak arrays which are populated
+            by DarkNoiseMeas.analyze() (self.__timedelay, self.__amplitude,
+            self.__frame_idx and self.__peak_time), of the peaks which were
+            counted as cross-talk events. By construction, len(indices) equals
+            number.
+
+        If no peaks-analysis has been run (i.e. self.__timedelay is None) or
+        self has not been analyzed (i.e. self.__one_and_a_half_pe is None),
+        then this method raises a cuex.NoAvailableData exception."""
 
         if self.__timedelay is None:
             raise cuex.NoAvailableData(
@@ -1213,7 +1225,9 @@ class DarkNoiseMeas(SiPMMeas):
                     "DarkNoiseMeas.get_cross_talk_number", 27383
                 )
             )
-        return int(np.sum(self.__amplitude > self.__one_and_a_half_pe))
+        indices = np.where(self.__amplitude > self.__one_and_a_half_pe)[0]
+
+        return int(len(indices)), indices
 
     @staticmethod
     def _compute_clopper_pearson_interval(
@@ -1264,8 +1278,9 @@ class DarkNoiseMeas(SiPMMeas):
 
         - alpha (scalar float): Significance level for the confidence interval
         of the cross-talk event probability. It must be between 0.0001 and 1.
-        
-        This method returns a tuple (xtp, xtp_lower_error, xtp_upper_error) where:
+
+        This method returns a tuple (xtp, xtp_lower_error, xtp_upper_error,
+        indices) where:
 
             - `xtp` is a float scalar which is the cross-talk event probability.
             It is computed as the number of cross talk events, as returned by
@@ -1279,10 +1294,18 @@ class DarkNoiseMeas(SiPMMeas):
             Clopper-Pearson method, where the number of trials is given by the
             number of dark counts, and the number of successes is given by the
             number of cross talk events.
+
+            - `indices` is the unidimensional integer numpy array returned by
+            self.get_cross_talk_number(), which singles out the peaks that were
+            counted as cross-talk events. It is handed over unchanged, so that a
+            caller which needs both the probability and the samples it was built
+            from does not have to evaluate the cross-talk criterion twice. Check
+            DarkNoiseMeas.get_cross_talk_number() docstring for more information.
         """
 
         dark_counts_number = float(self.get_dark_counts_number())
-        cross_talk_number = float(self.get_cross_talk_number())
+        cross_talk_number, indices = self.get_cross_talk_number()
+        cross_talk_number = float(cross_talk_number)
 
         xtp = cross_talk_number / dark_counts_number
         xtp_low, xtp_high = DarkNoiseMeas._compute_clopper_pearson_interval(
@@ -1291,7 +1314,7 @@ class DarkNoiseMeas(SiPMMeas):
             cross_talk_number
         )
 
-        return xtp, xtp - xtp_low, xtp_high - xtp
+        return xtp, xtp - xtp_low, xtp_high - xtp, indices
 
     # The after pulse threshold which was used by M. A. García et al is 5 microseconds.
     def get_after_pulse_number(self, afterpulse_threshold_in_s=5e-6):
