@@ -1525,7 +1525,6 @@ def generate_daq_crosscheck_plots(
 
     return fig1, fig2, fig3
 
-
 def generate_quantity_vs_channel_plots(
         darknoisemeas_objects,
         quantities,
@@ -1748,3 +1747,53 @@ def fetch_error_column(
             list(source_df[symmetric_col_name])
         
     return
+
+def split_into_first_and_random_samples(sample_indices, how_many):
+    """Gets an unidimensional integer numpy array, sample_indices, whose
+    entries are given in chronological order, and a positive integer,
+    how_many. It returns a tuple of two lists of integers: the first
+    how_many entries of sample_indices, and up to how_many further
+    entries randomly drawn from the rest of sample_indices. Both lists
+    are therefore disjoint, and either of them may be shorter than
+    how_many, or even empty, if there are not enough samples."""
+
+    if sample_indices is None or len(sample_indices) == 0:
+        return [], []
+
+    first_samples = [int(aux) for aux in sample_indices[:how_many]]
+    remaining_samples = sample_indices[how_many:]
+
+    if len(remaining_samples) == 0:
+        return first_samples, []
+
+    random_samples = np.random.choice(
+        remaining_samples,
+        size=min(how_many, len(remaining_samples)),
+        replace=False  # Avoid duplicates
+    )
+
+    return first_samples, sorted(int(aux) for aux in random_samples)
+
+def get_frames_and_highlights(darknoisemeas, sample_indices):
+    """Gets a DarkNoiseMeas object and a list of integers,
+    sample_indices, whose entries are iterator values within the
+    per-peak arrays which DarkNoiseMeas.analyze() populates. It returns
+    a tuple of two lists: the iterator values, within
+    darknoisemeas.Waveforms, of the waveforms where those peaks
+    occurred, and the abscissae of those peaks within their own
+    waveform, i.e. in the time axis which Waveform.plot() draws. Note
+    that the frames list may contain repeated entries, since two peaks
+    of the same waveform may have been counted as two samples."""
+
+    frames = [
+        int(darknoisemeas.FrameIDX[aux]) for aux in sample_indices
+    ]
+    highlights = [
+        float(
+            darknoisemeas.PeakTime[aux]
+            - darknoisemeas.Waveforms[frame].T0
+        )
+        for aux, frame in zip(sample_indices, frames)
+    ]
+
+    return frames, highlights
