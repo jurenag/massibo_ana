@@ -1354,14 +1354,18 @@ class DarkNoiseMeas(SiPMMeas):
 
     def get_after_pulse_probability(
             self,
-            alpha=0.32
+            alpha=0.32,
+            afterpulse_threshold_in_s=5e-6
         ):
-        """This method gets the following optional keyword argument:
+        """This method gets the following optional keyword arguments:
 
         - alpha (scalar float): Significance level for the confidence interval
         of the after-pulse event probability. It must be between 0.0001 and 1.
-        
-        This method returns a tuple (app, app_lower_error, app_upper_error) where:
+        - afterpulse_threshold_in_s (scalar float): It is given to the
+        'afterpulse_threshold_in_s' keyword argument of the
+        self.get_after_pulse_number() method. Check its docstring for more
+        information.
+
         This method returns a tuple (app, app_lower_error, app_upper_error,
         indices) where:
 
@@ -1393,7 +1397,10 @@ class DarkNoiseMeas(SiPMMeas):
         """
 
         dark_counts_number = float(self.get_dark_counts_number())
-        after_pulse_number = float(self.get_after_pulse_number())
+        after_pulse_number, indices = self.get_after_pulse_number(
+            afterpulse_threshold_in_s=afterpulse_threshold_in_s
+        )
+        after_pulse_number = float(after_pulse_number)
         n_trials = dark_counts_number - 1.
 
         app = after_pulse_number / n_trials
