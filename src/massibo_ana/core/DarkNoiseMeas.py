@@ -340,6 +340,33 @@ class DarkNoiseMeas(SiPMMeas):
         self.__frame_idx = input
         return
 
+    @PeakTime.setter
+    def PeakTime(self, input):
+        """This setter gets an unidimensional float numpy array
+        and sets it to self.__peak_time."""
+
+        htype.check_type(
+            input,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.PeakTime.Setter", 76341
+            ),
+        )
+        if input.ndim != 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.PeakTime.Setter", 40928
+                )
+            )
+        if input.dtype != np.float64:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.PeakTime.Setter", 58117
+                )
+            )
+        self.__peak_time = input
+        return
+
     @property
     def AverageSPEAmplitude(self):
         """Voltage amplitude of a single photoelectron, i.e. the fitted
