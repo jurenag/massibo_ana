@@ -1640,6 +1640,20 @@ class DarkNoiseMeas(SiPMMeas):
         time-adjacent peaks is smaller than timedelay_threshold_in_s
         seconds, is a burst.
 
+        Note that self.__timedelay[k] is the 'backwards' time delay,
+        i.e. the gap which leads INTO the k-th peak, so that a group of
+        N time-consecutive peaks is characterized by its N-1 internal
+        gaps. Hence, the group whose first peak is the (i-1)-th one and
+        which spans min_events_no+1 peaks is the one characterized by
+        the min_events_no gaps self.__timedelay[i : i+min_events_no],
+        which is the slice this method tests. That is why the scan
+        starts at i=1 and why the recorded first peak of the burst is
+        the (i-1)-th one and not the i-th one: the i-th peak has a close
+        predecessor by construction of the test, so it can never be the
+        first peak of the group. Also note that the group which the test
+        accepts holds exactly min_events_no+1 peaks, i.e. more than
+        min_events_no peaks, as the definition above demands.
+
         This method returns the four lists of integers described in the
         docstring of DarkNoiseMeas.identify_bursts(), which is the
         common output contract shared by every
@@ -1648,27 +1662,33 @@ class DarkNoiseMeas(SiPMMeas):
         bursts_init_frame, bursts_end_frame = [], []
         bursts_init_peak, bursts_end_peak = [], []
 
-        i = 0
+        # The scan starts at 1, so that i-1 (the first peak of the
+        # candidate group) is always a valid iterator value. No burst is
+        # missed by doing so: a group whose first peak is the 0-th one is
+        # spotted at i=1.
+        i = 1
 
-        # Setting this upper bound to i, so that in
-        # the next if statement, at most we will query
-        # self.__timedelay[len(self.__timedelay)-min_events_no-2:len(self.__timedelay)-1]
-        while i < len(self.__timedelay) - min_events_no - 1:
+        # Setting this upper bound to i, so that in the next if statement,
+        # at most we will query
+        # self.__timedelay[
+        #   len(self.__timedelay) - min_events_no: len(self.__timedelay)
+        # ]
+        while i < len(self.__timedelay) - min_events_no + 1:
 
             # Condition to start considering a burst
             if (
-                np.max(self.__timedelay[i : i + min_events_no + 1])
+                np.max(self.__timedelay[i : i + min_events_no])
                 < timedelay_threshold_in_s
             ):
-                bursts_init_frame.append(self.__frame_idx[i])
-                bursts_init_peak.append(i)
+                bursts_init_frame.append(self.__frame_idx[i - 1])
+                bursts_init_peak.append(i - 1)
 
                 # j is the iterator with which we will
                 # look for new members of this burst.
-                # I set its starting value to i+min_events_no+1,
+                # I set its starting value to i+min_events_no,
                 # since this one is actually excluded from
-                # timedelay[i:i+min_events_no+1]
-                j = i + min_events_no + 1
+                # timedelay[i:i+min_events_no]
+                j = i + min_events_no
 
                 try:
                     # Look for new members of this burst
