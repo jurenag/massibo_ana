@@ -104,6 +104,23 @@ class WaveformSet(OneTypeRTL):
     def SetTimeWindow(self):
         return self.__set_time_window
 
+    def refresh_set_time_window(self):
+        """This method takes no parameter and returns None. It recomputes
+        the set time-window out of the waveforms which currently belong to
+        this WaveformSet object. WaveformSet.__init__() computes such
+        quantity once, out of the last waveform of the set, so it goes
+        stale as soon as some waveform is removed (p.e. by
+        WaveformSet.purge() or by DarkNoiseMeas.purge_bursts()). This
+        method is meant to be called by whoever removes waveforms. If
+        this WaveformSet object hosts no waveform, then the set time-window
+        is set to None."""
+
+        if len(self) < 1:
+            self.__set_time_window = None
+        else:
+            self.__set_time_window = self[-1].T0 + self[-1].Time[-1]
+        return
+
     def compute_first_peak_baseline(
         self,
         signal_fraction_for_median_cutoff=0.2,
@@ -1947,6 +1964,11 @@ class WaveformSet(OneTypeRTL):
                 # value which exceeds len(self). Ignore it.
                 except IndexError:
                     continue
+
+            # The set time-window is computed out of the last
+            # waveform of the set, so it goes stale on every
+            # removal. Update it.
+            self.refresh_set_time_window()
         return
 
     def filter(
