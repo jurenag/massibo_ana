@@ -2914,8 +2914,70 @@ class DarkNoiseMeas(SiPMMeas):
         purged_copy.FrameIDX = frame_idx
         purged_copy.PeakTime = np.array(peak_time, dtype=np.float64)
 
+        DarkNoiseMeas._check_purged_object_consistency(purged_copy)
 
         return purged_copy, aux
+
+    @staticmethod
+    def _check_purged_object_consistency(darknoisemeas):
+        """This static method gets a DarkNoiseMeas object, and checks the
+        postconditions which DarkNoiseMeas.purge_bursts() must leave
+        behind, namely that
+
+        - the four per-peak arrays which DarkNoiseMeas.analyze()
+        populates (TimeDelay, Amplitude, FrameIDX and PeakTime) still
+        match in length, and
+        - every entry of FrameIDX is a valid iterator value within the
+        underlying WaveformSet.
+
+        If any of these checks fails, this static method raises a
+        cuex.MalFunction exception. It returns None otherwise.
+
+        This is the guard against the purge leaving stale information
+        behind, p.e.
+        
+        - per-peak entries which are misaligned with each other, or
+        - which point at a frame which does not exist any more or
+        - which point at a frame which is not the one where the
+        peak actually occurred."""
+
+        lengths = {
+            len(darknoisemeas.TimeDelay),
+            len(darknoisemeas.Amplitude),
+            len(darknoisemeas.FrameIDX),
+            len(darknoisemeas.PeakTime),
+        }
+
+        if len(lengths) != 1:
+            raise cuex.MalFunction(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas._check_purged_object_consistency",
+                    31465,
+                    extra_info="The TimeDelay, Amplitude, FrameIDX and "
+                    "PeakTime arrays must match in length, but their "
+                    f"lengths are {sorted(lengths)}.",
+                )
+            )
+
+        if len(darknoisemeas.FrameIDX) > 0:
+            if (
+                np.min(darknoisemeas.FrameIDX) < 0
+                or np.max(darknoisemeas.FrameIDX)
+                >= len(darknoisemeas.Waveforms)
+            ):
+                raise cuex.MalFunction(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas._check_purged_object_consistency",
+                        82703,
+                        extra_info="Every FrameIDX entry must be a valid "
+                        "iterator value within the underlying WaveformSet, "
+                        f"which hosts {len(darknoisemeas.Waveforms)} "
+                        "waveforms, but FrameIDX spans "
+                        f"[{np.min(darknoisemeas.FrameIDX)}, "
+                        f"{np.max(darknoisemeas.FrameIDX)}].",
+                    )
+                )
+        return
 
     @staticmethod
     def lists_are_intertwined(a, b):
