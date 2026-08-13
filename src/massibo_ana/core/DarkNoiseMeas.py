@@ -1718,6 +1718,109 @@ class DarkNoiseMeas(SiPMMeas):
                 i += 1
         return bursts_init_frame, bursts_end_frame, bursts_init_peak, bursts_end_peak
 
+    @staticmethod
+    def compute_PSW_p_values(
+        timedelay,
+        psw_size_s,
+        rate_hz
+    ):
+        """This static method gets the following mandatory positional
+        arguments:
+
+        - timedelay (unidimensional float numpy array): Time delays, in
+        seconds, between every two time-adjacent counted dark counts, i.e.
+        the very same array which DarkNoiseMeas.analyze() stores in
+        self.__timedelay.
+        - psw_size_s (scalar float): Width, in seconds, of the sliding
+        window. It must be positive.
+        - rate_hz (scalar float): Nominal (burstless) dark count rate of
+        the whole SiPM sensitive surface, expressed in hertz. It must be
+        positive.
+
+        This static method implements the event-anchored sliding-window
+        sweep which is at the core of the Poisson-sliding-window (PSW)
+        method, i.e. the hypothesis test itself. Let
+        t[i] = np.cumsum(timedelay)[i] be the absolute time, in seconds
+        since the first retained peak, of the (i+1)-th counted dark count.
+        For every counted dark count i, the number n of counted dark counts
+        falling in the window [t[i] - psw_size_s, t[i]] is computed with a
+        two-pointer sweep (so the runtime is linear in the number of
+        counted dark counts). Under the null hypothesis of a stationary
+        Poisson process of rate rate_hz, the expected count in the window
+        is lambda = rate_hz * psw_size_s, and the one-sided p-value for an
+        excess is the Poisson tail probability
+        P(N >= n) = poisson.sf(n - 1, lambda).
+
+        This static method returns a tuple (window_left_idx, p_values) of
+        two unidimensional numpy arrays whose length matches that of
+        timedelay. window_left_idx[i] is the iterator value, with respect
+        to timedelay, of the first counted dark count which falls within
+        the window anchored at the i-th counted dark count, so that such
+        window spans the closed interval of iterator values
+        [window_left_idx[i], i]. p_values[i] is the one-sided p-value
+        described above for that window.
+
+        Note that this static method neither compares the p-values against
+        any significance level, nor folds overlapping flagged windows into
+        bursts. Both steps belong to the interpretation of the test
+        outcome, rather than to the test itself, and they are carried out
+        by DarkNoiseMeas._identify_bursts_w_PSW_method(), which is this
+        method's only caller within the burst-identification pipeline."""
+
+        htype.check_type(
+            timedelay,
+            np.ndarray,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_PSW_p_values", 71954
+            ),
+        )
+        htype.check_type(
+            rate_hz,
+            float,
+            np.float64,
+            exception_message=htype.generate_exception_message(
+                "DarkNoiseMeas.compute_PSW_p_values", 58390
+            ),
+        )
+        if psw_size_s <= 0.0 or rate_hz <= 0.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "DarkNoiseMeas.compute_PSW_p_values",
+                    63712,
+                    extra_info="psw_size_s and rate_hz must be positive.",
+                )
+            )
+
+        n_peaks = len(timedelay)
+        if n_peaks == 0:
+            return (
+                np.array([], dtype=np.int64),
+                np.array([], dtype=np.float64),
+            )
+
+        # Absolute time of each counted dark count since the
+        # first retained peak. t is aligned 1:1 with timedelay.
+        t = np.cumsum(timedelay)
+        expected = rate_hz * psw_size_s
+
+        window_left_idx = np.empty(n_peaks, dtype=np.int64)
+        counts = np.empty(n_peaks, dtype=np.int64)
+
+        # Event-anchored two-pointer sweep
+        left = 0
+        for right in range(n_peaks):
+            while t[left] < t[right] - psw_size_s:
+                left += 1
+            window_left_idx[right] = left
+            counts[right] = right - left + 1
+
+        p_values = spsta.poisson.sf(
+            counts - 1,
+            expected
+        )  # P(N >= n)
+
+        return window_left_idx, p_values
+
     def _identify_bursts_w_PSW_method(
         self,
         psw_size_s,
@@ -1737,18 +1840,17 @@ class DarkNoiseMeas(SiPMMeas):
         positive.
 
         This method implements the Poisson-sliding-window (PSW) method in
-        its event-anchored form. Let t[i] = np.cumsum(self.__timedelay)[i]
-        be the absolute time, in seconds since the first retained peak,
-        of the (i+1)-th counted dark count. For every counted dark count
-        i, the number n of counted dark counts falling in the window
-        [t[i] - psw_size_s, t[i]] is computed with a two-pointer sweep
-        (so the runtime is linear in the number of counted dark counts).
-        Under the null hypothesis of a stationary Poisson process of rate
-        rate_hz, the expected count in the window is
-        lambda = rate_hz * psw_size_s, and the one-sided p-value for an
-        excess is the Poisson tail probability P(N >= n) = poisson.sf(
-        n - 1, lambda). The window is flagged when this p-value is smaller
-        than significance_level.
+        its event-anchored form. The sweep itself, i.e. the per-window
+        Poisson hypothesis test, is delegated to the
+        DarkNoiseMeas.compute_PSW_p_values() static method: for every
+        counted dark count i, it counts the n counted dark counts falling
+        in the window [t[i] - psw_size_s, t[i]] (with t the cumulative sum
+        of self.__timedelay) and returns the one-sided p-value for an
+        excess, P(N >= n) = poisson.sf(n - 1, rate_hz * psw_size_s), under
+        the null hypothesis of a stationary Poisson process of rate
+        rate_hz. Check that method's docstring for more information. Here,
+        the window is flagged when its p-value is smaller than
+        significance_level.
 
         Since several consecutive dark counts of the same physical burst
         yield several overlapping (or peak-index-contiguous) flagged
@@ -1763,22 +1865,19 @@ class DarkNoiseMeas(SiPMMeas):
         output contract shared by every
         DarkNoiseMeas._identify_bursts_w_*_method() helper."""
 
-        htype.check_type(
+        # The event-anchored sweep and the p-value computation (i.e. the
+        # hypothesis test itself) is done in
+        # DarkNoiseMeas.compute_PSW_p_values(), which also runs the rate_hz
+        # type check (58390) and the psw_size_s/rate_hz positivity check
+        # (63712). What is left here is the interpretation of the test
+        # outcome: the comparison against significance_level and the
+        # folding of the flagged windows into bursts.
+        window_left_idx, p_values = DarkNoiseMeas.compute_PSW_p_values(
+            self.__timedelay,
+            psw_size_s,
             rate_hz,
-            float,
-            np.float64,
-            exception_message=htype.generate_exception_message(
-                "DarkNoiseMeas._identify_bursts_w_PSW_method", 58390
-            ),
         )
-        if psw_size_s <= 0.0 or rate_hz <= 0.0:
-            raise cuex.InvalidParameterDefinition(
-                htype.generate_exception_message(
-                    "DarkNoiseMeas._identify_bursts_w_PSW_method",
-                    63712,
-                    extra_info="psw_size_s and rate_hz must be positive.",
-                )
-            )
+
         if significance_level <= 0.0 or significance_level >= 1.0:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
@@ -1789,26 +1888,16 @@ class DarkNoiseMeas(SiPMMeas):
                 )
             )
 
-        n_peaks = len(self.__timedelay)
-        if n_peaks == 0:
+        if len(p_values) == 0:
             return [], [], [], []
 
-        # Absolute time of each counted dark count since the first retained
-        # peak. t is aligned 1:1 with self.__timedelay/__amplitude/__frame_idx.
-        t = np.cumsum(self.__timedelay)
-        expected = rate_hz * psw_size_s
-
-        # Event-anchored two-pointer sweep. Each flagged entry is a
-        # [left, right] closed interval of peak-iterator values.
-        flagged = []
-        left = 0
-        for right in range(n_peaks):
-            while t[left] < t[right] - psw_size_s:
-                left += 1
-            n = right - left + 1
-            p_value = spsta.poisson.sf(n - 1, expected)  # P(N >= n)
-            if p_value < significance_level:
-                flagged.append((left, right))
+        # Each flagged entry is a [left, right] closed interval of
+        # peak-iterator values.
+        flagged = [
+            (int(window_left_idx[right]), right)
+            for right in range(len(p_values))
+            if p_values[right] < significance_level
+        ]
 
         if len(flagged) == 0:
             return [], [], [], []
