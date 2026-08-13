@@ -2605,15 +2605,38 @@ class DarkNoiseMeas(SiPMMeas):
 
         This class method spots every burst within the given DarkNoiseMeas
         object, via its identify_bursts() method, up the given parameters.
-        Then, for every burst, every waveform which contains at least one
-        peak which belongs to the burst, is removed from its underlying
-        WaveformSet object. The self.__timedelay, self.__amplitude and
-        self.__frame_idx attributes are also purged, meaning that the
+        Then:
+
+        1) The four per-peak arrays which DarkNoiseMeas.analyze()
+        populates (self.__timedelay, self.__amplitude, self.__frame_idx
+        and self.__peak_time) are purged at once, meaning that the
         entries (and only those entries) which match any peak belonging
-        to a burst, are also removed from the three attributes at once.
-        In this way, the analysis that is inherited from
-        darknoisemeas_to_purge is not destroyed, but filtered.
-        
+        to a burst, are removed from the four of them. In this way, the
+        analysis that is inherited from darknoisemeas_to_purge is not
+        destroyed, but filtered, and the four arrays stay aligned.
+
+        2) Every waveform which falls within the frame span of some
+        burst, i.e. within [bursts_init_frame[i], bursts_end_frame[i]]
+        for some i, AND which hosts no surviving peak, is removed from
+        the underlying WaveformSet object. The second condition matters
+        because the frame span of a burst is coarser than its peak
+        range: a waveform may host both a peak which belongs to the
+        burst and a peak which does not (two peaks of the same waveform
+        are, at most, one waveform time-width apart, whereas the burst
+        boundaries are set by time gaps which are typically much
+        larger). Deleting such a waveform would leave a surviving peak
+        pointing at a frame which no longer exists, which is exactly the
+        kind of stale information this method must not produce. Note
+        that the waveforms which host no peak at all and which fall
+        within the frame span of some burst ARE removed, since they were
+        acquired while the burst was going on.
+
+        3) The surviving entries of self.__frame_idx are remapped to the
+        post-purge numbering of the underlying WaveformSet, so that
+        purged_copy.Waveforms[purged_copy.FrameIDX[k]] keeps being the
+        waveform where the k-th surviving peak occurred.
+
+
         Apart from the purged DarkNoiseMeas object, this method returns a
         dictionary with the following keys:
             - 'bursts_no': The number of bursts that were spotted in
@@ -2655,8 +2678,9 @@ class DarkNoiseMeas(SiPMMeas):
         p = darknoisemeas_to_purge.TimeDelay is None
         q = darknoisemeas_to_purge.Amplitude is None
         r = darknoisemeas_to_purge.FrameIDX is None
+        s = darknoisemeas_to_purge.PeakTime is None
 
-        if p or q or r:
+        if p or q or r or s:
             raise RuntimeError(
                 htype.generate_exception_message(
                     "DarkNoiseMeas.purge_bursts",
@@ -2737,11 +2761,50 @@ class DarkNoiseMeas(SiPMMeas):
                     )
                 )
 
+        # The frame span of a burst is coarser than its peak range, since
+        # a waveform may host both a peak which belongs to the burst and
+        # a peak which does not. Deleting such a waveform would leave a
+        # surviving peak pointing at a frame which no longer exists, so
+        # the waveforms which host some surviving peak must be spared. To
+        # spot them, the surviving peaks need to be known before any
+        # deletion takes place, which is why this block comes first.
+        peaks_to_remove = set()
+        for i in range(len(bursts_init_peak)):
+            peaks_to_remove.update(
+                range(bursts_init_peak[i], 1 + bursts_end_peak[i])
+            )
+
+        frames_hosting_surviving_peaks = set(
+            int(purged_copy.FrameIDX[k])
+            # k runs in range(len(...)), so k refers
+            # to peaks, not frames
+            for k in range(len(purged_copy.FrameIDX))
+            if k not in peaks_to_remove
+        )
+
+        # A count of the frames that should be removed,
+        # potentially including surviving peaks
+        frames_to_remove = set()
+        for i in range(len(bursts_init_frame)):
+            frames_to_remove.update(
+                range(int(bursts_init_frame[i]), 1 + int(bursts_end_frame[i]))
+            )
+
+        # The waveforms which host no peak at all and which fall
+        # within the frame span of some burst are removed as well,
+        # since they were acquired while the burst was going on
+        frames_to_remove = sorted(
+            frames_to_remove - frames_hosting_surviving_peaks
+        )
+
         # Removal from WaveformSet (list) should be
         # done from bigger to smaller iterator values
-        for i in reversed(range(len(bursts_init_frame))):
-            for j in reversed(range(bursts_init_frame[i], 1 + bursts_end_frame[i])):
-                purged_copy.Waveforms.remove_member_by_index(j)
+        for frame in reversed(frames_to_remove):
+            purged_copy.Waveforms.remove_member_by_index(frame)
+
+        # The set time-window is computed by WaveformSet.__init__() out of
+        # the last waveform of the set, so it goes stale on every removal
+        purged_copy.Waveforms.refresh_set_time_window()
 
         if correct_acquisition_time:
             # Correct the acquisition time before the
@@ -2803,23 +2866,50 @@ class DarkNoiseMeas(SiPMMeas):
                     "cancel each other out."
                 )
 
-        timedelay, amplitude, frame_idx = (
+        # Converting the attributes to lists, so that removal
+        # here needs to happen from bigger to smaller iterator values.
+        timedelay, amplitude, frame_idx, peak_time = (
             list(purged_copy.TimeDelay),
             list(purged_copy.Amplitude),
             list(purged_copy.FrameIDX),
+            list(purged_copy.PeakTime),
         )
 
-        # Converting the attributes to lists, so that removal
-        # here needs to happen from bigger to smaller iterator values
+        # The four arrays are purged at once, so that they stay aligned.
+        # Note that, even if the frames which host some surviving peak
+        # are spared, the peaks which belong to a burst are removed
+        # anyways from __timedelay, ..., peak_time. This means that,
+        # in a posterior visualization of the purged data, one may
+        # see what looks like a legitimate peak but which is not
+        # flagged/spotted as such. This is not bug, it is just a peak
+        # that belongs to a burst, which shares the frame with a peak
+        # which does not belong to that burst.
         for i in reversed(range(len(bursts_init_peak))):
             for j in reversed(range(bursts_init_peak[i], 1 + bursts_end_peak[i])):
                 del timedelay[j]
                 del amplitude[j]
                 del frame_idx[j]
+                del peak_time[j]
+
+        # Remap the surviving frame indices to the post-purge numbering of
+        # the underlying WaveformSet. Since frames_to_remove is sorted
+        # increasingly, the number of deleted frames which precede a given
+        # surviving frame is what np.searchsorted() returns for it. No
+        # surviving frame can collide with a deleted one, since every
+        # frame which hosts a surviving peak was spared above.
+        frame_idx = np.array(frame_idx, dtype=np.int64)
+        if len(frames_to_remove) > 0 and len(frame_idx) > 0:
+            frame_idx = frame_idx - np.searchsorted(
+                np.array(frames_to_remove, dtype=np.int64),
+                frame_idx,
+                side="left",
+            ).astype(np.int64)
 
         purged_copy.TimeDelay = np.array(timedelay, dtype=np.float64)
         purged_copy.Amplitude = np.array(amplitude, dtype=np.float64)
-        purged_copy.FrameIDX = np.array(frame_idx, dtype=np.int64)
+        purged_copy.FrameIDX = frame_idx
+        purged_copy.PeakTime = np.array(peak_time, dtype=np.float64)
+
 
         return purged_copy, aux
 
