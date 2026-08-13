@@ -2042,6 +2042,10 @@ class DarkNoiseMeas(SiPMMeas):
                 )
             )
 
+        # Reaching this point means that x is not empty, i.e. that some
+        # peak survived, and DarkNoiseMeas.purge_bursts() should guarantee
+        # that, if a waveform hosts a surviving peak, then the waveform
+        # must survive as well. Hence, self.Waveforms is not empty here.
         if "signal_magnitude" in self.Waveforms[0].Signs.keys():
             if "signal_unit" in self.Waveforms[0].Signs.keys():
                 axes.set_ylabel(
