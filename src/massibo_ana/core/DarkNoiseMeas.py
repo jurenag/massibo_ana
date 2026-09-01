@@ -212,6 +212,14 @@ class DarkNoiseMeas(SiPMMeas):
         self.__average_SPE_integral_error = None
         self.__number_of_SPEs_used_for_average_SPE_integral = None
 
+        # One-sided p-value threshold which the PSW method actually used in
+        # the last burst identification run over this object. It is not a
+        # configuration parameter: when the caller gives min_pulses_in_window
+        # instead of significance_level, it is derived from the nominal rate,
+        # so it may differ from SiPM to SiPM. It stays None for the tag
+        # method, which defines no significance level.
+        self.__effective_significance_level = None
+
         # N.B.: acquisition_time_min does not appear in
         # this list because it comes from the WaveformSet
         # core data. It is computed by WaveformSet.from_files().
@@ -262,6 +270,10 @@ class DarkNoiseMeas(SiPMMeas):
     @property
     def PeakTime(self):
         return self.__peak_time
+
+    @property
+    def EffectiveSignificanceLevel(self):
+        return self.__effective_significance_level
 
     @TimeDelay.setter
     def TimeDelay(self, input):
@@ -1446,9 +1458,10 @@ class DarkNoiseMeas(SiPMMeas):
         min_events_no=5,
         timedelay_threshold_in_s=0.1,  # 100 ms
         psw_size_s=1.0,
-        significance_level=1.0e-3,
+        significance_level=None,
         nominal_dcr_in_mHz_per_mm2=15.0,
         sipm_sensitive_area_in_mm2=None,
+        min_pulses_in_window=None,
     ):
         """This method gets the following optional keyword arguments:
 
@@ -1478,7 +1491,9 @@ class DarkNoiseMeas(SiPMMeas):
         threshold (alpha) below which the observed count in a sliding
         window is deemed incompatible with the nominal Poisson rate. It
         is only used when burst_identification_method is 'psw' or
-        'combined'.
+        'combined'. It competes with min_pulses_in_window: check the note
+        on their hierarchy in the
+        DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
         - nominal_dcr_in_mHz_per_mm2 (None or scalar float): Nominal
         dark count rate, expressed as a superficial density in millihertz
         per square millimeter, expected in the absence of bursts. It is
@@ -1490,6 +1505,14 @@ class DarkNoiseMeas(SiPMMeas):
         not be None) when burst_identification_method is 'psw' or
         'combined', since it is used to convert the per-area dark count
         rate into an absolute rate in hertz.
+        - min_pulses_in_window (None or scalar integer): Exclusive lower
+        bound to the number of counted dark counts within a window of
+        psw_size_s seconds, for such window to be flagged. It is an
+        alternative way to set the significance level, which it competes
+        with. It is only used when burst_identification_method is 'psw' or
+        'combined'. Check the note on the
+        significance_level/min_pulses_in_window hierarchy in the
+        DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
 
         This method is an algorithm dispatcher: up to the value given to
         burst_identification_method, it delegates the burst identification
@@ -1522,11 +1545,34 @@ class DarkNoiseMeas(SiPMMeas):
             ),
         )
 
+        if burst_identification_method in ("psw", "combined"):
+            # Both of them may be None (they compete, and the hierarchy is
+            # resolved downstream), so they are only type-checked when they
+            # are defined. Leaving both undefined is an error, but it is
+            # DarkNoiseMeas._identify_bursts_w_PSW_method() which raises it.
+            if significance_level is not None:
+                htype.check_type(
+                    significance_level,
+                    float,
+                    np.float64,
+                    exception_message=htype.generate_exception_message(
+                        "DarkNoiseMeas.identify_bursts", 94761
+                    ),
+                )
+            if min_pulses_in_window is not None:
+                htype.check_type(
+                    min_pulses_in_window,
+                    int,
+                    np.int64,
+                    exception_message=htype.generate_exception_message(
+                        "DarkNoiseMeas.identify_bursts", 40873
+                    ),
+                )
+
         if burst_identification_method == "psw":
             # All of them should be float scalars
             for value, error_code in (
                 (psw_size_s, 47186),
-                (significance_level, 94761),
                 (nominal_dcr_in_mHz_per_mm2, 91284),
                 (sipm_sensitive_area_in_mm2, 30517),
             ):
@@ -1555,7 +1601,6 @@ class DarkNoiseMeas(SiPMMeas):
             for value, error_code in (
                 (timedelay_threshold_in_s, 47183),
                 (psw_size_s, 87657),
-                (significance_level, 43241),
                 (sipm_sensitive_area_in_mm2, 88361),
             ):
                 htype.check_type(
@@ -1585,7 +1630,12 @@ class DarkNoiseMeas(SiPMMeas):
                 ),
             )
 
-        # Dispatch block
+        # The effective significance level is reset here, so that it always
+        # describes the LAST identification run over self, whichever method
+        # it used. In particular, it stays None for the tag method, which
+        # defines no significance level.
+        self.__effective_significance_level = None
+
         if burst_identification_method == "psw":
             # Convert the per-area nominal dark count rate (mHz/mm2) into
             # an absolute rate in Hz for the whole SiPM sensitive surface.
@@ -1597,6 +1647,7 @@ class DarkNoiseMeas(SiPMMeas):
                 psw_size_s,
                 significance_level,
                 rate_hz,
+                min_pulses_in_window=min_pulses_in_window,
             )
 
         elif burst_identification_method == "combined":
@@ -1606,6 +1657,7 @@ class DarkNoiseMeas(SiPMMeas):
                 psw_size_s,
                 significance_level,
                 sipm_sensitive_area_in_mm2,
+                min_pulses_in_window=min_pulses_in_window,
             )
 
         else:
@@ -1825,19 +1877,67 @@ class DarkNoiseMeas(SiPMMeas):
         self,
         psw_size_s,
         significance_level,
-        rate_hz
+        rate_hz,
+        min_pulses_in_window=None,
     ):
         """This method gets the following mandatory positional arguments:
 
         - psw_size_s (scalar float): Width, in seconds, of the sliding
         window. It must be positive.
-        - significance_level (scalar float): One-sided p-value threshold
-        (alpha) below which the observed count in a window is deemed
-        incompatible with the nominal Poisson rate. It must be strictly
-        between 0 and 1.
+        - significance_level (None or scalar float): One-sided p-value
+        threshold (alpha) below which the observed count in a window is
+        deemed incompatible with the nominal Poisson rate. When it is not
+        None, it must be strictly between 0 and 1. Check the note on the
+        significance_level/min_pulses_in_window hierarchy below.
         - rate_hz (scalar float): Nominal (burstless) dark count rate of
         the whole SiPM sensitive surface, expressed in hertz. It must be
         positive.
+
+        This method also gets the following optional keyword argument:
+
+        - min_pulses_in_window (None or scalar integer): Exclusive lower
+        bound to the number of counted dark counts within a window of
+        psw_size_s seconds, for such window to be flagged. I.e. a window
+        is flagged when it hosts MORE than min_pulses_in_window counts, so
+        that min_pulses_in_window must be set to 5 for windows hosting 6
+        or more counts to be flagged. The exclusive inequality matches the
+        interpretation of the min_events_no parameter of the tag method.
+        It must be a positive integer.
+
+        These two parameters (significance_level and min_pulses_in_window)
+        are alternative ways to set the same threshold, so they compete. The
+        resolution is the following:
+
+        - If both are defined, significance_level prevails and
+          min_pulses_in_window is ignored.
+        - If neither is defined, cuex.InvalidParameterDefinition is raised.
+
+        The test flags a window hosting n counts when sf(n - 1, lambda_W)
+        is smaller than the significance level, with
+        lambda_W = rate_hz * psw_size_s. Since sf is strictly decreasing in
+        n, requiring that a window is flagged if and only if it hosts more
+        than min_pulses_in_window counts (when min_pulses_in_window is used)
+        pins the significance level down to the semi-open interval
+
+            ( sf(m, lambda_W) , sf(m - 1, lambda_W) ]
+
+        with m = min_pulses_in_window, and not to a single value: any alpha
+        within that interval yields the very same integer threshold and
+        hence the very same purge. Note that the lower end is excluded:
+        with alpha equal to it, a window hosting m + 1 counts would not be
+        flagged, since the comparison is strict.
+
+        This method takes the geometric mean of that interval, i.e. its
+        center in logarithmic scale. The interval is typically wider than a
+        decade, so the choice matters for the value which is reported (and
+        eventually persisted), although not for the identification itself.
+        The computation is done in logarithmic space, through
+        scipy.stats.poisson.logsf(), so that it does not underflow for a
+        large min_pulses_in_window or a small lambda_W.
+
+        Either way, the significance level which was actually used is
+        stored in self.__effective_significance_level, which is exposed
+        through the DarkNoiseMeas.EffectiveSignificanceLevel property.
 
         This method implements the Poisson-sliding-window (PSW) method in
         its event-anchored form. The sweep itself, i.e. the per-window
@@ -1878,15 +1978,83 @@ class DarkNoiseMeas(SiPMMeas):
             rate_hz,
         )
 
-        if significance_level <= 0.0 or significance_level >= 1.0:
+        # Resolution of the significance_level/min_pulses_in_window
+        # hierarchy. Check this method's docstring for the rationale.
+        if significance_level is not None:
+            if significance_level <= 0.0 or significance_level >= 1.0:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas._identify_bursts_w_PSW_method",
+                        84025,
+                        extra_info="significance_level must be strictly "
+                        "between 0 and 1.",
+                    )
+                )
+
+        elif min_pulses_in_window is not None:
+            htype.check_type(
+                min_pulses_in_window,
+                int,
+                np.int64,
+                exception_message=htype.generate_exception_message(
+                    "DarkNoiseMeas._identify_bursts_w_PSW_method", 39204
+                ),
+            )
+            if min_pulses_in_window < 1:
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas._identify_bursts_w_PSW_method",
+                        75318,
+                        extra_info="min_pulses_in_window must be a positive "
+                        "integer.",
+                    )
+                )
+
+            # Geometric mean of the ( sf(m, lambda_W), sf(m-1, lambda_W) ]
+            # interval, computed in logarithmic space so that it does not
+            # underflow.
+            lambda_w = rate_hz * psw_size_s
+            significance_level = float(
+                # Exponentiate because we are using logsf()
+                np.exp(
+                    # Arithmetic mean of the logarithms
+                    0.5
+                    * (
+                        spsta.poisson.logsf(min_pulses_in_window, lambda_w)
+                        + spsta.poisson.logsf(min_pulses_in_window - 1, lambda_w)
+                    )
+                )
+            )
+
+            if not (0.0 < significance_level < 1.0):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "DarkNoiseMeas._identify_bursts_w_PSW_method",
+                        26840,
+                        extra_info="the significance level derived from "
+                        f"min_pulses_in_window={min_pulses_in_window} and "
+                        f"lambda_W={lambda_w} is {significance_level}, which "
+                        "is not strictly between 0 and 1. Most likely, "
+                        "min_pulses_in_window is too large for the nominal "
+                        "rate, so that the resulting p-value underflows.",
+                    )
+                )
+
+        else:
             raise cuex.InvalidParameterDefinition(
                 htype.generate_exception_message(
                     "DarkNoiseMeas._identify_bursts_w_PSW_method",
-                    84025,
-                    extra_info="significance_level must be strictly between "
-                    "0 and 1.",
+                    58127,
+                    extra_info="either significance_level or "
+                    "min_pulses_in_window must be defined, but both of them "
+                    "are None.",
                 )
             )
+
+        # The significance level which was actually used, so that the
+        # caller can retrieve it (it may have been derived, and in that
+        # case it depends on the nominal rate, i.e. on the SiPM).
+        self.__effective_significance_level = significance_level
 
         if len(p_values) == 0:
             return [], [], [], []
@@ -1927,6 +2095,7 @@ class DarkNoiseMeas(SiPMMeas):
         psw_size_s,
         significance_level,
         sipm_sensitive_area_in_mm2,
+        min_pulses_in_window=None,
     ):
         """This method gets the following mandatory positional arguments:
 
@@ -1937,11 +2106,23 @@ class DarkNoiseMeas(SiPMMeas):
         docstring.
         - psw_size_s (scalar float): It is given to the PSW method. Check
         the DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
-        - significance_level (scalar float): It is given to the PSW method.
-        Check the DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
+        - significance_level (None or scalar float): It is given to the
+        PSW method. Check the DarkNoiseMeas._identify_bursts_w_PSW_method()
+        docstring.
         - sipm_sensitive_area_in_mm2 (scalar float): Area of the SiPM
         sensitive surface, in square millimeters. It is used to measure
         the nominal dark count rate on the tag-purged copy.
+
+        This method also gets the following optional keyword argument:
+
+        - min_pulses_in_window (None or scalar integer): It is given to
+        the PSW method. Check the
+        DarkNoiseMeas._identify_bursts_w_PSW_method() docstring, in
+        particular the note on the significance_level/min_pulses_in_window
+        hierarchy. Note that, for this method, the nominal rate is measured
+        on the tag-purged copy, so a significance level derived from
+        min_pulses_in_window depends on the very measurement, i.e. it is
+        generally different from SiPM to SiPM.
 
         This method implements the combined method. It first builds a
         throw-away copy of self which is purged from bursts with the tag
@@ -2037,6 +2218,7 @@ class DarkNoiseMeas(SiPMMeas):
             psw_size_s,
             significance_level,
             rate_hz,
+            min_pulses_in_window=min_pulses_in_window,
         )
 
     def plot_timedelay_vs_amplitude(
@@ -2622,9 +2804,10 @@ class DarkNoiseMeas(SiPMMeas):
         min_events_no=5,
         timedelay_threshold_in_s=0.1,  # 100 ms
         psw_size_s=1.0,
-        significance_level=1.0e-3,
+        significance_level=None,
         nominal_dcr_in_mHz_per_mm2=15.0,
         sipm_sensitive_area_in_mm2=None,
+        min_pulses_in_window=None,
         correct_acquisition_time=True,
         inplace=False,
         verbose=False,
@@ -2646,7 +2829,7 @@ class DarkNoiseMeas(SiPMMeas):
         - burst_identification_method (string): It selects the algorithm
         used to identify the bursts. It can be 'tag', 'psw' or 'combined'.
         Any other value is interpreted as 'tag'. This parameter, together
-        with the six parameters below, is passed unchanged to the
+        with the seven parameters below, is passed unchanged to the
         DarkNoiseMeas.identify_bursts() method of darknoisemeas_to_purge.
         Check its docstring for more information.
         - min_events_no (scalar integer): Exclusive lower bound to the
@@ -2659,7 +2842,7 @@ class DarkNoiseMeas(SiPMMeas):
         - psw_size_s (scalar float): Width, in seconds, of the sliding
         window used by the PSW method. It is only used when
         burst_identification_method is 'psw' or 'combined'.
-        - significance_level (scalar float): One-sided p-value threshold
+        - significance_level (None or scalar float): One-sided p-value threshold
         (alpha) used by the PSW method. It is only used when
         burst_identification_method is 'psw' or 'combined'.
         - nominal_dcr_in_mHz_per_mm2 (scalar float): Nominal dark count
@@ -2668,6 +2851,13 @@ class DarkNoiseMeas(SiPMMeas):
         - sipm_sensitive_area_in_mm2 (None or scalar float): Area of the
         SiPM sensitive surface, in mm2. It is required (must not be None)
         when burst_identification_method is 'psw' or 'combined'.
+        - min_pulses_in_window (None or scalar integer): Exclusive lower
+        bound to the number of counted dark counts within a window of
+        psw_size_s seconds, for such window to be flagged. It is an
+        alternative way to set the significance level, which it competes
+        with. Check the note on the
+        significance_level/min_pulses_in_window hierarchy in the
+        DarkNoiseMeas._identify_bursts_w_PSW_method() docstring.
         - correct_acquisition_time (bool): Whether the AcquisitionTime_min
         attribute of the returned object must be corrected by subtracting
         the sum of the time intervals that correspond to the purged
@@ -2684,11 +2874,21 @@ class DarkNoiseMeas(SiPMMeas):
         - verbose (bool): Whether to print functioning-related messages.
 
 
-        This class method returns a DarkNoiseMeas object. If inplace is
-        False, such object is a modified copy of darknoisemeas_to_purge.
-        If inplace is True, it is darknoisemeas_to_purge itself, modified
-        in place. The modification relies on the concept of burst, which
-        is defined as follows:
+        This class method returns a tuple. Its first entry is a
+        DarkNoiseMeas object: if inplace is False, such object is a
+        modified copy of darknoisemeas_to_purge; if inplace is True, it is
+        darknoisemeas_to_purge itself, modified in place. Its second entry
+        is a dictionary which describes the purge, with the following keys:
+        'bursts_no' (the number of identified bursts), 'bursts_init_peak'
+        and 'bursts_end_peak' (the peak-iterator boundaries of each of
+        them), and 'significance_level' (the one-sided p-value threshold
+        which the identification actually used, which is None for the tag
+        method and which may have been derived from min_pulses_in_window,
+        in which case it depends on the nominal rate of this very SiPM).
+        The dictionary is returned in every case, also when no burst was
+        found (then 'bursts_no' is 0 and the two lists are empty). The
+        modification relies on the concept of burst, which is defined as
+        follows:
 
         - Every group of time-consecutive peaks within the underlying
         WaveformSet which contains more than min_events_no peaks,
@@ -2804,6 +3004,7 @@ class DarkNoiseMeas(SiPMMeas):
                 significance_level=significance_level,
                 nominal_dcr_in_mHz_per_mm2=nominal_dcr_in_mHz_per_mm2,
                 sipm_sensitive_area_in_mm2=sipm_sensitive_area_in_mm2,
+                min_pulses_in_window=min_pulses_in_window,
             )
         )
 
@@ -2811,7 +3012,16 @@ class DarkNoiseMeas(SiPMMeas):
         aux = {
             'bursts_no': bursts_no,
             'bursts_init_peak': bursts_init_peak,
-            'bursts_end_peak': bursts_end_peak
+            'bursts_end_peak': bursts_end_peak,
+            # Significance level which the identification above actually
+            # used. It is None for the tag method, and it may have been
+            # derived from min_pulses_in_window, in which case it depends on
+            # the nominal rate of this very SiPM. It is reported through this
+            # dict, and not only through the
+            # DarkNoiseMeas.EffectiveSignificanceLevel property, because this
+            # dict is returned no matter the value of inplace.
+            'significance_level':
+                darknoisemeas_to_purge.EffectiveSignificanceLevel,
         }
 
         if bursts_no == 0:  # No bursts were found
