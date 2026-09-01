@@ -364,6 +364,19 @@ psw_size_s: 1.0
 # 'combined'.
 burst_removal_significance_level: 1.e-3
 
+# Exclusive lower bound to the number of pulses within a
+# window of psw_size_s seconds, for such window to be
+# flagged as a burst. I.e. a window is flagged when it
+# hosts more than min_pulses_in_window pulses (the
+# exclusive inequality mirrors the interpretation of
+# min_consecutive_peaks_for_burst, above). It is an
+# alternative way to set the significance level, which it
+# competes with: if both are defined, the one above
+# prevails. At least one of them must be defined. Only
+# used when burst_identification_method is 'psw' or
+# 'combined'.
+min_pulses_in_window: null
+
 # Nominal dark count rate (in mHz/mm2) expected in the
 # absence of bursts. Only used when
 # burst_identification_method is 'psw'.
