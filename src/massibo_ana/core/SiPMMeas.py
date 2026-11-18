@@ -2104,7 +2104,8 @@ class SiPMMeas(ABC):
         bin_edges=None,
         fit_parameters_bounds=None,
         std_no=3.0,
-        optimize_poisson_likelihood=False
+        optimize_poisson_likelihood=False,
+        mean_increment_relative_bound=0.5
     ):
         """This static method fits a sum of correlated Gaussian functions
         to the given x-y data. The Gaussians are 'correlated' in the sense
@@ -2137,8 +2138,11 @@ class SiPMMeas(ABC):
           [center_0, mean_increment, std_0, std_increment, S_0, S_1, ...],
           where S_i is the scaling factor for the i-th Gaussian.
           If None, default bounds are used: center_0, std_0 and
-          std_increment are unbounded. mean_increment and the scaling
-          factors have lower bound 0.
+          std_increment are unbounded. The scaling factors have lower
+          bound 0. mean_increment has lower bound 0 if
+          optimize_poisson_likelihood is False; otherwise it is bounded
+          as explained for mean_increment_relative_bound. If not None,
+          the given bounds are used as they are.
         - std_no (scalar float): It must be positive (>0.0). This number
           determines the x-range of the input data which is used for the
           fit. Namely, the x-y points used are those which fall within
@@ -2146,7 +2150,25 @@ class SiPMMeas(ABC):
            mean_seeds[-1] + std_no*std_seeds[-1]].
         - optimize_poisson_likelihood (scalar boolean): If False (default),
           scipy.optimize.curve_fit() is used. If True, a Poisson likelihood
-          maximization is performed via iminuit.BinnedNLL.
+          maximization is performed via iminuit.BinnedNLL. In this case,
+          the model is a probability density which is normalized over the
+          fitted x-range (see std_no), as BinnedNLL requires, because only
+          the bins within that range are given to BinnedNLL. Its free
+          scaling factors are relative to the last one, which is fixed
+          to 1.0, so they are seeded with the peak heights divided by the
+          height of the last peak.
+        - mean_increment_relative_bound (scalar float): It must belong to
+          the (0.0, 1.0) range. It is only used if
+          optimize_poisson_likelihood is True and fit_parameters_bounds is
+          None. In that case, mean_increment is bounded to
+          [(1 - mean_increment_relative_bound) * seed,
+           (1 + mean_increment_relative_bound) * seed], where seed is the
+          mean spacing of mean_seeds. A fit which converges to one of these
+          bounds raises a RuntimeError. The seeds come from consecutive
+          detected peaks, so a gain which departs from their spacing by
+          more than this fraction does not describe the detected peaks:
+          e.g. one Gaussian has been moved outside the fitted x-range,
+          where, with a model normalized over that range, it costs nothing.
 
         This method returns a tuple (popt, pcov, fit_function) where:
 
@@ -2258,6 +2280,19 @@ class SiPMMeas(ABC):
                 "SiPMMeas.correlated_gaussians_fit", 48223
             ),
         )
+        htype.check_type(
+            mean_increment_relative_bound,
+            float,
+            exception_message=htype.generate_exception_message(
+                "SiPMMeas.correlated_gaussians_fit", 48229
+            ),
+        )
+        if mean_increment_relative_bound <= 0.0 or mean_increment_relative_bound >= 1.0:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "SiPMMeas.correlated_gaussians_fit", 48230
+                )
+            )
 
         if optimize_poisson_likelihood:
             htype.check_type(
@@ -2445,6 +2480,24 @@ class SiPMMeas(ABC):
                 fit_parameters_bounds_[1][:-1]
             )
 
+            # The free scaling factors are relative to the last one, which
+            # is fixed to 1.0 in cumulative_model(), so their seeds are the
+            # peak heights relative to the height of the last peak. Seeding
+            # them with the raw heights (counts) would start the fit with
+            # the last Gaussian at ~1 % of its actual weight, from where it
+            # may converge to a solution which ignores the last peak (e.g.
+            # the previous Gaussian widened over the last two peaks).
+            last_scaling_seed = scaling_seeds[-1] if scaling_seeds[-1] > 0. else 1.
+            for i in range(gaussians_number - 1):
+                p0[4 + i] = scaling_seeds[i] / last_scaling_seed
+
+            # Bound the gain around the spacing of the detected peaks (see
+            # the mean_increment_relative_bound documentation). p0[1] is
+            # that spacing in the transformed (fit) units.
+            if fit_parameters_bounds is None:
+                fit_parameters_bounds_[0][1] = (1. - mean_increment_relative_bound) * p0[1]
+                fit_parameters_bounds_[1][1] = (1. + mean_increment_relative_bound) * p0[1]
+
             mask_edges = (
                 (bin_edges[:-1] >= x_min)
                 & (bin_edges[1:] <= x_max)
@@ -2482,11 +2535,10 @@ class SiPMMeas(ABC):
                     )
                 )
             
-            # Define the (normalized) cumulative model for
-            # iminuit.cost.BinnedNLL. This definition is, indeed,
-            # a CDF, since it comes from integrating a normalized
-            # sum of gaussian functions. I.e. the integral of such
-            # a sum evaluates to one. Particularly, the used PDF is
+            # Define the CDF of the normalized sum of correlated
+            # gaussian functions. I.e. the integral of such a sum,
+            # over the whole real line, evaluates to one. Particularly,
+            # the PDF is
             #
             #   pdf(x) = \frac{
             #       gauss(x, \mu _{N-1}, \sigma _{N-1}) + \sum _{i=0} ^{N-2} s_i\cdot gauss(x,\mu _i, \sigma _i)
@@ -2496,8 +2548,10 @@ class SiPMMeas(ABC):
             #
             # where gauss(x, \mu, \sigma) = exp( -(x-\mu)^2 / (2\sigma^2)).
             # You can check that the integral of this PDF is, indeed, 1.
+            # The model which is given to BinnedNLL, cumulative_model(),
+            # is defined further below out of this one.
 
-            def cumulative_model(
+            def mixture_cdf(
                     edges,
                     center_0,
                     mean_increment,
@@ -2550,21 +2604,22 @@ class SiPMMeas(ABC):
             # the workflow we are following is:
             #
             #   1)  Define (`def cumulative_model()`) a CDF which
-            #       comes from a normalized a sum of N correlated
-            #       normal distributions with N-1 free scaling factors.
-            #       This sum is a properly normalized PDF.
-            # 
-            #   2)  Fit it to a part of the histogram via BinnedNLL,
-            #       which internally normalizes the given counts, so
-            #       that the fit is performed with a normalized PDF to
-            #       a normalized histogram.
-            # 
-            #   3)  Scale the fitted normalized PDF, as a whole, by
-            #       the area of the fit histogram, so that the integral
-            #       of the fitted function matches the integral of the
-            #       histogram in the selected interval. This scaling
-            #       is done further below in the code.
-            #  
+            #       comes from a sum of N correlated normal
+            #       distributions with N-1 free scaling factors,
+            #       normalized over the selected interval.
+            #
+            #   2)  Fit it to the histogram bins in the selected
+            #       interval via BinnedNLL, which internally normalizes
+            #       the given counts, so that the fit is performed with
+            #       a PDF normalized over the interval to a histogram
+            #       normalized over the same interval.
+            #
+            #   3)  Scale the fitted PDF, as a whole, so that the
+            #       integral of the fitted function over the selected
+            #       interval matches the integral of the histogram in
+            #       that interval. This scaling is done further below
+            #       in the code.
+            #
             # To this end, we need to compute such an area, and it does
             # not matter if this is done before or after scaling the
             # edges, but the resulting scaling factors are eventually
@@ -2577,11 +2632,39 @@ class SiPMMeas(ABC):
             aux_area = np.sum(
                 fit_counts * np.diff(fit_edges)
             )
-            
+
+            # The selected interval, in the original units. It is
+            # needed to rescale the scaling factors after the fit.
+            fit_interval = (fit_edges[0], fit_edges[-1])
+
             # Transform the edges for the optimization process
             fit_edges = \
                 (fit_edges - horizontal_axis_shift_for_fit) \
                 / horizontal_axis_scaling_for_fit
+
+            # BinnedNLL requires a model whose density is normalized
+            # to unity over the space covered by the histogram it is
+            # given, which here only holds the bins of the selected
+            # interval. Hence, mixture_cdf() is normalized over that
+            # interval. A model normalized over the whole real line
+            # instead would reward the fit for moving probability into
+            # the interval (e.g. shifting the outer peaks inwards when
+            # the histogram range cuts them), biasing the gain.
+            fit_edges_low = np.array([fit_edges[0]])
+            fit_edges_high = np.array([fit_edges[-1]])
+
+            def cumulative_model(
+                    edges,
+                    center_0,
+                    mean_increment,
+                    std_0,
+                    std_increment,
+                    *scales
+                ):
+                parameters = (center_0, mean_increment, std_0, std_increment) + tuple(scales)
+                low = mixture_cdf(fit_edges_low, *parameters)[0]
+                high = mixture_cdf(fit_edges_high, *parameters)[0]
+                return (mixture_cdf(edges, *parameters) - low) / (high - low)
 
             # Define the cost function
             cost = BinnedNLL(
@@ -2634,6 +2717,21 @@ class SiPMMeas(ABC):
                     "In function SiPMMeas.correlated_gaussians_fit(): "
                     "iminuit could not compute a covariance matrix."
                 )
+
+            # A gain at its bound does not describe the detected peaks
+            # (see the mean_increment_relative_bound documentation)
+            if fit_parameters_bounds is None:
+                distance_to_bound = min(
+                    abs(popt[1] - fit_parameters_bounds_[0][1]),
+                    abs(popt[1] - fit_parameters_bounds_[1][1])
+                )
+                if distance_to_bound < 1e-3 * p0[1]:
+                    raise RuntimeError(
+                        "In function SiPMMeas.correlated_gaussians_fit(): "
+                        "the mean increment converged to one of its bounds, "
+                        f"i.e. it departs by {mean_increment_relative_bound} "
+                        "(relative) from the spacing of the detected peaks."
+                    )
 
             pcov = np.array(m.covariance)
 
@@ -2727,33 +2825,52 @@ class SiPMMeas(ABC):
             )
 
             # Now we need to rescale the scaling factors so that the
-            # integral of the fit function matches the integral of the
-            # histogram in the selected interval. Since the integral
-            # of the fit pdf(x) is one, the integral of k*pdf(x) is k.
-            # We also need to take into account the fact that, although
-            # the fit scaling factors are defined in a normalized pdf,
-            # they are later used as scaling factors for a non-normalized
-            # sum of gaussians, so we need to identify the proper
-            # rescaling by comparing
+            # integral of the fit function over the selected interval
+            # matches the integral of the histogram in that interval.
+            # Since the integral of the fit pdf(x) over the interval is
+            # one, the integral of k*pdf(x) over it is k. We also need
+            # to take into account the fact that, although the fit
+            # scaling factors are defined in a normalized pdf, they are
+            # later used as scaling factors for a non-normalized sum of
+            # gaussians, so we need to identify the proper rescaling by
+            # comparing
             #
             # pdf(x) -> k*pdf(x) = \sum _{i=0}^{N-1} s'_i * exp(...)
             #
-            # where pdf(x) is the normalized sum of correlated gaussians
-            # which depend on the computed s_i, and whose CDF is given by
-            # the cumulative_model() defined above. Using the definition
-            # of pdf(x) above and solving for s'_i, we get
+            # where pdf(x) is the sum of correlated gaussians, normalized
+            # over the interval [a, b], which depends on the computed s_i,
+            # and whose CDF is given by the cumulative_model() defined
+            # above. Using the definition of pdf(x) above and solving for
+            # s'_i, we get
             #
-            #  s'_i = (k * s_i) / ((sqrt(2 * pi) * \sum _{j=0}^{N-1} s_j * sigma_j))
+            #  s'_i = (k * s_i) / ((sqrt(2 * pi) * \sum _{j=0}^{N-1} s_j * sigma_j * w_j))
             #
-            # where s_{N-1} = 1.0, and k is the `aux_area` computed above.
-              
+            # where s_{N-1} = 1.0, k is the `aux_area` computed above and
+            # w_j is the probability of the j-th gaussian within [a, b].
+
             reconstructed_sigmas = np.array([
                 math.sqrt((popt[2] * popt[2]) + (i * popt[3] * popt[3]))
                 for i in range(gaussians_number)
             ])
 
+            reconstructed_means = np.array([
+                popt[0] + (i * popt[1])
+                for i in range(gaussians_number)
+            ])
+
+            probabilities_within_interval = \
+                spsta.norm.cdf(
+                    fit_interval[1],
+                    loc=reconstructed_means,
+                    scale=reconstructed_sigmas
+                ) - spsta.norm.cdf(
+                    fit_interval[0],
+                    loc=reconstructed_means,
+                    scale=reconstructed_sigmas
+                )
+
             aux_norm = math.sqrt(2. * spcon.pi) * \
-                    np.sum(popt[4:] * reconstructed_sigmas)
+                    np.sum(popt[4:] * reconstructed_sigmas * probabilities_within_interval)
 
             aux_rescaling_factor = aux_area / aux_norm
 
