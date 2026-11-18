@@ -1064,8 +1064,8 @@ def order_list_of_SiPMMeas_objects(
 
     # Craft the ordered list
     output = [None] * n_objects
-    for i in range(n_objects):
-        output[ordering_idcs[i]] = input[i]
+    for k in range(n_objects):
+        output[k] = input[ordering_idcs[k]]
 
     return output
 
