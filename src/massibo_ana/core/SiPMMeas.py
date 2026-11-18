@@ -1509,7 +1509,9 @@ class SiPMMeas(ABC):
         is defined, then both elements of the tuple must contain as many entries
         as fit parameters. The i-th entry of the first (resp. second) element
         of the tuple contains the lower (resp. upper) bound for the i-th fit
-        parameter.
+        parameter. If optimize_poisson_likelihood is True and this parameter
+        is None, then the gaussian mean and standard deviation are bounded
+        as explained for optimize_poisson_likelihood.
         - std_no (scalar float): It must be positive (>0.0). This number determines
         the x-range of the input data which is used for each fit. Namely, the x-y
         points which are used for the i-th fit are those which fall within the
@@ -1518,13 +1520,21 @@ class SiPMMeas(ABC):
         - optimize_poisson_likelihood (scalar boolean): If False (default),
         scipy.optimize.curve_fit() is used. If True, a Poisson negative
         likelihood maximization is performed via iminuit.BinnedNLL. In this
-        case, the scaling seeds are ignored. For each peak, the normalized
-        histogram is fitted to a normalized gaussian, and the optimal scaling
-        factor is computed as the integral of the fitted histogram times the
-        inverse of the normal distribution normalization factor. This is done
-        so that the fit scale is interpreted as a factor that is applied
-        directly to the exponential term of the gaussian, and not the normalized
-        normal distribution.
+        case, the scaling seeds are ignored. For each peak, only the histogram
+        bins which fall entirely within the fitted x-range (see std_no) are
+        given to BinnedNLL, so the gaussian is normalized over the interval
+        spanned by those bins, as BinnedNLL requires. The optimal scaling
+        factor is then computed so that the integral of the fitted gaussian
+        over that interval matches the area of the histogram in it, and it
+        is interpreted as a factor that is applied directly to the
+        exponential term of the gaussian, and not to the normalized normal
+        distribution. If fit_parameters_bounds is None, the gaussian mean is
+        bounded to that interval and its standard deviation is bounded above
+        by the interval width, and a fit which converges to one of these
+        bounds raises a RuntimeError: such a gaussian does not describe the
+        detected peak (e.g. it has been moved outside the interval to
+        describe the tail of a peak which is cut by the histogram range,
+        where, with a model normalized over the interval, it costs nothing).
 
         This static method performs N gaussian fits, where N is the length of the
         provided mean_seeds. For each fit, only a piece of the input x-y is used,
@@ -1858,13 +1868,6 @@ class SiPMMeas(ABC):
                             f"2 parameters."
                         )
                     )
-                
-                cumulative_model = lambda edges, mean_, std_: \
-                    spsta.norm.cdf(
-                        edges,
-                        loc=mean_,
-                        scale=std_
-                    )
 
                 # Compute the normalization factor (the area) of the
                 # histogram in the selected interval, which will be used
@@ -1881,10 +1884,45 @@ class SiPMMeas(ABC):
                     fit_counts * np.diff(fit_edges)
                 )
 
+                # The selected interval, in the original units. It is
+                # needed to compute the scaling factor after the fit.
+                fit_interval = (fit_edges[0], fit_edges[-1])
+
                 # Transform the edges for the optimization process
                 fit_edges = \
                     (fit_edges - horizontal_axis_shift_for_fit) \
                     / horizontal_axis_scaling_for_fit
+
+                # BinnedNLL requires a model whose density is normalized
+                # to unity over the space covered by the histogram it is
+                # given, which here only holds the bins of the selected
+                # interval. Hence, the normal CDF is normalized over that
+                # interval. A CDF normalized over the whole real line
+                # instead would reward the fit for moving probability into
+                # the interval, i.e. for shrinking the standard deviation
+                # or for moving the mean away from an edge which cuts the
+                # peak, biasing both.
+                fit_edges_low = np.array([fit_edges[0]])
+                fit_edges_high = np.array([fit_edges[-1]])
+
+                def cumulative_model(edges, mean_, std_):
+                    low = spsta.norm.cdf(
+                        fit_edges_low,
+                        loc=mean_,
+                        scale=std_
+                    )[0]
+                    high = spsta.norm.cdf(
+                        fit_edges_high,
+                        loc=mean_,
+                        scale=std_
+                    )[0]
+                    return (
+                        spsta.norm.cdf(
+                            edges,
+                            loc=mean_,
+                            scale=std_
+                        ) - low
+                    ) / (high - low)
 
                 # Define the cost function
                 cost = BinnedNLL(
@@ -1914,6 +1952,23 @@ class SiPMMeas(ABC):
                         None if np.isposinf(upper) else upper
                     )
 
+                # With a model normalized over the selected interval, a
+                # gaussian may describe the data within the interval with
+                # its mean outside it, or with a width much larger than it
+                # (e.g. the tail of a peak which is cut by the histogram
+                # range), and then it no longer describes the detected
+                # peak. Hence, with the default bounds, the mean is bounded
+                # to the interval and the standard deviation is bounded
+                # above by the interval width, and a fit which converges
+                # to one of these bounds is rejected further below.
+                if fit_parameters_bounds is None:
+                    interval_low = fit_edges[0]
+                    interval_high = fit_edges[-1]
+                    interval_width = interval_high - interval_low
+
+                    m.limits["mean"] = (interval_low, interval_high)
+                    m.limits["std"] = (None, interval_width)
+
                 # Run the optimization
                 m.migrad()
 
@@ -1933,6 +1988,25 @@ class SiPMMeas(ABC):
                         "In function SiPMMeas.piecewise_gaussian_fits(): "
                         "iminuit could not compute a covariance matrix."
                     )
+
+                # A gaussian at one of these bounds does not describe the
+                # detected peak (see the optimize_poisson_likelihood
+                # documentation). Note that the fit is performed in units
+                # of std_seeds[i].
+                if fit_parameters_bounds is None:
+                    distance_to_bound = min(
+                        abs(aux_popt[0] - interval_low),
+                        abs(aux_popt[0] - interval_high),
+                        abs(aux_popt[1] - interval_width)
+                    )
+                    if distance_to_bound < 1e-3:
+                        raise RuntimeError(
+                            "In function SiPMMeas.piecewise_gaussian_fits(): "
+                            f"the gaussian fit for the {i}-th peak converged "
+                            "to one of its bounds, i.e. its mean reached an "
+                            "edge of the fitted interval or its standard "
+                            "deviation reached the interval width."
+                        )
 
                 aux_pcov = np.array(m.covariance)
 
@@ -1985,19 +2059,35 @@ class SiPMMeas(ABC):
             if optimize_poisson_likelihood:
                 # In this case, the scaling factor was not a fit parameter,
                 # so we need to compute it and add it to the list of optimal
-                # parameters. Since BinnedNLL fits a PDF (automatically
-                # normalizes the given counts), scale the fitted normalized
-                # gaussian by the area of the histogram in the selected
-                # interval. Also, add the inverse of the normalization factor
-                # of the normal distribution given by spsta.norm.pdf() to
-                # compensate it, so that the computed optimal scaling is
-                # understood as an scaling factor which is directly applied
-                # to exp(...), and not the whole normalized gaussian.
+                # parameters. BinnedNLL fits a PDF which is normalized over
+                # the selected interval (it automatically normalizes the
+                # given counts), so the fitted gaussian is scaled so that
+                # its integral over the selected interval matches the area
+                # of the histogram in that interval. Since the integral of
+                # s * exp(-(x - mean)^2 / (2 std^2)) over the interval is
+                # s * sqrt(2 pi) * std * w, where w is the probability of
+                # the fitted normal distribution within the interval, the
+                # scaling factor is s = aux_area / (sqrt(2 pi) * std * w).
+                # This scaling factor is understood as a factor which is
+                # directly applied to exp(...), and not to the whole
+                # normalized gaussian.
+                probability_within_interval = \
+                    spsta.norm.cdf(
+                        fit_interval[1],
+                        loc=aux_popt[0],
+                        scale=abs(aux_popt[1])
+                    ) - spsta.norm.cdf(
+                        fit_interval[0],
+                        loc=aux_popt[0],
+                        scale=abs(aux_popt[1])
+                    )
+
                 aux_popt = np.append(
                     aux_popt,
-                    # The area of the histogram in the selected interval gives
-                    # the scaling factor for the normalized gaussian fit
-                    aux_area / (aux_popt[1] * math.sqrt(2.*spcon.pi)),
+                    aux_area / (
+                        aux_popt[1] * math.sqrt(2.*spcon.pi) * \
+                            probability_within_interval
+                    ),
                 )
             else:
                 # If not optimize_poisson_likelihood, then the covariance
