@@ -187,6 +187,18 @@ min_bins_no: 20
 max_bins_no: 40 # Above 35, fluctuations in the charge histogram may start to be misidentified as peaks (set 7)
 bins_no_points: 6
 
+# How the (peaks_to_detect, bins_no) combination is chosen for
+# every SiPM, among the grid points whose fit succeeded:
+#   - 'legacy': a figure of merit which is normalized with the mean
+#     and the standard deviation of the whole batch, so the choice
+#     for one SiPM depends on the rest of the analyzed SiPMs.
+#   - 'relative_gain_error': for every SiPM, independently of the
+#     rest, the fit with the smallest sigma_G/G among those with
+#     G > 0 and a finite, positive sigma_G (and, if
+#     use_correlated_gaussians is false, at least 3 peaks).
+# If this parameter is missing, 'legacy' is used.
+gain_fit_selection_criterion: 'legacy'
+
 # Fit range of the charge histogram. Set it to null in case
 # you want to use the default range, which is inferred by
 # matplotlib. Otherwise, it should be a dictionary where the
