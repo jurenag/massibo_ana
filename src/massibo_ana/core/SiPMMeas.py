@@ -1535,6 +1535,9 @@ class SiPMMeas(ABC):
         detected peak (e.g. it has been moved outside the interval to
         describe the tail of a peak which is cut by the histogram range,
         where, with a model normalized over the interval, it costs nothing).
+        A fit whose covariance matrix is not an accurate estimate at the
+        minimum, i.e. iminuit had to force it to be positive definite, also
+        raises a RuntimeError: its errors are meaningless.
 
         This static method performs N gaussian fits, where N is the length of the
         provided mean_seeds. For each fit, only a piece of the input x-y is used,
@@ -1989,6 +1992,18 @@ class SiPMMeas(ABC):
                         "iminuit could not compute a covariance matrix."
                     )
 
+                # A covariance matrix which iminuit had to force to be
+                # positive definite is not an accurate estimate at the
+                # minimum, so the errors derived from it are meaningless
+                # (see the optimize_poisson_likelihood documentation)
+                if m.fmin.has_made_posdef_covar or not m.fmin.has_accurate_covar:
+                    raise RuntimeError(
+                        "In function SiPMMeas.piecewise_gaussian_fits(): "
+                        "iminuit could not compute an accurate covariance "
+                        f"matrix for the {i}-th peak (it had to be forced "
+                        "to be positive definite)."
+                    )
+
                 # A gaussian at one of these bounds does not describe the
                 # detected peak (see the optimize_poisson_likelihood
                 # documentation). Note that the fit is performed in units
@@ -2246,7 +2261,13 @@ class SiPMMeas(ABC):
           the bins within that range are given to BinnedNLL. Its free
           scaling factors are relative to the last one, which is fixed
           to 1.0, so they are seeded with the peak heights divided by the
-          height of the last peak.
+          height of the last peak. A fit whose covariance matrix is not an
+          accurate estimate at the minimum, i.e. iminuit had to force it
+          to be positive definite, raises a RuntimeError: its errors are
+          meaningless (e.g. a fit collapsed to Gaussians narrower than a
+          bin over a spiky histogram gives a relative gain error of
+          1e-5 to 1e-11, which would win any selection by the smallest
+          relative gain error).
         - mean_increment_relative_bound (scalar float): It must belong to
           the (0.0, 1.0) range. It is only used if
           optimize_poisson_likelihood is True and fit_parameters_bounds is
@@ -2806,6 +2827,17 @@ class SiPMMeas(ABC):
                 raise RuntimeError(
                     "In function SiPMMeas.correlated_gaussians_fit(): "
                     "iminuit could not compute a covariance matrix."
+                )
+
+            # A covariance matrix which iminuit had to force to be
+            # positive definite is not an accurate estimate at the
+            # minimum, so the errors derived from it are meaningless
+            # (see the optimize_poisson_likelihood documentation)
+            if m.fmin.has_made_posdef_covar or not m.fmin.has_accurate_covar:
+                raise RuntimeError(
+                    "In function SiPMMeas.correlated_gaussians_fit(): "
+                    "iminuit could not compute an accurate covariance "
+                    "matrix (it had to be forced to be positive definite)."
                 )
 
             # A gain at its bound does not describe the detected peaks
