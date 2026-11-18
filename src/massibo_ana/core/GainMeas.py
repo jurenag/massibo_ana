@@ -459,7 +459,8 @@ class GainMeas(SiPMMeas):
         independent Gaussian fits are performed for each peak. If True,
         a single fit using correlated Gaussians is performed, where peak
         positions follow mu_i = center_0 + (i * gain) and widths follow
-        sigma_i = sqrt(std_0^2 + (i * std_increment)^2). The return format
+        sigma_i = sqrt(std_0^2 + (i * std_increment^2)), as implemented in
+        SiPMMeas.sum_of_correlated_gaussians(). The return format
         depends on the value of this parameter:
 
             - When False: returns (popt, pcov) where popt[i] and pcov[i]
