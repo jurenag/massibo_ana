@@ -215,7 +215,11 @@ fit_charge_histogram_range: null
 # matplotlib. Otherwise, it should be a dictionary where the
 # keys are overvoltage values (in volts) and the values are
 # lists of two floats, which are the lower and upper limits
-# of the charge histogram range, respectively.
+# of the minimum plotted charge range, respectively: the
+# plotted range is widened, if needed, so that no charge
+# entry is hidden. In the fit plot, the whole histogram is
+# drawn and the charge ranges outside fit_charge_histogram_range
+# (which are not fit) are shaded in gray.
 plot_charge_histogram_range:
   2.:
     - -2.e-13

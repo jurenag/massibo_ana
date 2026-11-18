@@ -427,8 +427,13 @@ class GainMeas(SiPMMeas):
         'peak_distance_in_bins' keyword argument of
         SiPMMeas.fit_gaussians_to_the_n_highest_peaks().
         - plot_axes (None or matplotlib.axes.Axes object): If it is not
-        defined, then no plot is done. If it is defined, then the fit
-        histogram is plotted in the given axes.
+        defined, then no plot is done. If it is defined, then the whole
+        charge histogram is plotted in the given axes, i.e. including the
+        charge entries which fall outside histogram_range. Its bins are the
+        ones of the fit histogram, extended with the same width up to the
+        minimum and maximum charge entries, so that the plotted fit matches
+        the plotted histogram. The charge ranges which were not fit are
+        shaded in gray.
         - logarithmic_plot (scalar boolean): This parameter only makes a
         difference if plot_axes is defined. In such case, it means whether
         the plotted histogram, and potentially the plotted gaussian fits,
@@ -441,7 +446,10 @@ class GainMeas(SiPMMeas):
         matches the number of points which are plotted for each gaussian fit.
         - plot_charge_range (None or list of two floats): This parameter
         only makes a difference if plot_axes is suitably defined. In such
-        case, it is given to plot_axes.set_xlim().
+        case, it is the minimum charge range of the plot: the horizontal
+        axis spans the union of plot_charge_range and the range of the
+        plotted bins, so that no part of the histogram is hidden. If it
+        is None, then the horizontal range inferred by matplotlib is used.
         - plot_fit (scalar boolean): This parameter only makes a difference
         if plot_axes is defined. In such case, it means whether to plot
         the fit functions together with the plotted histogram. Note that,
@@ -646,10 +654,49 @@ class GainMeas(SiPMMeas):
             )
 
         if fPlot:
+            # The whole charge histogram is plotted, including the charge
+            # entries which fall outside histogram_range (which were not fit),
+            # so that no part of the histogram is hidden. To do so, the bins
+            # of the fit histogram are kept (these are the edges which
+            # numpy.histogram() uses for the fit) and extended, with the same
+            # width, beyond histogram_range up to the minimum and maximum
+            # charge entries. Keeping the bin width is what keeps the plotted
+            # fit on top of the plotted histogram, since the fitted scaling
+            # factors are counts per bin of that width.
+            fit_bin_edges = np.histogram_bin_edges(
+                self.__charge_entries,
+                bins=bins_no,
+                range=histogram_range
+            )
+            bin_width = (fit_bin_edges[-1] - fit_bin_edges[0]) / bins_no
+            charge_extrema = (
+                np.min(self.__charge_entries),
+                np.max(self.__charge_entries)
+            )
+            lower_extra_bins_no = max(
+                0,
+                math.ceil((fit_bin_edges[0] - charge_extrema[0]) / bin_width)
+            )
+            upper_extra_bins_no = max(
+                0,
+                math.ceil((charge_extrema[1] - fit_bin_edges[-1]) / bin_width)
+            )
+            # Guard against floating-point round-off leaving
+            # the extreme charge entries out of the plotted bins
+            if fit_bin_edges[0] - (lower_extra_bins_no * bin_width) > charge_extrema[0]:
+                lower_extra_bins_no += 1
+            if fit_bin_edges[-1] + (upper_extra_bins_no * bin_width) < charge_extrema[1]:
+                upper_extra_bins_no += 1
+
+            plot_bin_edges = np.concatenate((
+                fit_bin_edges[0] - (bin_width * np.arange(lower_extra_bins_no, 0, -1)),
+                fit_bin_edges,
+                fit_bin_edges[-1] + (bin_width * np.arange(1, upper_extra_bins_no + 1))
+            ))
+
             bins_values, _, _ = plot_axes.hist(
                 self.__charge_entries,
-                bins_no,
-                range=histogram_range,
+                bins=plot_bin_edges,
                 log=logarithmic_plot,
                 histtype="step"
             )
@@ -836,7 +883,34 @@ class GainMeas(SiPMMeas):
 
             plot_axes.set_xlabel(f"Charge (C)")
             plot_axes.set_ylabel(f"Hits")
-            plot_axes.set_xlim(plot_charge_range)
+
+            # plot_charge_range is the minimum plotted charge range: it is
+            # widened, if needed, so that no part of the histogram is hidden.
+            # If it is None, then the range which matplotlib infers, which
+            # already covers the whole plotted histogram, is used.
+            if plot_charge_range is None:
+                x_limits = plot_axes.get_xlim()
+            else:
+                x_limits = (
+                    min(plot_charge_range[0], plot_bin_edges[0]),
+                    max(plot_charge_range[1], plot_bin_edges[-1])
+                )
+
+            # Shade the charge ranges which were not fit
+            for shaded_range in (
+                (x_limits[0], fit_bin_edges[0]),
+                (fit_bin_edges[-1], x_limits[1])
+            ):
+                if shaded_range[0] < shaded_range[1]:
+                    plot_axes.axvspan(
+                        shaded_range[0],
+                        shaded_range[1],
+                        color="0.88",
+                        linewidth=0.,
+                        zorder=0.
+                    )
+
+            plot_axes.set_xlim(x_limits)
             plot_axes.set_ylim((0, 1.1*np.max(bins_values)))
             plot_axes.set_title(axes_title)
             plot_axes.grid()
@@ -973,8 +1047,9 @@ class GainMeas(SiPMMeas):
         gaussian fit.
         - plot_charge_range (None or list of two floats): This parameter
         only makes a difference if histogram_fit_axes is suitably defined.
-        In such case, it is given to self.fit_peaks_histogram(), which in
-        turn gives it to plot_axes.set_xlim().
+        In such case, it is given to self.fit_peaks_histogram(), where it
+        is the minimum charge range of the plot: the horizontal axis is
+        widened, if needed, so that the whole charge histogram is visible.
         - plot_histogram_fit (scalar boolean): This parameter only makes a
         difference if histogram_fit_axes is defined. In such case, it means
         whether to plot the fit functions together with the plotted histogram.
