@@ -1,1 +1,7 @@
 artifact,exclude,description
+no_LED_light,True,"The LED light did not reach the SiPM during the gain measurement (e.g. LED off for the whole meas). Only the pedestal; charges symmetric about it."
+dead_channel,True,"No signal at this readout position (e.g. electronic board 3, socket 1, SiPM 3 from set-16-meas-2 on), while the other SiPMs of the card see light"
+gain_fit_failure,True,"The charge spectrum looks reasonably good, but the gain fit is wrong failure of the analysis"
+insufficient_LED_light,True,"Too little LED light reaches this SiPM in a meas where other SiPMs do see it: the charge spectrum is the pedestal plus, at most, a too faint 1-PE"
+saturated,True,"Clipping at the top of the charge spectrum. The pedestal and the low-PE peaks are (nearly) empty."
+unresolved_peaks,True,"Consecutive photoelectron peaks are not separated by a valley, so the gain cannot be measured reliably"
