@@ -5,3 +5,4 @@ very_noisy_ok,False,"Exceptionally noisy, but the offline filter handles it corr
 blurry_CC_separation,False,"The pearson-CC does not clearly separate legit dark counts from noise, but all of the example fast frames look good"
 very_noisy_not_ok,True,"Exceptionally noisy, and the offline filter does not handle it correctly"
 not_enough_waveforms_to_compute_xtalk,True,"Not enough waveforms to compute the crosstalk. The few waveforms looked good, but there is not enough statistics to compute the 1.5-PE level. If applied too many times, this artifact can bias the DCR (we exclude SiPMs with very low DCR)."
+fit_failure,True,"The fit to the 1.5-PE level failed"
