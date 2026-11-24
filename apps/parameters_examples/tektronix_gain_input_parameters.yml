@@ -260,6 +260,22 @@ persistency_plot_range:
 # only affects the visualization.
 subtract_baseline_in_persistency_plot: false
 
+# Whether the persistency plot is a heat map instead
+# of a superposition of black lines. In the heat map,
+# each waveform is understood as the polyline which
+# joins its samples, and the color of each 2D bin
+# gives the number of waveforms which pass through
+# it ('turbo' colormap, logarithmic color scale,
+# empty bins in white). There is one time bin per
+# time sample. If true, persistency_wvf_linewidth
+# is ignored.
+persistency_plot_is_heat_map: true
+
+# Number of bins along the vertical (signal magnitude)
+# axis of the heat-map persistency plot. It is only
+# used if persistency_plot_is_heat_map is true.
+persistency_heat_map_y_bins: 200
+
 # Line width for the persistency plots
 persistency_wvf_linewidth: 0.2
 
