@@ -5,7 +5,9 @@ import random
 import json
 import inspect
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
+from matplotlib.colors import LogNorm
 from scipy import signal as spsi
 
 import massibo_ana.utils.htype as htype
@@ -414,7 +416,8 @@ class WaveformSet(OneTypeRTL):
         color = 'black',
         peak_cc_info = None,
         highlighted_x0 = None,
-        show_x_axis_label = True
+        show_x_axis_label = True,
+        heatmap_y_bins = 200
     ):
         """This method gets the following keyword arguments:
 
@@ -441,13 +444,34 @@ class WaveformSet(OneTypeRTL):
         - fig_title (string): The title of the figure.
         - title_fontsize (positive integer or float): Font size of the
         figure title.
-        - mode (string): It must be either 'grid' or 'superposition'. Any
-        other input will be understood as 'grid'. If it matches 'grid',
-        then each waveform is plot in an exclusive pair of axes, i.e. one
-        waveform per pair of axes. Those axes make up a 2D-grid of
-        nrows*ncols axes, where there are nrows rows and ncols columns.
-        If mode matches 'superposition', then each waveform is plotted
-        in the same pair of axes.
+        - mode (string): It must be either 'grid', 'superposition' or
+        'heatmap'. Any other input will be understood as 'grid'. If it
+        matches 'grid', then each waveform is plot in an exclusive pair of
+        axes, i.e. one waveform per pair of axes. Those axes make up a
+        2D-grid of nrows*ncols axes, where there are nrows rows and ncols
+        columns. If mode matches 'superposition', then each waveform is
+        plotted in the same pair of axes. If mode matches 'heatmap', then
+        the selected waveforms are not drawn one by one. Instead, they are
+        gathered into a 2D histogram which is drawn in one pair of axes.
+        Along the time axis there is one bin per time sample, and the bin
+        edges lie halfway between consecutive samples. Along the vertical
+        axis there are heatmap_y_bins evenly spaced bins, which span ylim
+        if it is defined, or the range of the plotted signals otherwise.
+        Each waveform is understood as the polyline which linearly
+        interpolates its samples, and it adds one to every bin which such
+        polyline crosses within the time bin of each sample. Hence, the
+        content of each bin is the number of waveforms which pass through
+        it. The histogram is drawn with the 'turbo' colormap and a
+        logarithmic color scale, the empty bins are left white, and a
+        colorbar labelled 'waveforms per bin' is added. Every waveform
+        within the selection must have the same time array. The lines
+        which Waveform.plot() draws out of the Waveform.Signs entries
+        (integration limits in red, baseline and median cutoff in blue,
+        and the baseline-average limits given by the
+        half_width_about_median entry in green), as well as the x0 and y0
+        lines, are drawn on top of the histogram. Each distinct value
+        among the selected waveforms is drawn only once. The peaks are
+        not drawn in this mode.
         - nrows (resp. ncols) (integer): Number of rows (resp. cols) in the
         plot grid. Both of them must be greater or equal to one, and they
         cannot be simultaneously equal to one. I.e. single-row (1xN) and
@@ -520,12 +544,20 @@ class WaveformSet(OneTypeRTL):
         in any case. Setting it to False is useful when several single-row
         canvases are stacked so as to make up one single logical grid, where
         only the bottom-most canvas should carry the x-axis label.
+        - heatmap_y_bins (positive integer): This parameter only makes a
+        difference if mode is 'heatmap'. It is the number of bins along
+        the vertical (signal) axis of the 2D histogram.
+
+        In 'heatmap' mode, the plot_peaks, wvf_linewidth, color,
+        peak_cc_info, nrows, ncols, highlighted_x0 and show_x_axis_label
+        parameters are ignored.
 
         This method returns a list of matplotlib.figure.Figure objects.
         This list contains every figure (canvas) produced by this method,
         up to the given input parameters. I.e. if mode is 'grid', then
         such list will potentially contain more than one figure. If mode
-        is 'superposition', then the list will contain only one figure.
+        is 'superposition' or 'heatmap', then the list will contain only
+        one figure.
         In 'grid' mode, at least one canvas is always produced, even if
         the set of selected waveforms is empty, in which case the returned
         canvas hosts the requested grid with every axes left empty.
@@ -846,9 +878,22 @@ class WaveformSet(OneTypeRTL):
                     ),
                 )
 
+        htype.check_type(
+            heatmap_y_bins,
+            int,
+            np.int64,
+            exception_message=htype.generate_exception_message(
+                "WaveformSet.plot", 42
+            ),
+        )
+        if heatmap_y_bins < 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message("WaveformSet.plot", 43)
+            )
+
         output = []
 
-        if mode != "superposition":  # Grid plot is default
+        if mode not in ("superposition", "heatmap"):  # Grid plot is default
             counter = 0
             # Even an empty selection produces one canvas, which hosts
             # the requested grid with every axes left empty. This way
@@ -934,7 +979,7 @@ class WaveformSet(OneTypeRTL):
                     input("Press any key to iterate to next canvas...")
                 plt.close()
                 output.append(fig)
-        else:
+        elif mode == "superposition":
             fig, ax = plt.subplots(
                 figsize=(fig_width, fig_height) if fSetFigSize else None
             )
@@ -961,8 +1006,318 @@ class WaveformSet(OneTypeRTL):
                 input("Press any key to exit")
             plt.close()
             output.append(fig)
-            
+        else:  # mode == "heatmap"
+            fig = self.__plot_heat_map(
+                wvfs_indices,
+                xlim,
+                ylim,
+                x0,
+                y0,
+                subtract_baseline,
+                heatmap_y_bins,
+                (fig_width, fig_height) if fSetFigSize else None
+            )
+            fig.suptitle(
+                fig_title,
+                fontsize=title_fontsize
+            )
+            if show_plots:
+                plt.show(block=False)
+                input("Press any key to exit")
+            plt.close()
+            output.append(fig)
+
         return output
+
+    def __plot_heat_map(
+        self,
+        wvfs_indices,
+        xlim,
+        ylim,
+        x0,
+        y0,
+        subtract_baseline,
+        y_bins,
+        figsize
+    ):
+        """This private method implements the 'heatmap' mode of
+        WaveformSet.plot(), which has already checked every input. It gets
+        the iterators of the selected waveforms (wvfs_indices), the
+        xlim, ylim, x0, y0 and subtract_baseline parameters of
+        WaveformSet.plot(), the number of vertical bins (y_bins) and the
+        figsize given to matplotlib.pyplot.subplots(). Check the
+        WaveformSet.plot() docstring for more information. The waveforms
+        are not looped over to compute nor to draw the 2D histogram: their
+        signals are stacked into a 2D array, which is histogrammed at once
+        by WaveformSet.__count_trace_crossings(), and the result is drawn
+        with a single call to matplotlib.axes.Axes.pcolormesh(). This
+        method returns the produced matplotlib.figure.Figure object."""
+
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.set_xlabel("Time (s)")
+
+        # Like in the 'superposition' mode, an empty
+        # selection gives a canvas with empty axes
+        if len(wvfs_indices) == 0:
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            return fig
+
+        selected = [self.Members[i] for i in wvfs_indices]
+
+        if len(set([wvf.Npoints for wvf in selected])) > 1:
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.__plot_heat_map",
+                    1,
+                    extra_info="In 'heatmap' mode, every selected waveform "
+                    "must have the same time array.",
+                )
+            )
+        times = np.vstack([wvf.Time for wvf in selected])
+        time_ = times[0]
+        if not np.all(times == time_):
+            raise cuex.InvalidParameterDefinition(
+                htype.generate_exception_message(
+                    "WaveformSet.__plot_heat_map",
+                    2,
+                    extra_info="In 'heatmap' mode, every selected waveform "
+                    "must have the same time array.",
+                )
+            )
+
+        signals = np.vstack([wvf.Signal for wvf in selected]).astype(float)
+
+        # Per-waveform values of the Waveform.Signs entries which
+        # Waveform.plot() would draw. They are scalars, so gathering
+        # them is cheap, and they are later drawn once per distinct value.
+        def get_sign_values(key):
+            return np.array(
+                [wvf.Signs[key][0] for wvf in selected if key in wvf.Signs.keys()],
+                dtype=float
+            )
+
+        if subtract_baseline:
+            if not all(["first_peak_baseline" in wvf.Signs.keys() for wvf in selected]):
+                raise cuex.InvalidParameterDefinition(
+                    htype.generate_exception_message(
+                        "WaveformSet.__plot_heat_map",
+                        3,
+                        extra_info="The baseline of every selected waveform "
+                        "must have been computed to subtract it.",
+                    )
+                )
+            baselines = get_sign_values("first_peak_baseline")
+            signals -= baselines[:, np.newaxis]
+
+        # Vertical bin edges
+        if ylim is not None:
+            y_min, y_max = ylim
+        else:
+            y_min, y_max = np.nanmin(signals), np.nanmax(signals)
+            # Same convention as numpy.histogram for an empty range
+            if y_min == y_max:
+                y_min, y_max = y_min - 0.5, y_max + 0.5
+        y_edges = np.linspace(y_min, y_max, y_bins + 1)
+
+        # Time bin edges: one bin per sample, whose
+        # edges lie halfway between consecutive samples
+        if len(time_) > 1:
+            midpoints = 0.5 * (time_[:-1] + time_[1:])
+            x_edges = np.concatenate((
+                [time_[0] - (midpoints[0] - time_[0])],
+                midpoints,
+                [time_[-1] + (time_[-1] - midpoints[-1])]
+            ))
+        else:
+            x_edges = np.array([time_[0] - 0.5, time_[0] + 0.5])
+
+        counts = WaveformSet.__count_trace_crossings(signals, y_edges)
+
+        if np.max(counts) > 0:
+            mesh = ax.pcolormesh(
+                x_edges,
+                y_edges,
+                # Masked (empty) bins are not drawn, so
+                # they show the white axes background
+                np.ma.masked_equal(counts, 0),
+                cmap=matplotlib.colormaps["turbo"].with_extremes(bad="white"),
+                # vmax is kept above vmin so that the logarithmic
+                # color scale is well-defined even if every non-empty
+                # bin is crossed by a single waveform
+                norm=LogNorm(vmin=1.0, vmax=max(float(np.max(counts)), 2.0))
+            )
+            fig.colorbar(mesh, ax=ax, label="waveforms per bin")
+
+        # Same lines, colors and widths as in Waveform.plot()
+        for key in ("integration_ll", "integration_ul"):
+            for x in np.unique(get_sign_values(key)):
+                ax.axvline(x=x, linestyle="-", linewidth=0.5, color="red")
+
+        with_baseline = [
+            wvf for wvf in selected if "first_peak_baseline" in wvf.Signs.keys()
+        ]
+        if len(with_baseline) > 0:
+            baselines = get_sign_values("first_peak_baseline")
+            for y in np.unique(baselines if not subtract_baseline else 0.0 * baselines):
+                ax.axhline(y=y, linestyle="-", linewidth=0.5, color="blue")
+
+            with_half_width = [
+                wvf for wvf in with_baseline
+                if "half_width_about_median" in wvf.Signs.keys()
+            ]
+            if len(with_half_width) > 0:
+                aux_baselines = np.array(
+                    [wvf.Signs["first_peak_baseline"][0] for wvf in with_half_width],
+                    dtype=float
+                ) if not subtract_baseline else 0.0
+                half_widths = np.array(
+                    [wvf.Signs["half_width_about_median"][0] for wvf in with_half_width],
+                    dtype=float
+                )
+                for y in np.unique(np.concatenate((
+                    aux_baselines + half_widths,
+                    aux_baselines - half_widths
+                ))):
+                    ax.axhline(y=y, linestyle="-", linewidth=0.5, color="green")
+
+        for x in np.unique(get_sign_values("median_cutoff")):
+            ax.axvline(x=x, linestyle="-", linewidth=0.5, color="blue")
+
+        for x in x0:
+            ax.axvline(x=x, linestyle="-", linewidth=0.5, color="green")
+        for y in y0:
+            ax.axhline(y=y, linestyle="-", linewidth=0.5, color="green")
+
+        # Same y-label rule as in Waveform.plot()
+        signs = selected[0].Signs
+        if "signal_magnitude" in signs.keys():
+            if "signal_unit" in signs.keys():
+                ax.set_ylabel(
+                    f"{signs['signal_magnitude'][0]} ({signs['signal_unit'][0]})"
+                )
+            else:
+                ax.set_ylabel(f"{signs['signal_magnitude'][0]} (a.u.)")
+
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim if ylim is not None else (y_edges[0], y_edges[-1]))
+        return fig
+
+    @staticmethod
+    def __count_trace_crossings(signals, y_edges):
+        """This private static method gets the following positional
+        arguments:
+
+        - signals (bidimensional float numpy array): Its i-th row is the
+        signal of the i-th waveform, and its k-th column holds the k-th
+        sample of every waveform.
+        - y_edges (unidimensional float numpy array): Evenly spaced and
+        increasingly sorted edges of the vertical bins. It must contain
+        at least two entries.
+
+        Each waveform is understood as the polyline which linearly
+        interpolates its samples. The time bin of the k-th sample spans
+        from the midpoint between the samples k-1 and k to the midpoint
+        between the samples k and k+1 (the first and the last bins end at
+        the first and the last samples, respectively). Within it, the
+        polyline covers the vertical interval spanned by the signal at
+        those two midpoints and at the k-th sample. Each waveform adds one
+        to every vertical bin which overlaps such interval, provided the
+        interval overlaps [y_edges[0], y_edges[-1]]. Following the
+        numpy.histogram convention, every bin but the last one is
+        half-open, and the last one is closed. Undefined (NaN) samples
+        are ignored. The computation is vectorized: the first and the
+        one-past-the-last crossed bins of every (waveform, sample) pair are
+        accumulated into a difference array with numpy.bincount, which is
+        then cumulatively summed along the vertical axis.
+
+        This method returns a bidimensional integer numpy array, say
+        counts, with len(y_edges) - 1 rows and signals.shape[1] columns,
+        where counts[j, k] is the number of waveforms whose polyline
+        crosses the j-th vertical bin within the time bin of the k-th
+        sample."""
+
+        y_bins = len(y_edges) - 1
+        y_min, y_max = y_edges[0], y_edges[-1]
+        points = signals.shape[1]
+
+        # Signal of the polyline at the left and right edges of the time
+        # bin of every sample, i.e. at the midpoints with its neighbours.
+        # left[i, k] and right[i, k] belong to the i-th waveform and the
+        # k-th sample, as signals[i, k] does.
+        if points > 1:
+            midpoints = 0.5 * (signals[:, :-1] + signals[:, 1:])
+            left = np.concatenate((signals[:, :1], midpoints), axis=1)
+            right = np.concatenate((midpoints, signals[:, -1:]), axis=1)
+        else:
+            left = right = signals
+
+        # Within the time bin of the k-th sample, the polyline goes from
+        # left to signals and then to right, so it sweeps the vertical
+        # interval [lower, upper] without gaps. This is what makes the
+        # heat map continuous even where consecutive samples lie far
+        # apart vertically, e.g. along the rising edge of a pulse.
+        lower = np.minimum(np.minimum(left, right), signals)
+        upper = np.maximum(np.maximum(left, right), signals)
+
+        # Comparisons against NaN are False, so undefined samples are dropped
+        keep = (upper >= y_min) & (lower <= y_max)
+
+        # From here on, every entry of the 1D arrays first_bin, last_bin
+        # and column describes one kept (waveform, sample) pair: its
+        # interval crosses the vertical bins first_bin to last_bin, both
+        # included, within the time bin of the column-th sample. Since
+        # the vertical bins are evenly spaced, the bin of a value is found
+        # arithmetically, with no search. The clipping assigns the parts
+        # of an interval which fall out of the range to the closest bin.
+        scale = y_bins / (y_max - y_min)
+        first_bin = np.clip(
+            # Masking the 2D arrays lower and upper with a 2D boolean array (keep)
+            # returns a flat 1D array with the kept entries in row-major order
+            np.floor((lower[keep] - y_min) * scale).astype(np.int64),
+            0,
+            y_bins - 1
+        )
+        last_bin = np.clip(
+            np.floor((upper[keep] - y_min) * scale).astype(np.int64),
+            0,
+            y_bins - 1
+        )
+        column = np.broadcast_to(np.arange(points), signals.shape)[keep]
+
+        # Difference-array trick. Adding one to every bin from first_bin to
+        # last_bin would cost one write per crossed bin. Instead, each
+        # (waveform, sample) pair leaves just two marks in its column: +1
+        # at row first_bin and -1 at row last_bin + 1. A cumulative sum
+        # along the vertical axis (see the return statement) then turns
+        # these marks back into one count per crossed bin. Marks of
+        # different waveforms may share a cell, where they simply add up,
+        # so a single difference array serves every waveform.
+        #
+        # The difference array has one extra row, which hosts the
+        # decrements of the intervals reaching the topmost bin
+        size = (y_bins + 1) * points
+        # np.bincount(idx, minlength=size)[n] is the number of times that
+        # n appears in idx, so each call accumulates every mark of one
+        # sign at once, with no Python loop. Subtracting the -1 marks from
+        # the +1 marks gives the flattened difference array.
+        difference = np.bincount(
+            # row * points + column is a flat index used to
+            # circumvent the lack of a 2D bincount function in numpy
+            first_bin * points + column,
+            minlength=size
+        ) - np.bincount(
+            (last_bin + 1) * points + column,
+            minlength=size
+        )
+
+        # The reshape undoes the flat indexing, the cumulative sum along
+        # the vertical axis rebuilds the counts from the marks, and the
+        # extra row, which only held decrements, is dropped.
+        return np.cumsum(
+            difference.reshape(y_bins + 1, points),
+            axis=0
+        )[:y_bins]
 
     @staticmethod
     def set_custom_labels_visibility(ax, ax_i, ax_j, nrows):
